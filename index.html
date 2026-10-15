@@ -2,32 +2,43 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Louvor Studio · Painel do líder</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#131313">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Louvor Studio">
+<meta name="description" content="O ensaio da sua banda, em qualquer lugar: escalas, repertório, multitrack e a conversa da banda.">
+<title>Louvor Studio</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="stylesheet" href="app.css">
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script defer src="config.js"></script>
+<script defer src="lib/mp3scan.js"></script>
+<script defer src="lib/editmath.js"></script>
+<script defer src="lib/beatgrid.js"></script>
+<script defer src="lib/sections.js"></script>
+<script defer src="lib/voiceparts.js"></script>
+<script defer src="js/core.js"></script>
+<script defer src="js/data.js"></script>
+<script defer src="js/ui.js"></script>
+<script defer src="js/auth.js"></script>
+<script defer src="js/home.js"></script>
+<script defer src="js/escalas.js"></script>
+<script defer src="js/wizard.js"></script>
+<script defer src="js/agenda.js"></script>
+<script defer src="js/repertorio.js"></script>
+<script defer src="js/banda.js"></script>
+<script defer src="js/eu.js"></script>
+<script defer src="js/studio.js"></script>
+<script defer src="js/main.js"></script>
 </head>
 <body>
-<div id="app"><p class="boot">Carregando…</p></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
-<script src="icons.js"></script>
-<script src="config.js"></script>
-<script src="mp3scan.js"></script>
-<script src="editmath.js"></script>
-<script src="beatgrid.js"></script>
-<script src="sections.js"></script>
-<script src="voiceparts.js"></script>
-<script src="studio.js"></script>
-<script src="repertorio.js"></script>
-<script src="wav.js"></script>
-<script src="export.js"></script>
-<script src="agenda.js"></script>
-<script src="settings.js"></script>
-<script src="appdemo.js"></script>
-<script src="profile.js"></script>
-<script src="app.js"></script>
+<div id="app"></div>
+<noscript>O Louvor Studio precisa do JavaScript ligado no navegador.</noscript>
 </body>
 </html>
