@@ -17,7 +17,8 @@
 
     if (S.memberships.length > 1) {
       root.appendChild(U.panel('Minhas bandas', 'Users', h('div', { class: 'row wrap' }, S.memberships.map(function (b) {
-        return U.toggle(b.org.name, b.org.id === S.current.org.id, b.role === 'leader' ? 'Crown' : null, function () {
+        var twin = S.memberships.some(function (o) { return o !== b && o.org.name === b.org.name; });
+        return U.toggle(b.org.name + (twin && b.people ? ' · ' + L.plural(b.people, 'pessoa', 'pessoas') : ''), b.org.id === S.current.org.id, b.role === 'leader' ? 'Crown' : null, function () {
           if (b.org.id === S.current.org.id) return;
           S.current = b; L.store.set('banda', b.org.id);
           L.run(async function () { await D.loadOrg(); L.render(); });

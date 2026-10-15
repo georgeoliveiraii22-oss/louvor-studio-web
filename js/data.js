@@ -26,8 +26,16 @@
     try {
       var ms = must(await sb.from('memberships').select('*,org:organizations(id,name,invite_code,storage_limit_bytes,plan)').eq('user_id', S.user.id));
       S.memberships = ms.filter(function (m) { return m.org; });
+      // Quantas pessoas em cada banda: sem escolha salva, abre a banda com mais gente (não uma vazia criada por engano).
+      if (S.memberships.length > 1) {
+        var all = await sb.from('memberships').select('org_id').in('org_id', S.memberships.map(function (m) { return m.org.id; }));
+        var count = {};
+        (all.data || []).forEach(function (x) { count[x.org_id] = (count[x.org_id] || 0) + 1; });
+        S.memberships.forEach(function (m) { m.people = count[m.org.id] || 1; });
+      }
       var saved = L.store.get('banda', null);
-      S.current = S.memberships.find(function (m) { return m.org.id === saved; }) || S.memberships[0] || null;
+      var biggest = S.memberships.slice().sort(function (a, b) { return (b.people || 1) - (a.people || 1); })[0];
+      S.current = S.memberships.find(function (m) { return m.org.id === saved; }) || biggest || null;
       if (S.current) await D.loadOrg();
     } finally {
       S.loading = false;
