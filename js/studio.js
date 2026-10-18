@@ -92,45 +92,19 @@
     return out;
   }
 
-  // Desenho de cada faixa (como numa DAW): o pico de cada coluna, na linha do tempo da sessão.
-  function computeWave() { st.waves = {}; }
-  function waveOf(tg) {
-    st.waves = st.waves || {};
-    if (st.waves[tg.key]) return st.waves[tg.key];
-    var buf = st.buffers[tg.key];
-    if (!buf) return null;
-    var end = sessionEnd(), wave = new Float32Array(BINS);
-    var e0 = editOf(tg.key), r = region(tg, e0), data = buf.getChannelData(0), rate = buf.sampleRate, cuts = e0.cuts || [];
-    for (var i = 0; i < BINS; i++) {
-      var t0 = i / BINS * end, t1 = (i + 1) / BINS * end;
-      var a = Math.max(t0, r.start), b = Math.min(t1, r.end);
-      if (b <= a) continue;
-      var fileMid = ((a + b) / 2 - r.shift) * 1000;
-      if (cuts.some(function (c) { return fileMid >= c[0] && fileMid < c[1]; })) continue;
-      var s0 = Math.floor((a - r.shift + r.lead) * rate), s1 = Math.min(data.length, Math.floor((b - r.shift + r.lead) * rate));
-      var step = Math.max(1, Math.floor((s1 - s0) / 200)), max = 0;
-      for (var j = Math.max(0, s0); j < s1; j += step) { var v = Math.abs(data[j]); if (v > max) max = v; }
-      wave[i] = max;
-    }
-    var peak = 0;
-    for (var k = 0; k < BINS; k++) peak = Math.max(peak, wave[k]);
-    if (peak > 0) for (var m = 0; m < BINS; m++) wave[m] /= peak;
-    st.waves[tg.key] = wave;
-    return wave;
-  }
-
   async function load(pid) {
     var p = L.project(pid);
     st = { pid: pid, loading: 'Carregando a música…', done: 0, total: 0, error: null, tracks: [], myTake: null, otherTakes: [], edits: {}, markers: [],
       buffers: {}, leads: {}, voices: L.studyVoices.get(pid), mix: L.store.get('mix.' + pid, {}), solo: {}, playing: false, pos: 0, loop: null,
-      nodes: [], vgs: {}, wave: null, tool: 'cursor', sel: null, undo: [], redo: [], split: null, lyrics: !!(p && p.lyrics) && L.store.get('estudio_letra', window.innerWidth >= 1024), ui: {} };
+      nodes: [], vgs: {}, wave: null, tool: 'cursor', sel: null, undo: [], redo: [], split: null, zoom: 0, view0: 0, magnet: L.store.get('estudio_ima', true), grid: null, lyrics: !!(p && p.lyrics) && L.store.get('estudio_letra', window.innerWidth >= 1024), ui: {} };
     var mine = st;
     try {
       var r = await Promise.all([
         sb.from('tracks').select('id,name,gain,timeline_offset_ms,sort_order,source_file:files(object_key)').eq('project_id', pid).order('sort_order'),
         sb.from('takes').select('*,file:files(object_key)').eq('project_id', pid).order('created_at', { ascending: false }),
         sb.from('audio_edits').select('*').eq('project_id', pid).eq('published', true),
-        sb.from('song_markers').select('*').eq('project_id', pid).order('at_ms')
+        sb.from('song_markers').select('*').eq('project_id', pid).order('at_ms'),
+        sb.from('beat_grids').select('*').eq('project_id', pid)
       ]);
       if (st !== mine) return;
       st.tracks = L.must(r[0]);
@@ -151,6 +125,7 @@
       }
       st.loading = '';
       computeWave();
+      try { prepareGrid(r[4] && !r[4].error && r[4].data ? r[4].data[0] : null); } catch (e) { st.grid = null; }
     } catch (e) {
       if (st !== mine) return;
       st.loading = ''; st.error = L.errorText(e);
@@ -318,6 +293,103 @@
     (st.ui.parts || []).forEach(function (b) { b.classList.toggle('on', !!s && b.dataset.id === s.id); });
   }
 
+  // ------------------------------------------------------------------ Linha do tempo (as mesmas regras do app: ui/StudioTimeline.kt)
+  // Zoom e rolagem como numa DAW: abre mostrando ~20 s; pinça muda o zoom; um dedo arrastando rola;
+  // só o toque parado muda o cursor (com ímã na grade do click). Desenha só o que está na tela.
+  var OPEN_VISIBLE_SEC = 20, MIN_VISIBLE_SEC = 3, MAGNET_PX = 24, SLOP = 8, EDGE_PX = 22, HANDLE_PX = 34, AUTOSCROLL_PX = 36;
+
+  function maxZoom() { return Math.max(8, sessionEnd() / MIN_VISIBLE_SEC); }
+  function openZoom() { return Math.max(1, Math.min(maxZoom(), sessionEnd() / OPEN_VISIBLE_SEC)); }
+  function viewW() { var a = st.ui.area; return (a && a.clientWidth) || 300; }
+  function pps() { return viewW() * st.zoom / sessionEnd(); }
+  function visibleSec() { return sessionEnd() / st.zoom; }
+  function clampView() { st.view0 = Math.max(0, Math.min(sessionEnd() - visibleSec(), st.view0 || 0)); }
+  function xOf(t) { return (t - st.view0) * pps(); }
+  function tAtX(x) { return st.view0 + x / pps(); }
+
+  /** Zoom mantendo parado o ponto que está em `ax` (pixels na área das faixas). */
+  function zoomTo(z, ax) {
+    var t = tAtX(ax);
+    st.zoom = Math.max(1, Math.min(maxZoom(), z));
+    st.view0 = t - ax / pps();
+    clampView();
+    requestDraw();
+  }
+  function zoomButton(f) {
+    var x = xOf(st.pos), w = viewW();
+    zoomTo(st.zoom * f, x >= 0 && x <= w ? x : w / 2);
+  }
+
+  // ---------- Grade do click (beat_grids), na linha do tempo
+  function gridBeats() {
+    var g = st.grid;
+    if (!g) return null;
+    var tg = targets().find(function (t) { return t.key === 'track:' + g.trackId; });
+    if (!tg) return null;
+    var shift = region(tg, editOf(tg.key)).shift;
+    if (st.gridCache && st.gridCache.g === g && st.gridCache.shift === shift) return st.gridCache.beats;
+    var beats = g.beats.map(function (b) { return b + shift; });
+    st.gridCache = { g: g, shift: shift, beats: beats };
+    return beats;
+  }
+  function barTimes() {
+    var b = gridBeats(), d = st.grid && st.grid.downbeats;
+    if (!b || !b.length) return [];
+    if (!d || !d.length) return b;
+    return d.filter(function (i) { return i >= 0 && i < b.length; }).map(function (i) { return b[i]; });
+  }
+  function meanSpacing(a) { return a.length > 1 ? (a[a.length - 1] - a[0]) / (a.length - 1) : 0; }
+  function barStride(barPx, minPx) { var s = 1; while (barPx * s < minPx && s < 4096) s *= 2; return s; }
+  /** Ímã do cursor: o tempo do click mais perto (se o ímã estiver ligado e houver grade). */
+  function snapped(t) {
+    var b = gridBeats();
+    if (!st.magnet || !b) return t;
+    var v = G.snap(b, t, MAGNET_PX / pps());
+    return v === null ? t : v;
+  }
+  /** Ímã das pontas (trecho, cortes): prefere o início do compasso. */
+  function snapEdge(t) {
+    var b = gridBeats();
+    if (!st.magnet || !b) return t;
+    var v = SEC.snapEdge(b, st.grid.downbeats, t, MAGNET_PX * 0.6 / pps());
+    return v === null ? t : v;
+  }
+  /** Grade da banda; sem ela, procura a faixa do click pelo nome e monta a grade (como o app). */
+  function prepareGrid(row) {
+    st.grid = G.fromRow(row);
+    if (st.grid) return;
+    var tr = G.guessClickTrack(st.tracks);
+    var buf = tr && st.buffers['track:' + tr.id];
+    if (!buf) return;
+    var chans = [];
+    for (var c = 0; c < (buf.numberOfChannels || 1); c++) chans.push(buf.getChannelData(c));
+    var res = G.detect(chans, buf.sampleRate || 44100);
+    if (res.beats.length < 4) return;
+    var lead = st.leads['track:' + tr.id] || 0;
+    st.grid = { trackId: tr.id, beats: res.beats.map(function (b) { return Math.max(0, b - lead); }), downbeats: res.downbeats, beatsPerBar: res.beatsPerBar, accent: res.accent, saved: false };
+    // Quem edita o áudio já deixa a grade salva para a banda (o app faz igual).
+    if (L.perm.edit()) sb.from('beat_grids').upsert(G.toRow(st.pid, tr.id, st.grid), { onConflict: 'project_id' }).then(function () {}, function () {});
+  }
+
+  // ---------- Forma de onda: picos a cada 10 ms do arquivo (não depende das edições)
+  function computeWave() { st.peaks = {}; }
+  function peaksOf(key) {
+    st.peaks = st.peaks || {};
+    if (st.peaks[key]) return st.peaks[key];
+    var buf = st.buffers[key];
+    if (!buf) return null;
+    var data = buf.getChannelData(0), rate = buf.sampleRate, per = Math.max(1, Math.round(rate / 100));
+    var n = Math.ceil(data.length / per), out = new Float32Array(n), peak = 0;
+    for (var i = 0; i < n; i++) {
+      var s0 = i * per, s1 = Math.min(data.length, s0 + per), m = 0;
+      for (var j = s0; j < s1; j += 3) { var v = data[j] < 0 ? -data[j] : data[j]; if (v > m) m = v; }
+      out[i] = m; if (m > peak) peak = m;
+    }
+    if (peak > 0) for (var k = 0; k < n; k++) out[k] /= peak;
+    st.peaks[key] = out;
+    return out;
+  }
+
   function fitCanvas(c) {
     var dpr = window.devicePixelRatio || 1, w = c.clientWidth, hh = c.clientHeight;
     if (!w || !hh) return null;
@@ -328,76 +400,155 @@
     return { g: g, w: w, h: hh };
   }
 
-  /** Régua: as partes coloridas, as marcas de tempo e o trecho que está repetindo. */
+  /** Linhas da grade por trás de uma faixa (tempos com zoom; compassos sempre, de N em N se apertar). */
+  function drawGrid(g, w, hh) {
+    var beats = gridBeats();
+    if (!beats) return;
+    var bars = barTimes(), p = pps();
+    var hasDown = st.grid.downbeats && st.grid.downbeats.length;
+    if (hasDown && meanSpacing(beats) * p >= 10) {
+      g.fillStyle = '#0F2F47';
+      beats.forEach(function (b) { var x = xOf(b); if (x >= -1 && x <= w) g.fillRect(Math.round(x), 0, 1, hh); });
+    }
+    var stride = barStride(meanSpacing(bars) * p, 12);
+    g.fillStyle = '#284660';
+    for (var i = 0; i < bars.length; i += stride) { var x = xOf(bars[i]); if (x >= -2 && x <= w) g.fillRect(Math.round(x), 0, 1.5, hh); }
+  }
+  function drawLoop(g, w, hh, strong) {
+    if (!st.loop) return;
+    var a = xOf(st.loop.a), b = xOf(st.loop.b);
+    if (b < 0 || a > w) return;
+    g.fillStyle = strong ? 'rgba(99,212,255,0.22)' : 'rgba(99,212,255,0.10)';
+    g.fillRect(a, 0, b - a, hh);
+    g.fillStyle = 'rgba(99,212,255,0.75)';
+    g.fillRect(a - 1, 0, 2, hh); g.fillRect(b - 1, 0, 2, hh);
+  }
+
+  /** Régua: partes coloridas em cima; embaixo os compassos numerados (com grade) ou o tempo. */
   function drawRuler() {
     var c = st.ui.ruler;
     var f = c && fitCanvas(c);
     if (!f) return;
-    var g = f.g, w = f.w, hh = f.h, end = sessionEnd(), x = function (t) { return t / end * w; };
+    var g = f.g, w = f.w, hh = f.h, p = pps();
     sections().forEach(function (sc) {
+      var a = xOf(sc.start), b = xOf(sc.end);
+      if (b < 0 || a > w) return;
       g.fillStyle = sc.color; g.globalAlpha = 0.9;
-      g.fillRect(x(sc.start) + 0.5, 3, Math.max(1, x(sc.end) - x(sc.start) - 1), 17);
+      g.fillRect(a + 0.5, 2, Math.max(1, b - a - 1), 16);
       g.globalAlpha = 1;
-      if (x(sc.end) - x(sc.start) > 28) { g.fillStyle = '#050B12'; g.font = '600 10px Geist, system-ui, sans-serif'; g.fillText(sc.name, x(sc.start) + 4, 15, x(sc.end) - x(sc.start) - 6); }
+      if (b - a > 28) { g.fillStyle = '#050B12'; g.font = '600 10px Geist, system-ui, sans-serif'; g.fillText(sc.name, Math.max(a, 0) + 4, 14, b - Math.max(a, 0) - 6); }
     });
-    // Marcas de tempo com espaço para o número (mais espaçadas em tela estreita).
-    var stepS = [5, 10, 15, 30, 60, 120].find(function (v) { return v / end * w >= 44; }) || 120;
-    g.fillStyle = '#8FA9BF'; g.font = '500 10px "Geist Mono", ui-monospace, monospace';
-    for (var t = 0; t <= end; t += stepS) {
-      g.fillRect(Math.round(x(t)), hh - 7, 1, 7);
-      if (x(t) + 30 < w) g.fillText(L.clock(t), x(t) + 3, hh - 1);
+    g.font = '600 10px "Geist Mono", ui-monospace, monospace';
+    var bars = barTimes(), base = hh;
+    if (st.grid && st.grid.downbeats && st.grid.downbeats.length && bars.length > 1) {
+      var beats = gridBeats();
+      if (meanSpacing(beats) * p >= 7) { g.fillStyle = '#2A4863'; beats.forEach(function (b) { var x = xOf(b); if (x >= 0 && x <= w) g.fillRect(Math.round(x), base - 5, 1, 5); }); }
+      var labelStride = barStride(meanSpacing(bars) * p, 30), tickStride = barStride(meanSpacing(bars) * p, 7);
+      for (var n = 0; n < bars.length; n += tickStride) {
+        var x = xOf(bars[n]);
+        if (x < -30 || x > w) continue;
+        var label = n % labelStride === 0;
+        g.fillStyle = label ? '#6A86A0' : '#34536C';
+        g.fillRect(Math.round(x), label ? 20 : base - 8, 1, label ? base - 20 : 8);
+        if (label) { g.fillStyle = '#CADAE7'; g.fillText(String(n + 1), x + 3, base - 3); }
+      }
+    } else {
+      var step = [1, 2, 5, 10, 15, 30, 60, 120].find(function (v) { return v * p >= 46; }) || 120;
+      g.fillStyle = '#385872';
+      for (var t = Math.floor(st.view0 / step) * step; t <= st.view0 + visibleSec() + step; t += step) {
+        var xx = xOf(t);
+        if (xx < -40 || xx > w) continue;
+        g.fillRect(Math.round(xx), 20, 1, base - 20);
+        g.fillStyle = '#CADAE7'; g.fillText(L.clock(t), xx + 3, base - 3); g.fillStyle = '#385872';
+      }
     }
-    if (st.loop) { g.fillStyle = 'rgba(8,169,245,0.22)'; g.fillRect(x(st.loop.a), 22, x(st.loop.b) - x(st.loop.a), hh - 22); }
+    drawLoop(g, w, hh, true);
   }
 
-  /** Onda de uma faixa, na cor dela. */
+  /** Uma faixa: grade, os blocos que tocam (cortes viram buracos), a onda e as pontas. */
   function drawLane(tg, c) {
     var f = fitCanvas(c);
     if (!f) return;
-    var g = f.g, w = f.w, hh = f.h, wave = waveOf(tg);
-    var color = tg.kind === 'track' ? U.colorFor(tg.key) : '#63D4FF';
-    if (st.loop) { var end = sessionEnd(); g.fillStyle = 'rgba(8,169,245,0.10)'; g.fillRect(st.loop.a / end * w, 0, (st.loop.b - st.loop.a) / end * w, hh); }
-    if (!wave) { g.fillStyle = 'rgba(220,232,242,0.08)'; g.fillRect(0, hh / 2 - 1, w, 2); return; }
-    var endS = sessionEnd(), e1 = editOf(tg.key), rr = region(tg, e1), xs = function (t) { return t / endS * w; };
-    var sel = st.sel === tg.key && st.tool !== 'cursor' && st.tool !== 'repetir';
-    g.fillStyle = sel ? 'rgba(99,212,255,0.08)' : 'rgba(220,232,242,0.035)';
-    g.fillRect(xs(rr.start), 0, Math.max(1, xs(rr.end) - xs(rr.start)), hh);
-    if (sel) { g.fillStyle = 'rgba(99,212,255,0.85)'; g.fillRect(xs(rr.start), 0, 2, hh); g.fillRect(xs(rr.end) - 2, 0, 2, hh); }
-    var mid = hh / 2, amp = hh / 2 - 4, bw = w / BINS;
-    g.fillStyle = color;
-    for (var i = 0; i < BINS; i++) {
-      var v = Math.max(0.015, wave[i]) * amp;
-      g.fillRect(i * bw, mid - v, Math.max(1, bw - 0.5), v * 2);
+    var g = f.g, w = f.w, hh = f.h, p = pps();
+    drawGrid(g, w, hh);
+    var peaks = peaksOf(tg.key);
+    var e = editOf(tg.key), r = region(tg, e), dur = durMs(tg.key);
+    var color = tg.kind === 'track' ? U.colorFor(tg.key) : tg.kind === 'mine' ? '#08A9F5' : '#6CC4B0';
+    var off = mutedOf(tg.key) || (anySolo() && !st.solo[tg.key]);
+    if (!peaks) { g.fillStyle = 'rgba(220,232,242,0.08)'; g.fillRect(0, hh / 2 - 1, w, 2); return; }
+    var segs = pieces(e, dur);
+    segs.forEach(function (sg) {
+      var a = xOf(sg[0] / 1000 + r.shift), b = xOf(sg[1] / 1000 + r.shift);
+      if (b < 0 || a > w || b - a < 0.5) return;
+      g.globalAlpha = off ? 0.08 : 0.18; g.fillStyle = color;
+      roundRect(g, a, 3, b - a, hh - 6, 6); g.fill();
+      g.globalAlpha = off ? 0.3 : 1;
+      roundRect(g, a, 3, b - a, 4, 2); g.fill();
+      g.globalAlpha = 1;
+    });
+    // Onda: para cada coluna da tela, o pico daquele pedaço do arquivo (só onde toca).
+    var mid = hh / 2 + 2, amp = hh / 2 - 8;
+    g.fillStyle = off ? '#4F6B82' : mixColor(color, '#DCE8F2', 0.35);
+    var x0 = Math.max(0, Math.floor(xOf(r.start))), x1 = Math.min(w, Math.ceil(xOf(r.end)));
+    for (var x = x0; x < x1; x++) {
+      var fa = (tAtX(x) - r.shift) * 1000, fb = (tAtX(x + 1) - r.shift) * 1000;
+      var fm = (fa + fb) / 2;
+      if (!segs.some(function (sg) { return fm >= sg[0] && fm < sg[1]; })) continue;
+      var i0 = Math.max(0, Math.floor((fa + r.lead * 1000) / 10)), i1 = Math.min(peaks.length, Math.ceil((fb + r.lead * 1000) / 10));
+      var m = 0;
+      for (var i = i0; i < Math.max(i1, i0 + 1) && i < peaks.length; i++) if (peaks[i] > m) m = peaks[i];
+      var v = Math.max(0.02, m) * amp;
+      g.fillRect(x, mid - v, 1, v * 2);
     }
-    // Trechos cortados: escuros; ponto do corte esperando a escolha: tracejado.
-    (e1.cuts || []).forEach(function (c) { g.fillStyle = 'rgba(2,6,10,0.55)'; g.fillRect(xs(c[0] / 1000 + rr.shift), 0, Math.max(1, xs((c[1] - c[0]) / 1000)), hh); });
+    var sel = st.sel === tg.key && (st.tool === 'mover' || st.tool === 'cortar' || st.tool === 'aparar' || st.tool === 'volume');
+    if (sel) {
+      g.fillStyle = 'rgba(99,212,255,0.9)';
+      var sa = xOf(r.start), sb2 = xOf(r.end);
+      g.fillRect(sa, 0, 2, hh); g.fillRect(sb2 - 2, 0, 2, hh);
+      if (st.tool === 'aparar') { g.fillRect(sa, hh / 2 - 12, 6, 24); g.fillRect(sb2 - 6, hh / 2 - 12, 6, 24); }
+    }
     if (st.split && st.split.key === tg.key) {
-      var sx = xs(st.split.at / 1000 + rr.shift);
+      var sx = xOf(st.split.at / 1000 + r.shift);
       g.fillStyle = '#FFB547';
       for (var yy = 0; yy < hh; yy += 8) g.fillRect(sx - 1, yy, 2, 5);
     }
+    drawLoop(g, w, hh, false);
+  }
+  function roundRect(g, x, y, w, hh, r) {
+    g.beginPath();
+    if (g.roundRect) g.roundRect(x, y, w, hh, Math.min(r, w / 2)); else g.rect(x, y, w, hh);
+  }
+  function mixColor(a, b, t) {
+    function rgb(c) { c = c.replace('#', ''); return [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16)]; }
+    var x = rgb(a), y = rgb(b);
+    return 'rgb(' + x.map(function (v, i) { return Math.round(v + (y[i] - v) * t); }).join(',') + ')';
   }
 
+  var drawQueued = false;
+  function requestDraw() {
+    if (drawQueued) return;
+    drawQueued = true;
+    requestAnimationFrame(function () { drawQueued = false; if (st && st.ui && st.ui.ruler) drawDaw(); });
+  }
   function drawDaw() {
     var u = st.ui;
     if (!u.ruler) return;
+    if (!st.zoom) { st.zoom = openZoom(); st.view0 = 0; }
+    clampView();
     drawRuler();
     (u.lanes || []).forEach(function (l) { drawLane(l.tg, l.canvas); });
     placeHead();
+    if (u.zoomOut) { u.zoomOut.disabled = st.zoom <= 1; u.zoomIn.disabled = st.zoom >= maxZoom(); }
   }
 
-  /** Cursor de tempo: uma linha só, que atravessa a régua e todas as faixas. */
+  /** Cursor de tempo: uma linha só, que atravessa a régua e todas as faixas. Tocando, a tela acompanha. */
   function placeHead() {
     var hd = st.ui.head;
-    if (hd) hd.style.left = (Math.max(0, Math.min(1, st.pos / sessionEnd())) * 100) + '%';
-  }
-
-  function dawSeek(ev, area) {
-    var r = area.getBoundingClientRect();
-    var t = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * sessionEnd();
-    st.pos = t;
-    paintPosition();
-    return t;
+    if (!hd) return;
+    var x = xOf(st.pos), w = viewW();
+    if (st.playing && (x < 0 || x > w * 0.92)) { st.view0 = st.pos - visibleSec() * 0.1; clampView(); requestDraw(); x = xOf(st.pos); }
+    hd.style.display = x < -1 || x > w + 1 ? 'none' : '';
+    hd.style.left = x + 'px';
   }
 
   function lyricNodes() {
@@ -451,7 +602,7 @@
   /** Muda a edição de uma faixa na hora (sem entrar no desfazer); redesenha só aquela faixa. */
   function previewEdit(key, e) {
     st.edits[key] = e;
-    if (st.waves) delete st.waves[key];
+    if (st.grid && key === 'track:' + st.grid.trackId) st.gridCache = null;
     var lane = (st.ui.lanes || []).find(function (l) { return l.tg.key === key; });
     if (lane) drawLane(lane.tg, lane.canvas);
   }
@@ -521,7 +672,10 @@
       return h('button', { class: 'tool' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false', onclick: function () { st.tool = t[0]; st.split = null; L.render(); } },
         ic(t[1], 19), h('span', null, t[2]));
     });
-    return h('div', { class: 'toolbar', role: 'toolbar', 'aria-label': 'Ferramentas do estúdio' }, tools, h('span', { class: 'tsep' }),
+    var magnet = st.grid ? h('button', { class: 'tool' + (st.magnet ? ' on' : ''), 'aria-pressed': st.magnet ? 'true' : 'false', onclick: function () {
+      st.magnet = !st.magnet; L.store.set('estudio_ima', st.magnet); L.toast(st.magnet ? 'Ímã ligado: gruda no tempo do click.' : 'Ímã desligado.'); L.render();
+    } }, ic('Magnet', 19), h('span', null, 'Ímã')) : null;
+    return h('div', { class: 'toolbar', role: 'toolbar', 'aria-label': 'Ferramentas do estúdio' }, tools, h('span', { class: 'tsep' }), magnet,
       h('button', { class: 'tool', disabled: !st.undo.length, onclick: undoEdit }, ic('Undo2', 19), h('span', null, 'Desfazer')),
       h('button', { class: 'tool', disabled: !st.redo.length, onclick: redoEdit }, ic('Redo2', 19), h('span', null, 'Refazer')));
   }
@@ -536,7 +690,7 @@
     var kids;
     switch (st.tool) {
       case 'repetir':
-        kids = [hint(st.loop ? 'Repetindo ' + st.loop.name + '. Arraste nas faixas para marcar outro trecho.' : 'Arraste o dedo nas faixas para marcar o trecho que vai repetir.'),
+        kids = [hint(st.loop ? 'Repetindo ' + st.loop.name + '. Arraste as pontas para ajustar; dois toques dentro apagam.' : 'Arraste nas faixas para marcar o trecho (nas outras ferramentas: dois toques e arraste).'),
           st.loop ? b('Parar de repetir', function () { st.loop = null; L.render(); restartIfPlaying(); }, 'X') : null];
         break;
       case 'mover':
@@ -595,7 +749,7 @@
           }));
         break;
       default:
-        kids = [hint('Toque na régua ou nas faixas para escolher de onde tocar. Para editar, escolha uma ferramenta.')];
+        kids = [hint('Toque para escolher de onde tocar. Arraste para andar na música; pinça com dois dedos muda o zoom. Dois toques e arraste: trecho para repetir.')];
     }
     return h('div', { class: 'toolpanel' }, kids);
   }
@@ -616,68 +770,162 @@
     } catch (e) { L.toast(L.errorText(e)); }
   }
 
-  /** Toques e arrastos em cima das faixas, conforme a ferramenta. */
+  /** Linha (faixa) embaixo do dedo; null = régua. */
   function laneAt(clientY) {
     return (st.ui.lanes || []).find(function (l) { var r = l.canvas.parentNode.parentNode.getBoundingClientRect(); return clientY >= r.top && clientY < r.bottom; }) || null;
   }
+  function inRuler(clientY) {
+    var r = st.ui.ruler && st.ui.ruler.parentNode.parentNode.getBoundingClientRect();
+    return !!r && clientY >= r.top && clientY < r.bottom;
+  }
+
+  /** Toque parado (sem arrastar), como o onToolTap do app. */
+  function toolTap(lane, t, ruler) {
+    var tool = st.tool, key = lane && lane.tg.key;
+    var editTool = tool === 'mover' || tool === 'cortar' || tool === 'aparar';
+    if (!ruler && editTool && key && !canEditKey(key)) {
+      L.toast('Aqui você edita a sua voz. As faixas da banda e as vozes dos outros, só quem o líder liberou para editar o áudio.');
+      return;
+    }
+    if (!ruler && key && (editTool || tool === 'volume') && st.sel !== key) { st.sel = key; st.split = null; L.render(); }
+    if (!ruler && tool === 'cortar' && key) {
+      var r = region(lane.tg, editOf(key)), at = (snapEdge(t) - r.shift) * 1000;
+      var piece = pieces(rawEdit(key), durMs(key)).find(function (p) { return at > p[0] + 30 && at < p[1] - 30; });
+      if (piece) { st.split = { key: key, at: Math.round(at), piece: piece }; L.render(); return; }
+    }
+    if (!ruler && tool === 'volume') return;
+    seek(Math.max(0, Math.min(sessionEnd(), snapped(t))));
+  }
+
   function wireArea(area) {
-    var drag = null;
-    function timeAt(ev) { var r = area.getBoundingClientRect(); return Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * sessionEnd(); }
+    var ptrs = {}, g = null, pinch = null, lastTap = { t: 0, x: -999 };
+    function rel(ev) { var r = area.getBoundingClientRect(); return ev.clientX - r.left; }
+    function count() { return Object.keys(ptrs).length; }
+    function endGesture(revert) {
+      if (g && revert && g.before && g.key) previewEdit(g.key, g.before);
+      g = null; st.dragLabel = null;
+    }
+    // Perto da borda, arrastando algo, a música rola sozinha.
+    function autoScroll(x) {
+      var w = viewW(), d = 0;
+      if (x < AUTOSCROLL_PX) d = -(AUTOSCROLL_PX - x); else if (x > w - AUTOSCROLL_PX) d = x - (w - AUTOSCROLL_PX);
+      if (d) { st.view0 += d * 0.15 / pps(); clampView(); requestDraw(); }
+    }
+
     area.addEventListener('pointerdown', function (ev) {
-      var t = timeAt(ev), lane = laneAt(ev.clientY), key = lane && lane.tg.key, tool = st.tool;
-      area.setPointerCapture(ev.pointerId);
-      if (key && key !== st.sel && tool !== 'cursor' && tool !== 'repetir') { st.sel = key; st.split = null; markSelected(); }
-      var editable = key && canEditKey(key);
-      if (tool === 'repetir') drag = { kind: 'loop', t0: t };
-      else if (tool === 'mover' && editable) drag = { kind: 'move', key: key, t0: t, before: rawEdit(key) };
-      else if (tool === 'aparar' && editable) {
+      if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+      ptrs[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+      try { area.setPointerCapture(ev.pointerId); } catch (e) { /* ok */ }
+      if (count() === 2) {
+        // Segundo dedo: pinça (desfaz o que o primeiro dedo estava arrastando).
+        endGesture(true);
+        var ps = Object.keys(ptrs).map(function (k) { return ptrs[k]; });
+        var cx = (ps[0].x + ps[1].x) / 2 - area.getBoundingClientRect().left;
+        pinch = { d0: Math.max(20, Math.abs(ps[0].x - ps[1].x)), z0: st.zoom, t: tAtX(cx) };
+        return;
+      }
+      if (count() > 2) return;
+      var x = rel(ev), t = tAtX(x), ruler = inRuler(ev.clientY), lane = ruler ? null : laneAt(ev.clientY);
+      var key = lane && lane.tg.key, tool = st.tool;
+      var editsClips = tool === 'mover' || tool === 'cortar' || tool === 'aparar';
+      var second = ev.timeStamp - lastTap.t < 380 && Math.abs(x - lastTap.x) < 40;
+      var kind = null, extra = {};
+      // Pontas do trecho de repetir: prioridade (menos quando a ferramenta edita a gravação).
+      if (!editsClips && st.loop) {
+        var da = Math.abs(x - xOf(st.loop.a)), db = Math.abs(x - xOf(st.loop.b));
+        if (Math.min(da, db) <= HANDLE_PX / 2) { kind = 'edge'; extra.fixed = da <= db ? st.loop.b : st.loop.a; }
+      }
+      if (!kind && !editsClips && (second || (tool === 'repetir' && !ruler))) kind = 'create';
+      if (!kind && !ruler && key && canEditKey(key)) {
         var r = region(lane.tg, editOf(key));
-        drag = { kind: Math.abs(t - r.start) < Math.abs(t - r.end) ? 'trimA' : 'trimB', key: key, before: rawEdit(key), shift: r.shift };
-      } else if (tool === 'cortar' && editable) drag = { kind: 'cut', key: key, t0: t, lane: lane };
-      else { drag = { kind: 'seek' }; dawSeek(ev, area); }
+        if (tool === 'mover' && t >= r.start - EDGE_PX / pps() && t <= r.end + EDGE_PX / pps()) kind = 'move';
+        if (tool === 'aparar') {
+          var ds = Math.abs(x - xOf(r.start)), de = Math.abs(x - xOf(r.end));
+          if (Math.min(ds, de) <= HANDLE_PX) { kind = 'trim'; extra.edge = ds <= de ? 1 : 2; extra.shift = r.shift; }
+        }
+      }
+      g = { kind: kind, pending: true, x0: x, cx0: ev.clientX, view0: st.view0, t0: t, lane: lane, key: key, ruler: ruler, second: second, extra: extra,
+        before: kind === 'move' || kind === 'trim' ? rawEdit(key) : null, inLoop: st.loop && t > st.loop.a && t < st.loop.b };
     });
+
     area.addEventListener('pointermove', function (ev) {
-      if (!drag) return;
-      var t = timeAt(ev);
-      if (drag.kind === 'seek') dawSeek(ev, area);
-      else if (drag.kind === 'loop') {
-        var a = Math.min(drag.t0, t), b = Math.max(drag.t0, t);
-        if (b - a > 0.05) { st.loop = { a: a, b: b, name: 'o trecho escolhido' }; drawDaw(); }
-      } else if (drag.kind === 'move') {
-        var e = rawEdit(drag.key);
-        e.offset_ms = Math.max(-MAX_OFFSET_MS, Math.min(MAX_OFFSET_MS, Math.round((drag.before.offset_ms || 0) + (t - drag.t0) * 1000)));
-        previewEdit(drag.key, e);
-      } else if (drag.kind === 'trimA' || drag.kind === 'trimB') {
-        var e2 = rawEdit(drag.key), fileMs = (t - drag.shift) * 1000, dur = durMs(drag.key);
+      if (!ptrs[ev.pointerId]) return;
+      ptrs[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+      if (pinch && count() >= 2) {
+        var ps = Object.keys(ptrs).map(function (k) { return ptrs[k]; });
+        var cx = (ps[0].x + ps[1].x) / 2 - area.getBoundingClientRect().left;
+        st.zoom = Math.max(1, Math.min(maxZoom(), pinch.z0 * Math.abs(ps[0].x - ps[1].x) / pinch.d0));
+        st.view0 = pinch.t - cx / pps();
+        clampView(); requestDraw();
+        return;
+      }
+      if (!g) return;
+      var x = rel(ev);
+      if (g.pending) {
+        if (Math.abs(ev.clientX - g.cx0) < SLOP) return;
+        g.pending = false;
+        if (!g.kind) g.kind = 'pan';
+      }
+      var t = Math.max(0, Math.min(sessionEnd(), tAtX(x)));
+      if (g.kind === 'pan') {
+        st.view0 = g.view0 - (ev.clientX - g.cx0) / pps();
+        clampView(); requestDraw();
+        return;
+      }
+      autoScroll(x);
+      if (g.kind === 'edge') {
+        var v = snapEdge(t); st.loop = { a: Math.min(g.extra.fixed, v), b: Math.max(g.extra.fixed, v), name: 'o trecho escolhido' }; st.dragLabel = v; requestDraw();
+      } else if (g.kind === 'create') {
+        var a0 = snapEdge(g.t0), v2 = snapEdge(t);
+        if (Math.abs(v2 - a0) > 0.05) st.loop = { a: Math.min(a0, v2), b: Math.max(a0, v2), name: 'o trecho escolhido' };
+        st.dragLabel = v2; requestDraw();
+      } else if (g.kind === 'move') {
+        // A gravação anda com o dedo; o começo gruda no tempo do click (ímã).
+        var e = rawEdit(g.key), r0 = region(g.lane.tg, Object.assign(blankEdit(), g.before, { offset_ms: g.before.offset_ms || 0 }));
+        var start = snapEdge(r0.start + (t - g.t0));
+        e.offset_ms = Math.max(-MAX_OFFSET_MS, Math.min(MAX_OFFSET_MS, Math.round((g.before.offset_ms || 0) + (start - r0.start) * 1000)));
+        previewEdit(g.key, e); st.dragLabel = start;
+      } else if (g.kind === 'trim') {
+        var e2 = rawEdit(g.key), fileMs = (snapEdge(t) - g.extra.shift) * 1000, dur = durMs(g.key);
         var endMs = e2.trim_end_ms === null || e2.trim_end_ms === undefined ? dur : e2.trim_end_ms;
-        if (drag.kind === 'trimA') e2.trim_start_ms = Math.round(Math.max(0, Math.min(endMs - 250, fileMs)));
-        else { var v = Math.round(Math.min(dur, Math.max((e2.trim_start_ms || 0) + 250, fileMs))); e2.trim_end_ms = v >= dur ? null : v; }
-        previewEdit(drag.key, e2);
+        if (g.extra.edge === 1) e2.trim_start_ms = Math.round(Math.max(0, Math.min(endMs - 250, fileMs)));
+        else { var vv = Math.round(Math.min(dur, Math.max((e2.trim_start_ms || 0) + 250, fileMs))); e2.trim_end_ms = vv >= dur ? null : vv; }
+        previewEdit(g.key, e2); st.dragLabel = snapEdge(t);
       }
     });
-    function end(ev, cancel) {
-      if (!drag) return;
-      var d = drag; drag = null;
-      if (cancel) return;
-      var t = timeAt(ev);
-      if (d.kind === 'seek') {
-        if (st.loop && st.tool === 'cursor') { var sc = sectionAt(t); if (sc) st.loop = { a: sc.start, b: sc.end, name: sc.name }; }
-        seek(t); if (st.loop) L.render();
-      } else if (d.kind === 'loop') {
-        if (!st.loop || st.loop.b - st.loop.a < 0.25) st.loop = null;
+
+    function up(ev, cancel) {
+      if (!ptrs[ev.pointerId]) return;
+      delete ptrs[ev.pointerId];
+      if (pinch) { if (count() < 2) pinch = null; g = null; return; }
+      if (!g) return;
+      var d = g; g = null; st.dragLabel = null;
+      if (cancel) { if (d.before && d.key) previewEdit(d.key, d.before); requestDraw(); return; }
+      var x = rel(ev), t = tAtX(x);
+      if (d.pending) {
+        // Toque parado. Dois toques dentro do trecho: apaga o trecho.
+        if (d.second && d.inLoop && st.tool !== 'mover' && st.tool !== 'cortar' && st.tool !== 'aparar') { st.loop = null; lastTap = { t: 0, x: -999 }; L.render(); restartIfPlaying(); return; }
+        lastTap = { t: ev.timeStamp, x: x };
+        toolTap(d.lane, t, d.ruler);
+        return;
+      }
+      lastTap = { t: 0, x: -999 };
+      if (d.kind === 'edge' || d.kind === 'create') {
+        if (st.loop && st.loop.b - st.loop.a < 0.25) st.loop = null;
         L.render(); restartIfPlaying();
-      } else if (d.kind === 'move' || d.kind === 'trimA' || d.kind === 'trimB') {
+      } else if (d.kind === 'move' || d.kind === 'trim') {
+        st.sel = d.key;
         commitEdit(d.key, d.before, rawEdit(d.key));
-      } else if (d.kind === 'cut') {
-        var r = region(d.lane.tg, editOf(d.key)), at = (t - r.shift) * 1000;
-        var piece = pieces(rawEdit(d.key), durMs(d.key)).find(function (p) { return at > p[0] + 30 && at < p[1] - 30; });
-        if (!piece) { L.toast('Toque em cima da faixa, onde tem som.'); return; }
-        st.split = { key: d.key, at: Math.round(at), piece: piece };
-        L.render();
       }
     }
-    area.addEventListener('pointerup', function (ev) { end(ev, false); });
-    area.addEventListener('pointercancel', function (ev) { end(ev, true); });
+    area.addEventListener('pointerup', function (ev) { up(ev, false); });
+    area.addEventListener('pointercancel', function (ev) { up(ev, true); });
+    // Computador: roda do mouse com Ctrl (ou pinça do touchpad) = zoom; Shift ou rolagem lateral = andar.
+    area.addEventListener('wheel', function (ev) {
+      if (ev.ctrlKey || ev.metaKey) { ev.preventDefault(); zoomTo(st.zoom * Math.exp(-ev.deltaY * 0.0025), rel(ev)); return; }
+      var dx = ev.shiftKey ? ev.deltaY : ev.deltaX;
+      if (Math.abs(dx) > Math.abs(ev.shiftKey ? 0 : ev.deltaY) || ev.shiftKey) { ev.preventDefault(); st.view0 += dx / pps(); clampView(); requestDraw(); }
+    }, { passive: false });
   }
   function markSelected() {
     (st.ui.lanes || []).forEach(function (l) { l.canvas.parentNode.parentNode.classList.toggle('sel', l.tg.key === st.sel); });
@@ -784,12 +1032,16 @@
     u.ruler = h('canvas');
     u.head = h('span', { class: 'dawhead' });
     var area = h('div', { class: 'dawarea', role: 'slider', 'aria-label': 'Posição na música' }, u.head);
+    u.area = area;
     wireArea(area);
+    u.zoomOut = h('button', { class: 'zbtn', 'aria-label': 'Afastar', onclick: function () { zoomButton(0.5); } }, ic('ZoomOut', 16));
+    u.zoomIn = h('button', { class: 'zbtn', 'aria-label': 'Aproximar', onclick: function () { zoomButton(2); } }, ic('ZoomIn', 16));
     area.dataset.tool = st.tool;
     body.appendChild(h('div', { class: 'row' }, U.label('Faixas'), h('span', { class: 'grow' }),
       U.textBtn('Volume original', function () { st.mix = {}; st.solo = {}; saveMix(); applyGains(); L.render(); })));
     body.appendChild(h('div', { class: 'daw' },
-      h('div', { class: 'lane rulerlane' }, h('div', { class: 'lhead' }, h('span', { class: 'muted tiny', style: { letterSpacing: '0.06em' } }, 'PARTES · TEMPO')), h('div', { class: 'lwave' }, u.ruler)),
+      h('div', { class: 'lane rulerlane' }, h('div', { class: 'lhead' }, h('div', { class: 'row', style: { gap: '6px' } },
+        h('span', { class: 'muted tiny grow', style: { letterSpacing: '0.06em' } }, st.grid && st.grid.downbeats && st.grid.downbeats.length ? 'COMPASSOS' : 'TEMPO'), u.zoomOut, u.zoomIn)), h('div', { class: 'lwave' }, u.ruler)),
       laneRows, area));
     if (st.otherTakes.length && !st.voices.length) {
       body.appendChild(U.btn2('Ouvir as vozes para estudar', 'Users', voicesSheet, { full: true }));

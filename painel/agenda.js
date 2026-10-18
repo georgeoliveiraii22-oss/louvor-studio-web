@@ -222,15 +222,14 @@
     function fillWho() {
       while (who.firstChild) who.removeChild(who.firstChild);
       var f = fnSel.value;
-      var ms = S.members.slice().sort(function (a, b) {
-        return ((a.functions || []).indexOf(f) < 0 ? 1 : 0) - ((b.functions || []).indexOf(f) < 0 ? 1 : 0) || a.name.localeCompare(b.name);
-      });
-      who.appendChild(h('option', { value: '' }, 'Quem?'));
+      // Só quem marcou essa função no perfil.
+      var ms = S.members.filter(function (m) { return (m.functions || []).indexOf(f) >= 0; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      who.appendChild(h('option', { value: '' }, ms.length ? 'Quem?' : 'Ninguém marcou esta função no perfil'));
       ms.forEach(function (m) {
         var already = list.some(function (p) { return p.user_id === m.user_id && p.function === f; });
         var off = ag.off[m.user_id + '|' + svc.starts_on];
         who.appendChild(h('option', { value: m.user_id, disabled: already },
-          m.name + (already ? ' (já está)' : off ? ' ⚠ não pode neste dia' : (m.functions || []).indexOf(f) >= 0 ? ' ★' : '')));
+          m.name + (already ? ' (já está)' : off ? ' ⚠ não pode neste dia' : '')));
       });
     }
     fnSel.onchange = fillWho;

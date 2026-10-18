@@ -314,7 +314,10 @@
             return b;
           }));
         }
-        return S.members.slice().sort(function (a, b) { return (a.functions.indexOf(fn) >= 0 ? 0 : 1) - (b.functions.indexOf(fn) >= 0 ? 0 : 1) || a.name.localeCompare(b.name); }).map(function (m) {
+        // Só quem marcou essa função no perfil.
+        var withFn = S.members.filter(function (m) { return m.functions.indexOf(fn) >= 0; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+        if (!withFn.length) return U.body('Ninguém da banda marcou ' + L.fnLabel(fn).toLowerCase() + ' no perfil. Cada um marca em Eu › Meu perfil; o líder também pode marcar em Banda › Pessoas.', 'var(--muted)', 13);
+        return withFn.map(function (m) {
           var already = s.people.some(function (p) { return p.user_id === m.user_id && p.function === fn; });
           var off = L.isOff(m.user_id, s.starts_on);
           return h('div', { class: 'row', style: { minHeight: '52px', gap: '10px', cursor: already ? 'default' : 'pointer' }, onclick: function () {

@@ -275,14 +275,14 @@
     step.fns.forEach(function (fn) {
       var chosen = d.people.filter(function (p) { return p.f === fn; });
       var withFn = S.members.filter(function (m) { return m.functions.indexOf(fn) >= 0; });
-      var list = (showAll[fn] || !withFn.length) ? S.members.slice()
-        : withFn.concat(S.members.filter(function (m) { return withFn.indexOf(m) < 0 && chosen.some(function (c) { return c.u === m.user_id; }); }));
+      // Só quem marcou esta função no perfil (quem já estava escolhido continua à vista, para poder tirar).
+      var list = withFn.concat(S.members.filter(function (m) { return withFn.indexOf(m) < 0 && chosen.some(function (c) { return c.u === m.user_id; }); }));
       list.sort(function (a, b) {
         return (a.functions.indexOf(fn) >= 0 ? 0 : 1) - (b.functions.indexOf(fn) >= 0 ? 0 : 1) || (L.isOff(a.user_id, d.date) ? 1 : 0) - (L.isOff(b.user_id, d.date) ? 1 : 0) || a.name.localeCompare(b.name);
       });
       body.appendChild(h('div', { class: 'row' }, ic(L.fnIcon(fn), 16, 'accent'), h('span', { class: 'hi semi grow', style: { fontSize: '15px' } }, L.fnLabel(fn)),
         chosen.length ? h('span', { class: 'accent small' }, chosen.length + (chosen.length > 1 ? ' escolhidos' : ' escolhido')) : null));
-      if (!withFn.length) body.appendChild(U.body('Ninguém marcou ' + L.fnLabel(fn).toLowerCase() + ' no perfil. Mostrando todos.', 'var(--muted)', 12));
+      if (!withFn.length) body.appendChild(U.body('Ninguém da banda marcou ' + L.fnLabel(fn).toLowerCase() + ' no perfil. Cada um marca em Eu › Meu perfil; o líder também pode marcar em Banda › Pessoas.', 'var(--muted)', 12));
       body.appendChild(h('div', { class: 'list' }, list.map(function (m) {
         var on = d.people.some(function (p) { return p.u === m.user_id && p.f === fn; });
         var off = L.isOff(m.user_id, d.date);
@@ -297,8 +297,7 @@
           h('div', { class: 'small', style: { color: off || other ? 'var(--warn)' : 'var(--muted)' } }, sub)),
           h('span', { class: 'check' + (on ? ' on' : '') }, on ? ic('Check', 16) : null));
       })));
-      if (!showAll[fn] && withFn.length && S.members.length > list.length) {
-        body.appendChild(h('button', { class: 'textbtn muted', style: { alignSelf: 'flex-start', fontSize: '12px' }, onclick: function () { showAll[fn] = true; L.render(); } }, 'Mostrar todos da banda (' + S.members.length + ')'));
+      if (false) {
       }
     });
   }

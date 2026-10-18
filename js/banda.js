@@ -5,6 +5,11 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.4.0', [
+      'Estúdio igual ao do app: abre mostrando uns 20 segundos, pinça com dois dedos para o zoom, arrastar anda na música e só o toque parado muda o cursor.',
+      'A grade do click aparece nas faixas e na régua (compassos), com o ímã; Repetir: dois toques e arraste.',
+      'Escalas: em cada função aparecem só as pessoas que marcaram aquela função no perfil.'
+    ]],
     ['1.3.0', [
       'Ferramentas no estúdio do site, como no app: Cursor, Repetir, Mover, Cortar, Aparar, Volume e Partes (só o líder), com Desfazer e Refazer.',
       'Cada um edita a própria gravação; as faixas da banda, o líder ou quem tem permissão. O arquivo original nunca muda.'

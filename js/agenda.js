@@ -184,7 +184,11 @@
           b.style.width = '100%';
           return b;
         }));
-        return S.members.slice().sort(function (a, b) { return (a.functions.indexOf(fn) >= 0 ? 0 : 1) - (b.functions.indexOf(fn) >= 0 ? 0 : 1) || a.name.localeCompare(b.name); }).map(function (m) {
+        // Só quem marcou essa função (quem já está na equipe nela continua à vista, para poder tirar).
+        var pick = S.members.filter(function (m) { return m.functions.indexOf(fn) >= 0 || t.members.some(function (x) { return x.user_id === m.user_id && x.function === fn; }); })
+          .sort(function (a, b) { return a.name.localeCompare(b.name); });
+        if (!pick.length) return U.body('Ninguém da banda marcou ' + L.fnLabel(fn).toLowerCase() + ' no perfil. Cada um marca em Eu › Meu perfil; o líder também pode marcar em Banda › Pessoas.', 'var(--muted)', 13);
+        return pick.map(function (m) {
           var on = t.members.some(function (x) { return x.user_id === m.user_id && x.function === fn; });
           return h('div', { class: 'row', style: { minHeight: '52px', gap: '10px', cursor: 'pointer' }, onclick: function () {
             L.run(async function () {

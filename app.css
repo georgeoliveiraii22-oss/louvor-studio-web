@@ -423,7 +423,7 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 .daw { --hw: 150px; position: relative; display: flex; flex-direction: column; background: var(--panel); border-radius: var(--r-group); overflow: hidden; }
 .lane { display: grid; grid-template-columns: var(--hw) minmax(0, 1fr); min-height: 64px; position: relative; }
 .lane + .lane::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--line); z-index: 1; }
-.lane .lhead { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 6px 8px 6px 10px; background: rgba(5, 11, 18, 0.25); box-shadow: inset -1px 0 0 var(--line); min-width: 0; }
+.lane .lhead { position: relative; z-index: 3; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 6px 8px 6px 10px; background: rgba(5, 11, 18, 0.25); box-shadow: inset -1px 0 0 var(--line); min-width: 0; }
 .lane .lhead .nm { font-size: 13px; font-weight: 600; color: var(--hi); }
 .lane .lhead .mini { width: 26px; height: 24px; border-radius: 7px; font-size: 11px; flex: none; }
 .lane .lhead .pct { display: none; }
@@ -432,10 +432,12 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 .lane .lwave canvas { position: absolute; inset: 6px 0; width: 100%; height: calc(100% - 12px); }
 .lane.voice .lwave { background: #0A2236; }
 .lane.off .lwave canvas, .lane.off .lhead .nm { opacity: 0.35; }
-.rulerlane { min-height: 40px; }
+.rulerlane { min-height: 44px; }
 .rulerlane .lhead { justify-content: flex-end; padding-bottom: 6px; }
 .rulerlane .lwave canvas { inset: 2px 0; height: calc(100% - 4px); }
-.dawarea { position: absolute; top: 0; bottom: 0; left: var(--hw); right: 0; z-index: 2; touch-action: none; cursor: pointer; }
+.dawarea { position: absolute; top: 0; bottom: 0; left: var(--hw); right: 0; z-index: 2; touch-action: pan-y; cursor: default; overflow: hidden; }
+.rulerlane .lhead .zbtn { width: 28px; height: 26px; border-radius: 8px; border: 0; background: var(--control); color: var(--text); display: inline-flex; align-items: center; justify-content: center; flex: none; position: relative; z-index: 3; }
+.rulerlane .lhead .zbtn:disabled { opacity: 0.35; }
 .dawhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--hi); box-shadow: 0 0 8px rgba(245, 250, 255, 0.5); pointer-events: none; }
 .dawhead::before { content: ""; position: absolute; top: 0; left: -5px; border: 6px solid transparent; border-top: 8px solid var(--hi); }
 .lyric { background: var(--panel); border-radius: var(--r-group); padding: 14px 16px; }
