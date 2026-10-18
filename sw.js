@@ -1,7 +1,7 @@
 // Louvor Studio (web) — guarda o app no celular para abrir rápido.
 // Arquivos do site: busca a versão nova na internet e, sem internet, usa a guardada.
 // Bibliotecas com versão fixa (CDN): usa a guardada. Dados e áudio da banda nunca ficam aqui.
-var CACHE = 'louvor-web-v4';
+var CACHE = 'louvor-web-v5';
 
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) {
@@ -15,7 +15,8 @@ self.addEventListener('fetch', function (e) {
   if (req.method !== 'GET') return;
   var url = new URL(req.url);
   if (url.origin === self.location.origin) {
-    e.respondWith(fetch(req).then(function (res) {
+    // Sempre pergunta ao servidor se há versão nova (sem usar a cópia velha do navegador); sem internet, usa a guardada.
+    e.respondWith(fetch(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' })).then(function (res) {
       if (res.ok) { var copy = res.clone(); caches.open(CACHE).then(function (c) { c.put(req, copy); }); }
       return res;
     }).catch(function () { return caches.match(req).then(function (r) { return r || caches.match('./'); }); }));
