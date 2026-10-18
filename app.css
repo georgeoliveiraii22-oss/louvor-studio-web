@@ -396,6 +396,29 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 .tbtn.big .c { width: 62px; height: 62px; background: var(--gradient); color: var(--on-accent); }
 .tbtn.on { color: var(--accent-light); }
 .tbtn.on .c { background: var(--sel); color: var(--accent-light); }
+/* Barra de ferramentas (como numa DAW) e o painel da ferramenta escolhida. */
+.toolbar { display: flex; align-items: stretch; gap: 2px; padding: 5px; border-radius: 16px; background: var(--panel); overflow-x: auto; scrollbar-width: none; }
+.toolbar::-webkit-scrollbar { display: none; }
+.tool { flex: none; min-width: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 7px 6px; border: 0; border-radius: 12px;
+  background: none; color: var(--text); font-size: 11px; font-weight: 600; transition: background-color 160ms ease, color 160ms ease, transform 160ms var(--ease-out); }
+.tool:active:not(:disabled) { transform: scale(0.95); }
+.tool.on { background: var(--sel); color: var(--accent-light); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.tool:disabled { opacity: 0.35; cursor: default; }
+@media (hover: hover) and (pointer: fine) { .tool:hover:not(:disabled):not(.on) { background: rgba(220, 232, 242, 0.06); } }
+.tsep { flex: none; width: 1px; margin: 6px 4px; background: var(--line); }
+.toolpanel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; background: rgba(10, 38, 58, 0.6); box-shadow: inset 0 0 0 1px var(--line); }
+.toolpanel .thint { color: var(--muted); font-size: 12.5px; line-height: 1.35; flex: 1 1 200px; }
+.toolpanel .tgt { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 9999px; background: var(--sel); color: var(--accent-light); font-size: 12.5px; font-weight: 700; }
+.toolpanel .tbtn2 { min-height: 34px; padding: 6px 12px; font-size: 13px; }
+.toolpanel .tbtn2.danger { color: var(--bad); }
+.toolpanel .tslider { display: flex; align-items: center; gap: 8px; flex: 1 1 240px; }
+.toolpanel .tslider input { flex: 1; }
+.toolpanel .partchip { gap: 6px; }
+.toolpanel .xbtn { border: 0; background: none; color: var(--muted); padding: 0 0 0 2px; display: inline-flex; }
+.lane.sel .lhead { box-shadow: inset 3px 0 0 var(--accent), inset -1px 0 0 var(--line); }
+.dawarea[data-tool="mover"] { cursor: ew-resize; }
+.dawarea[data-tool="cortar"] { cursor: crosshair; }
+.dawarea[data-tool="aparar"] { cursor: col-resize; }
 /* Faixas como numa DAW: cabeça (nome, M, S, volume) e a onda de cada faixa; um cursor atravessa tudo. */
 .daw { --hw: 150px; position: relative; display: flex; flex-direction: column; background: var(--panel); border-radius: var(--r-group); overflow: hidden; }
 .lane { display: grid; grid-template-columns: var(--hw) minmax(0, 1fr); min-height: 64px; position: relative; }

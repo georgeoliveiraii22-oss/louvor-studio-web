@@ -100,11 +100,13 @@
     var buf = st.buffers[tg.key];
     if (!buf) return null;
     var end = sessionEnd(), wave = new Float32Array(BINS);
-    var r = region(tg, editOf(tg.key)), data = buf.getChannelData(0), rate = buf.sampleRate;
+    var e0 = editOf(tg.key), r = region(tg, e0), data = buf.getChannelData(0), rate = buf.sampleRate, cuts = e0.cuts || [];
     for (var i = 0; i < BINS; i++) {
       var t0 = i / BINS * end, t1 = (i + 1) / BINS * end;
       var a = Math.max(t0, r.start), b = Math.min(t1, r.end);
       if (b <= a) continue;
+      var fileMid = ((a + b) / 2 - r.shift) * 1000;
+      if (cuts.some(function (c) { return fileMid >= c[0] && fileMid < c[1]; })) continue;
       var s0 = Math.floor((a - r.shift + r.lead) * rate), s1 = Math.min(data.length, Math.floor((b - r.shift + r.lead) * rate));
       var step = Math.max(1, Math.floor((s1 - s0) / 200)), max = 0;
       for (var j = Math.max(0, s0); j < s1; j += step) { var v = Math.abs(data[j]); if (v > max) max = v; }
@@ -121,7 +123,7 @@
     var p = L.project(pid);
     st = { pid: pid, loading: 'Carregando a música…', done: 0, total: 0, error: null, tracks: [], myTake: null, otherTakes: [], edits: {}, markers: [],
       buffers: {}, leads: {}, voices: L.studyVoices.get(pid), mix: L.store.get('mix.' + pid, {}), solo: {}, playing: false, pos: 0, loop: null,
-      nodes: [], vgs: {}, wave: null, lyrics: !!(p && p.lyrics) && L.store.get('estudio_letra', window.innerWidth >= 1024), ui: {} };
+      nodes: [], vgs: {}, wave: null, tool: 'cursor', sel: null, undo: [], redo: [], split: null, lyrics: !!(p && p.lyrics) && L.store.get('estudio_letra', window.innerWidth >= 1024), ui: {} };
     var mine = st;
     try {
       var r = await Promise.all([
@@ -356,11 +358,23 @@
     var color = tg.kind === 'track' ? U.colorFor(tg.key) : '#63D4FF';
     if (st.loop) { var end = sessionEnd(); g.fillStyle = 'rgba(8,169,245,0.10)'; g.fillRect(st.loop.a / end * w, 0, (st.loop.b - st.loop.a) / end * w, hh); }
     if (!wave) { g.fillStyle = 'rgba(220,232,242,0.08)'; g.fillRect(0, hh / 2 - 1, w, 2); return; }
+    var endS = sessionEnd(), e1 = editOf(tg.key), rr = region(tg, e1), xs = function (t) { return t / endS * w; };
+    var sel = st.sel === tg.key && st.tool !== 'cursor' && st.tool !== 'repetir';
+    g.fillStyle = sel ? 'rgba(99,212,255,0.08)' : 'rgba(220,232,242,0.035)';
+    g.fillRect(xs(rr.start), 0, Math.max(1, xs(rr.end) - xs(rr.start)), hh);
+    if (sel) { g.fillStyle = 'rgba(99,212,255,0.85)'; g.fillRect(xs(rr.start), 0, 2, hh); g.fillRect(xs(rr.end) - 2, 0, 2, hh); }
     var mid = hh / 2, amp = hh / 2 - 4, bw = w / BINS;
     g.fillStyle = color;
     for (var i = 0; i < BINS; i++) {
       var v = Math.max(0.015, wave[i]) * amp;
       g.fillRect(i * bw, mid - v, Math.max(1, bw - 0.5), v * 2);
+    }
+    // Trechos cortados: escuros; ponto do corte esperando a escolha: tracejado.
+    (e1.cuts || []).forEach(function (c) { g.fillStyle = 'rgba(2,6,10,0.55)'; g.fillRect(xs(c[0] / 1000 + rr.shift), 0, Math.max(1, xs((c[1] - c[0]) / 1000)), hh); });
+    if (st.split && st.split.key === tg.key) {
+      var sx = xs(st.split.at / 1000 + rr.shift);
+      g.fillStyle = '#FFB547';
+      for (var yy = 0; yy < hh; yy += 8) g.fillRect(sx - 1, yy, 2, 5);
     }
   }
 
@@ -409,6 +423,266 @@
     return out;
   }
 
+  // ------------------------------------------------------------------ Ferramentas (as mesmas do app: ui/StudioTools.kt)
+  // Barra em cima das partes, como numa DAW: Cursor, Repetir, Mover, Cortar, Aparar, Volume e Partes (só o líder),
+  // com Desfazer e Refazer. Cada um edita a própria gravação; as faixas da banda e as vozes dos outros, só quem
+  // edita o áudio. Nada apaga o arquivo original: a edição fica salva para a banda (audio_edits, publicada).
+  var TOOLS = [['cursor', 'MousePointer2', 'Cursor'], ['repetir', 'Repeat', 'Repetir'], ['mover', 'Move', 'Mover'], ['cortar', 'Scissors', 'Cortar'],
+    ['aparar', 'Crop', 'Aparar'], ['volume', 'Volume2', 'Volume'], ['partes', 'Flag', 'Partes']];
+  var PART_NAMES = ['Intro', 'Verso', 'Pré-refrão', 'Refrão', 'Ponte', 'Solo', 'Final'];
+  var MAX_OFFSET_MS = 600000;
+
+  function canEditKey(key) {
+    if (st.myTake && key === 'take:' + st.myTake.id) return true;
+    return L.perm.edit();
+  }
+  function selTarget() {
+    var list = targets();
+    var t = list.find(function (x) { return x.key === st.sel; });
+    if (t) return t;
+    // Começa pela própria gravação (a que todo mundo pode editar); senão, a primeira faixa.
+    t = list.find(function (x) { return x.kind === 'mine'; }) || list[0] || null;
+    st.sel = t ? t.key : null;
+    return t;
+  }
+  function rawEdit(key) { var e = st.edits[key]; return Object.assign(blankEdit(), e || {}, { cuts: ((e && e.cuts) || []).map(function (c) { return [c[0], c[1]]; }) }); }
+  function durMs(key) { var b = st.buffers[key]; return b ? Math.round((b.duration - (st.leads[key] || 0)) * 1000) : 0; }
+
+  /** Muda a edição de uma faixa na hora (sem entrar no desfazer); redesenha só aquela faixa. */
+  function previewEdit(key, e) {
+    st.edits[key] = e;
+    if (st.waves) delete st.waves[key];
+    var lane = (st.ui.lanes || []).find(function (l) { return l.tg.key === key; });
+    if (lane) drawLane(lane.tg, lane.canvas);
+  }
+  /** Confirma: entra no desfazer, salva para a banda e volta a tocar com a edição. */
+  function commitEdit(key, before, after) {
+    previewEdit(key, after);
+    if (M.sameEdit(before, after)) return;
+    st.undo.push({ key: key, before: before, after: after });
+    if (st.undo.length > 100) st.undo.shift();
+    st.redo = [];
+    queueSave(key);
+    restartIfPlaying();
+    L.render();
+  }
+  function undoEdit() {
+    var x = st.undo.pop(); if (!x) return;
+    st.redo.push(x); previewEdit(x.key, x.before); queueSave(x.key); restartIfPlaying(); L.render();
+  }
+  function redoEdit() {
+    var x = st.redo.pop(); if (!x) return;
+    st.undo.push(x); previewEdit(x.key, x.after); queueSave(x.key); restartIfPlaying(); L.render();
+  }
+  var saveTimers = {};
+  function queueSave(key) {
+    clearTimeout(saveTimers[key]);
+    saveTimers[key] = setTimeout(function () { saveEdit(key); }, 900);
+  }
+  async function saveEdit(key) {
+    var e = st.edits[key], isTake = key.indexOf('take:') === 0, id = key.slice(isTake ? 5 : 6), col = isTake ? 'take_id' : 'track_id';
+    try {
+      if (!e || M.isNeutral(e)) { L.must(await sb.from('audio_edits').delete().eq(col, id)); return; }
+      L.must(await sb.from('audio_edits').upsert({
+        project_id: st.pid, take_id: isTake ? id : null, track_id: isTake ? null : id,
+        trim_start_ms: Math.round(e.trim_start_ms || 0), trim_end_ms: e.trim_end_ms === null || e.trim_end_ms === undefined ? null : Math.round(e.trim_end_ms),
+        offset_ms: Math.round(e.offset_ms || 0), gain_db: Number(e.gain_db || 0), fade_in_ms: Math.round(e.fade_in_ms || 0), fade_out_ms: Math.round(e.fade_out_ms || 0),
+        cuts: e.cuts || [], published: true
+      }, { onConflict: col }));
+    } catch (err) {
+      L.toast('O ajuste ficou só neste aparelho; não foi salvo para a banda: ' + L.errorText(err));
+    }
+  }
+
+  /** Trechos que tocam (ms no arquivo): do começo ao fim aparados, menos os cortes. */
+  function pieces(e, dur) {
+    var a = e.trim_start_ms || 0, b = e.trim_end_ms === null || e.trim_end_ms === undefined ? dur : e.trim_end_ms;
+    var out = [], cur = a;
+    (e.cuts || []).slice().sort(function (x, y) { return x[0] - y[0]; }).forEach(function (c) {
+      if (c[1] <= cur || c[0] >= b) return;
+      if (c[0] > cur) out.push([cur, c[0]]);
+      cur = Math.max(cur, c[1]);
+    });
+    if (cur < b) out.push([cur, b]);
+    return out;
+  }
+  function addCut(key, from, to) {
+    var before = rawEdit(key), after = rawEdit(key);
+    after.cuts.push([Math.round(from), Math.round(to)]);
+    after.cuts.sort(function (x, y) { return x[0] - y[0]; });
+    st.split = null;
+    commitEdit(key, before, after);
+  }
+
+  function toolbar() {
+    var leader = L.perm.leader();
+    var tools = TOOLS.filter(function (t) { return t[0] !== 'partes' || leader; }).map(function (t) {
+      var on = st.tool === t[0];
+      return h('button', { class: 'tool' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false', onclick: function () { st.tool = t[0]; st.split = null; L.render(); } },
+        ic(t[1], 19), h('span', null, t[2]));
+    });
+    return h('div', { class: 'toolbar', role: 'toolbar', 'aria-label': 'Ferramentas do estúdio' }, tools, h('span', { class: 'tsep' }),
+      h('button', { class: 'tool', disabled: !st.undo.length, onclick: undoEdit }, ic('Undo2', 19), h('span', null, 'Desfazer')),
+      h('button', { class: 'tool', disabled: !st.redo.length, onclick: redoEdit }, ic('Redo2', 19), h('span', null, 'Refazer')));
+  }
+
+  function toolPanel() {
+    var tg = selTarget();
+    var can = !!tg && canEditKey(tg.key);
+    var chip = tg ? h('span', { class: 'tgt' }, ic(tg.kind === 'track' ? instrumentIcon(tg.label) : 'Mic', 14), tg.label) : null;
+    function hint(t) { return h('span', { class: 'thint' }, t); }
+    function b(text, fn, icon, cls) { return h('button', { class: 'chiptog tbtn2' + (cls ? ' ' + cls : ''), onclick: fn }, icon ? ic(icon, 15) : null, text); }
+    var noPerm = hint('Toque no nome de uma faixa para escolher. Você edita a sua gravação; as faixas da banda, só o líder ou quem tem permissão.');
+    var kids;
+    switch (st.tool) {
+      case 'repetir':
+        kids = [hint(st.loop ? 'Repetindo ' + st.loop.name + '. Arraste nas faixas para marcar outro trecho.' : 'Arraste o dedo nas faixas para marcar o trecho que vai repetir.'),
+          st.loop ? b('Parar de repetir', function () { st.loop = null; L.render(); restartIfPlaying(); }, 'X') : null];
+        break;
+      case 'mover':
+        if (!can) { kids = [chip, noPerm]; break; }
+        var e = rawEdit(tg.key);
+        var nudge = function (ms) { var bf = rawEdit(tg.key), af = rawEdit(tg.key); af.offset_ms = Math.max(-MAX_OFFSET_MS, Math.min(MAX_OFFSET_MS, (af.offset_ms || 0) + ms)); commitEdit(tg.key, bf, af); };
+        kids = [chip, h('span', { class: 'mono hi', style: { fontSize: '13px' } }, ((e.offset_ms || 0) > 0 ? '+' : '') + (e.offset_ms || 0) + ' ms'),
+          b('−100', function () { nudge(-100); }), b('−10', function () { nudge(-10); }), b('+10', function () { nudge(10); }), b('+100', function () { nudge(100); }),
+          (e.offset_ms || 0) ? b('Original', function () { var bf = rawEdit(tg.key), af = rawEdit(tg.key); af.offset_ms = 0; commitEdit(tg.key, bf, af); }, 'RotateCcw') : null,
+          hint('Arraste a faixa para os lados, ou use os botões para o ajuste fino.')];
+        break;
+      case 'cortar':
+        if (!can) { kids = [chip, noPerm]; break; }
+        if (st.split && st.split.key === tg.key) {
+          var sp = st.split;
+          kids = [chip, b('Apagar antes', function () { addCut(sp.key, sp.piece[0], sp.at); }, 'ChevronsLeft', 'danger'),
+            b('Apagar depois', function () { addCut(sp.key, sp.at, sp.piece[1]); }, 'ChevronsRight', 'danger'),
+            b('Cancelar', function () { st.split = null; L.render(); })];
+        } else {
+          var hasCuts = rawEdit(tg.key).cuts.length > 0;
+          kids = [chip, hint('Toque na faixa no ponto do corte; depois escolha o pedaço que sai.'),
+            hasCuts ? b('Voltar os pedaços', function () { var bf = rawEdit(tg.key), af = rawEdit(tg.key); af.cuts = []; commitEdit(tg.key, bf, af); }, 'RotateCcw') : null];
+        }
+        break;
+      case 'aparar':
+        if (!can) { kids = [chip, noPerm]; break; }
+        var ea = rawEdit(tg.key);
+        kids = [chip, hint('Arraste perto do começo ou do fim da faixa para aparar as pontas.'),
+          (ea.trim_start_ms || ea.trim_end_ms !== null) ? b('Pontas originais', function () { var bf = rawEdit(tg.key), af = rawEdit(tg.key); af.trim_start_ms = 0; af.trim_end_ms = null; commitEdit(tg.key, bf, af); }, 'RotateCcw') : null];
+        break;
+      case 'volume':
+        if (!can) { kids = [chip, hint('Para você, o volume vale só no seu fone: use a barrinha de cada faixa.')]; break; }
+        var ev = rawEdit(tg.key);
+        var slider = function (label, val, min, max, step, fmt, field, scale) {
+          var out = h('span', { class: 'mono hi', style: { fontSize: '12px', minWidth: '52px' } }, fmt(val));
+          var r = h('input', { type: 'range', class: 'vol', min: String(min), max: String(max), step: String(step), value: String(val), 'aria-label': label });
+          var before = null;
+          r.addEventListener('pointerdown', function () { before = rawEdit(tg.key); });
+          r.addEventListener('input', function () { var e2 = rawEdit(tg.key); e2[field] = Number(r.value) * scale; out.textContent = fmt(Number(r.value)); previewEdit(tg.key, e2); });
+          r.addEventListener('change', function () { commitEdit(tg.key, before || rawEdit(tg.key), rawEdit(tg.key)); before = null; });
+          return h('label', { class: 'tslider' }, h('span', { class: 'muted small' }, label), r, out);
+        };
+        kids = [chip,
+          slider('Volume da faixa', Number(ev.gain_db || 0), -24, 12, 0.5, function (v) { return (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' dB'; }, 'gain_db', 1),
+          slider('Entrada suave', (ev.fade_in_ms || 0) / 1000, 0, 8, 0.1, function (v) { return v.toFixed(1).replace('.', ',') + ' s'; }, 'fade_in_ms', 1000),
+          slider('Saída suave', (ev.fade_out_ms || 0) / 1000, 0, 8, 0.1, function (v) { return v.toFixed(1).replace('.', ',') + ' s'; }, 'fade_out_ms', 1000),
+          hint('Vale para a banda inteira.')];
+        break;
+      case 'partes':
+        var list = sections();
+        kids = [hint('Escolha o nome para marcar uma parte onde o cursor está (' + L.clock(st.pos) + ').')]
+          .concat(PART_NAMES.map(function (n) { return b(n, function () { addPart(n); }, 'Plus'); }))
+          .concat(list.map(function (sc) {
+            return h('span', { class: 'partchip', style: { borderColor: sc.color } }, h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: sc.color } }), sc.name,
+              h('button', { class: 'xbtn', 'aria-label': 'Apagar a parte ' + sc.name, onclick: function () { delPart(sc.id); } }, ic('X', 13)));
+          }));
+        break;
+      default:
+        kids = [hint('Toque na régua ou nas faixas para escolher de onde tocar. Para editar, escolha uma ferramenta.')];
+    }
+    return h('div', { class: 'toolpanel' }, kids);
+  }
+
+  async function addPart(name) {
+    try {
+      var row = L.must(await sb.from('song_markers').insert({ project_id: st.pid, at_ms: Math.round(st.pos * 1000), end_ms: null, name: name }).select().single());
+      st.markers = st.markers.concat([row]).sort(function (a, b) { return a.at_ms - b.at_ms; });
+      L.toast(name + ' marcado em ' + L.clock(st.pos) + '.');
+      L.render();
+    } catch (e) { L.toast(L.errorText(e)); }
+  }
+  async function delPart(id) {
+    try {
+      L.must(await sb.from('song_markers').delete().eq('id', id));
+      st.markers = st.markers.filter(function (m) { return m.id !== id; });
+      L.render();
+    } catch (e) { L.toast(L.errorText(e)); }
+  }
+
+  /** Toques e arrastos em cima das faixas, conforme a ferramenta. */
+  function laneAt(clientY) {
+    return (st.ui.lanes || []).find(function (l) { var r = l.canvas.parentNode.parentNode.getBoundingClientRect(); return clientY >= r.top && clientY < r.bottom; }) || null;
+  }
+  function wireArea(area) {
+    var drag = null;
+    function timeAt(ev) { var r = area.getBoundingClientRect(); return Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * sessionEnd(); }
+    area.addEventListener('pointerdown', function (ev) {
+      var t = timeAt(ev), lane = laneAt(ev.clientY), key = lane && lane.tg.key, tool = st.tool;
+      area.setPointerCapture(ev.pointerId);
+      if (key && key !== st.sel && tool !== 'cursor' && tool !== 'repetir') { st.sel = key; st.split = null; markSelected(); }
+      var editable = key && canEditKey(key);
+      if (tool === 'repetir') drag = { kind: 'loop', t0: t };
+      else if (tool === 'mover' && editable) drag = { kind: 'move', key: key, t0: t, before: rawEdit(key) };
+      else if (tool === 'aparar' && editable) {
+        var r = region(lane.tg, editOf(key));
+        drag = { kind: Math.abs(t - r.start) < Math.abs(t - r.end) ? 'trimA' : 'trimB', key: key, before: rawEdit(key), shift: r.shift };
+      } else if (tool === 'cortar' && editable) drag = { kind: 'cut', key: key, t0: t, lane: lane };
+      else { drag = { kind: 'seek' }; dawSeek(ev, area); }
+    });
+    area.addEventListener('pointermove', function (ev) {
+      if (!drag) return;
+      var t = timeAt(ev);
+      if (drag.kind === 'seek') dawSeek(ev, area);
+      else if (drag.kind === 'loop') {
+        var a = Math.min(drag.t0, t), b = Math.max(drag.t0, t);
+        if (b - a > 0.05) { st.loop = { a: a, b: b, name: 'o trecho escolhido' }; drawDaw(); }
+      } else if (drag.kind === 'move') {
+        var e = rawEdit(drag.key);
+        e.offset_ms = Math.max(-MAX_OFFSET_MS, Math.min(MAX_OFFSET_MS, Math.round((drag.before.offset_ms || 0) + (t - drag.t0) * 1000)));
+        previewEdit(drag.key, e);
+      } else if (drag.kind === 'trimA' || drag.kind === 'trimB') {
+        var e2 = rawEdit(drag.key), fileMs = (t - drag.shift) * 1000, dur = durMs(drag.key);
+        var endMs = e2.trim_end_ms === null || e2.trim_end_ms === undefined ? dur : e2.trim_end_ms;
+        if (drag.kind === 'trimA') e2.trim_start_ms = Math.round(Math.max(0, Math.min(endMs - 250, fileMs)));
+        else { var v = Math.round(Math.min(dur, Math.max((e2.trim_start_ms || 0) + 250, fileMs))); e2.trim_end_ms = v >= dur ? null : v; }
+        previewEdit(drag.key, e2);
+      }
+    });
+    function end(ev, cancel) {
+      if (!drag) return;
+      var d = drag; drag = null;
+      if (cancel) return;
+      var t = timeAt(ev);
+      if (d.kind === 'seek') {
+        if (st.loop && st.tool === 'cursor') { var sc = sectionAt(t); if (sc) st.loop = { a: sc.start, b: sc.end, name: sc.name }; }
+        seek(t); if (st.loop) L.render();
+      } else if (d.kind === 'loop') {
+        if (!st.loop || st.loop.b - st.loop.a < 0.25) st.loop = null;
+        L.render(); restartIfPlaying();
+      } else if (d.kind === 'move' || d.kind === 'trimA' || d.kind === 'trimB') {
+        commitEdit(d.key, d.before, rawEdit(d.key));
+      } else if (d.kind === 'cut') {
+        var r = region(d.lane.tg, editOf(d.key)), at = (t - r.shift) * 1000;
+        var piece = pieces(rawEdit(d.key), durMs(d.key)).find(function (p) { return at > p[0] + 30 && at < p[1] - 30; });
+        if (!piece) { L.toast('Toque em cima da faixa, onde tem som.'); return; }
+        st.split = { key: d.key, at: Math.round(at), piece: piece };
+        L.render();
+      }
+    }
+    area.addEventListener('pointerup', function (ev) { end(ev, false); });
+    area.addEventListener('pointercancel', function (ev) { end(ev, true); });
+  }
+  function markSelected() {
+    (st.ui.lanes || []).forEach(function (l) { l.canvas.parentNode.parentNode.classList.toggle('sel', l.tg.key === st.sel); });
+  }
+
   // ------------------------------------------------------------------ Tela
   L.screen('studio', function (route) {
     if (!st || st.pid !== route.id) { if (st) pause(); load(route.id); }
@@ -454,6 +728,11 @@
       h('div', { class: 'col grow', style: { gap: '2px', minWidth: 0 } }, h('div', { class: 'row', style: { gap: '6px' } }, u.secDot, u.secName),
         h('span', { class: 'tiny', style: { letterSpacing: '1px', color: st.loop ? 'var(--accent-text)' : 'var(--muted)' } }, st.loop ? 'REPETINDO · ' + st.loop.name.toUpperCase() : 'PARTE'))));
 
+    // Ferramentas (como numa DAW), em cima das partes.
+    selTarget();
+    body.appendChild(toolbar());
+    body.appendChild(toolPanel());
+
     // Partes: atalhos para pular.
     var list = sections();
     if (list.length) {
@@ -498,16 +777,15 @@
             st.solo[tg.key] = !solo; applyGains(); L.render();
           } }, 'S'),
           range, loaded ? pct : h('span', { class: 'muted pct', style: { fontSize: '11px', flex: 'none' } }, '…')));
-      return h('div', { class: 'lane' + (off ? ' off' : '') + (tg.kind !== 'track' ? ' voice' : '') }, head, h('div', { class: 'lwave' }, canvas));
+      // Tocar no nome escolhe a faixa que as ferramentas vão editar.
+      head.addEventListener('click', function (ev) { if (ev.target.closest('button, input')) return; st.sel = tg.key; st.split = null; L.render(); });
+      return h('div', { class: 'lane' + (off ? ' off' : '') + (tg.kind !== 'track' ? ' voice' : '') + (st.sel === tg.key ? ' sel' : '') }, head, h('div', { class: 'lwave' }, canvas));
     });
     u.ruler = h('canvas');
     u.head = h('span', { class: 'dawhead' });
     var area = h('div', { class: 'dawarea', role: 'slider', 'aria-label': 'Posição na música' }, u.head);
-    var dragging = false;
-    area.addEventListener('pointerdown', function (ev) { dragging = true; area.setPointerCapture(ev.pointerId); dawSeek(ev, area); });
-    area.addEventListener('pointermove', function (ev) { if (dragging) dawSeek(ev, area); });
-    area.addEventListener('pointerup', function (ev) { if (!dragging) return; dragging = false; var t = dawSeek(ev, area); if (st.loop) { var sc = sectionAt(t); if (sc) st.loop = { a: sc.start, b: sc.end, name: sc.name }; } seek(t); if (st.loop) L.render(); });
-    area.addEventListener('pointercancel', function () { dragging = false; });
+    wireArea(area);
+    area.dataset.tool = st.tool;
     body.appendChild(h('div', { class: 'row' }, U.label('Faixas'), h('span', { class: 'grow' }),
       U.textBtn('Volume original', function () { st.mix = {}; st.solo = {}; saveMix(); applyGains(); L.render(); })));
     body.appendChild(h('div', { class: 'daw' },

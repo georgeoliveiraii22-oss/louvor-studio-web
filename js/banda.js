@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.3.0', [
+      'Ferramentas no estúdio do site, como no app: Cursor, Repetir, Mover, Cortar, Aparar, Volume e Partes (só o líder), com Desfazer e Refazer.',
+      'Cada um edita a própria gravação; as faixas da banda, o líder ou quem tem permissão. O arquivo original nunca muda.'
+    ]],
     ['1.2.0', [
       'Estúdio como uma DAW: cada faixa na sua linha, com a onda dela, o volume, o mudo e o solo. O cursor de tempo atravessa todas e a régua mostra as partes.'
     ]],
