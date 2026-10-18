@@ -92,27 +92,29 @@
     return out;
   }
 
-  // Desenho da música inteira: o mais alto de todas as faixas da base em cada coluna.
-  function computeWave() {
+  // Desenho de cada faixa (como numa DAW): o pico de cada coluna, na linha do tempo da sessão.
+  function computeWave() { st.waves = {}; }
+  function waveOf(tg) {
+    st.waves = st.waves || {};
+    if (st.waves[tg.key]) return st.waves[tg.key];
+    var buf = st.buffers[tg.key];
+    if (!buf) return null;
     var end = sessionEnd(), wave = new Float32Array(BINS);
-    targets().forEach(function (tg) {
-      var buf = st.buffers[tg.key];
-      if (!buf || tg.kind !== 'track') return;
-      var r = region(tg, editOf(tg.key)), data = buf.getChannelData(0), rate = buf.sampleRate;
-      for (var i = 0; i < BINS; i++) {
-        var t0 = i / BINS * end, t1 = (i + 1) / BINS * end;
-        var a = Math.max(t0, r.start), b = Math.min(t1, r.end);
-        if (b <= a) continue;
-        var s0 = Math.floor((a - r.shift + r.lead) * rate), s1 = Math.min(data.length, Math.floor((b - r.shift + r.lead) * rate));
-        var step = Math.max(1, Math.floor((s1 - s0) / 200)), max = 0;
-        for (var j = Math.max(0, s0); j < s1; j += step) { var v = Math.abs(data[j]); if (v > max) max = v; }
-        if (max > wave[i]) wave[i] = max;
-      }
-    });
+    var r = region(tg, editOf(tg.key)), data = buf.getChannelData(0), rate = buf.sampleRate;
+    for (var i = 0; i < BINS; i++) {
+      var t0 = i / BINS * end, t1 = (i + 1) / BINS * end;
+      var a = Math.max(t0, r.start), b = Math.min(t1, r.end);
+      if (b <= a) continue;
+      var s0 = Math.floor((a - r.shift + r.lead) * rate), s1 = Math.min(data.length, Math.floor((b - r.shift + r.lead) * rate));
+      var step = Math.max(1, Math.floor((s1 - s0) / 200)), max = 0;
+      for (var j = Math.max(0, s0); j < s1; j += step) { var v = Math.abs(data[j]); if (v > max) max = v; }
+      wave[i] = max;
+    }
     var peak = 0;
     for (var k = 0; k < BINS; k++) peak = Math.max(peak, wave[k]);
     if (peak > 0) for (var m = 0; m < BINS; m++) wave[m] /= peak;
-    st.wave = wave;
+    st.waves[tg.key] = wave;
+    return wave;
   }
 
   async function load(pid) {
@@ -307,46 +309,77 @@
       if (u.lyric) L.fill(u.lyric, lyricNodes());
       highlightPart(s);
     }
-    drawOverview();
+    placeHead();
   }
 
   function highlightPart(s) {
     (st.ui.parts || []).forEach(function (b) { b.classList.toggle('on', !!s && b.dataset.id === s.id); });
   }
 
-  function drawOverview() {
-    var c = st.ui.canvas;
-    if (!c) return;
+  function fitCanvas(c) {
     var dpr = window.devicePixelRatio || 1, w = c.clientWidth, hh = c.clientHeight;
-    if (!w) return;
-    if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(hh * dpr); }
+    if (!w || !hh) return null;
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(hh * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(hh * dpr); }
     var g = c.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, hh);
-    var end = sessionEnd(), x = function (t) { return t / end * w; };
-    var top = 20, mid = top + (hh - top) / 2, amp = (hh - top) / 2 - 4;
-    sections().forEach(function (s) {
-      g.fillStyle = s.color; g.globalAlpha = 0.85;
-      g.fillRect(x(s.start) + 0.5, 2, Math.max(1, x(s.end) - x(s.start) - 1), 15);
-      g.globalAlpha = 1;
-      if (x(s.end) - x(s.start) > 26) { g.fillStyle = '#050B12'; g.font = '600 10px Geist, system-ui, sans-serif'; g.fillText(s.name, x(s.start) + 4, 13, x(s.end) - x(s.start) - 6); }
-    });
-    if (st.loop) { g.fillStyle = 'rgba(8,169,245,0.16)'; g.fillRect(x(st.loop.a), top, x(st.loop.b) - x(st.loop.a), hh - top); }
-    var px = x(st.pos);
-    if (st.wave) {
-      var bw = w / BINS;
-      for (var i = 0; i < BINS; i++) {
-        var v = Math.max(0.02, st.wave[i]) * amp;
-        g.fillStyle = i * bw < px ? '#08A9F5' : '#24485F';
-        g.fillRect(i * bw, mid - v, Math.max(1, bw - 0.6), v * 2);
-      }
-    }
-    g.fillStyle = '#F5FAFF';
-    g.fillRect(Math.min(w - 2, Math.max(0, px - 1)), 0, 2, hh);
+    return { g: g, w: w, h: hh };
   }
 
-  function overviewSeek(ev) {
-    var c = st.ui.canvas, r = c.getBoundingClientRect();
+  /** Régua: as partes coloridas, as marcas de tempo e o trecho que está repetindo. */
+  function drawRuler() {
+    var c = st.ui.ruler;
+    var f = c && fitCanvas(c);
+    if (!f) return;
+    var g = f.g, w = f.w, hh = f.h, end = sessionEnd(), x = function (t) { return t / end * w; };
+    sections().forEach(function (sc) {
+      g.fillStyle = sc.color; g.globalAlpha = 0.9;
+      g.fillRect(x(sc.start) + 0.5, 3, Math.max(1, x(sc.end) - x(sc.start) - 1), 17);
+      g.globalAlpha = 1;
+      if (x(sc.end) - x(sc.start) > 28) { g.fillStyle = '#050B12'; g.font = '600 10px Geist, system-ui, sans-serif'; g.fillText(sc.name, x(sc.start) + 4, 15, x(sc.end) - x(sc.start) - 6); }
+    });
+    // Marcas de tempo com espaço para o número (mais espaçadas em tela estreita).
+    var stepS = [5, 10, 15, 30, 60, 120].find(function (v) { return v / end * w >= 44; }) || 120;
+    g.fillStyle = '#8FA9BF'; g.font = '500 10px "Geist Mono", ui-monospace, monospace';
+    for (var t = 0; t <= end; t += stepS) {
+      g.fillRect(Math.round(x(t)), hh - 7, 1, 7);
+      if (x(t) + 30 < w) g.fillText(L.clock(t), x(t) + 3, hh - 1);
+    }
+    if (st.loop) { g.fillStyle = 'rgba(8,169,245,0.22)'; g.fillRect(x(st.loop.a), 22, x(st.loop.b) - x(st.loop.a), hh - 22); }
+  }
+
+  /** Onda de uma faixa, na cor dela. */
+  function drawLane(tg, c) {
+    var f = fitCanvas(c);
+    if (!f) return;
+    var g = f.g, w = f.w, hh = f.h, wave = waveOf(tg);
+    var color = tg.kind === 'track' ? U.colorFor(tg.key) : '#63D4FF';
+    if (st.loop) { var end = sessionEnd(); g.fillStyle = 'rgba(8,169,245,0.10)'; g.fillRect(st.loop.a / end * w, 0, (st.loop.b - st.loop.a) / end * w, hh); }
+    if (!wave) { g.fillStyle = 'rgba(220,232,242,0.08)'; g.fillRect(0, hh / 2 - 1, w, 2); return; }
+    var mid = hh / 2, amp = hh / 2 - 4, bw = w / BINS;
+    g.fillStyle = color;
+    for (var i = 0; i < BINS; i++) {
+      var v = Math.max(0.015, wave[i]) * amp;
+      g.fillRect(i * bw, mid - v, Math.max(1, bw - 0.5), v * 2);
+    }
+  }
+
+  function drawDaw() {
+    var u = st.ui;
+    if (!u.ruler) return;
+    drawRuler();
+    (u.lanes || []).forEach(function (l) { drawLane(l.tg, l.canvas); });
+    placeHead();
+  }
+
+  /** Cursor de tempo: uma linha só, que atravessa a régua e todas as faixas. */
+  function placeHead() {
+    var hd = st.ui.head;
+    if (hd) hd.style.left = (Math.max(0, Math.min(1, st.pos / sessionEnd())) * 100) + '%';
+  }
+
+  function dawSeek(ev, area) {
+    var r = area.getBoundingClientRect();
     var t = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * sessionEnd();
     st.pos = t;
     paintPosition();
@@ -421,16 +454,6 @@
       h('div', { class: 'col grow', style: { gap: '2px', minWidth: 0 } }, h('div', { class: 'row', style: { gap: '6px' } }, u.secDot, u.secName),
         h('span', { class: 'tiny', style: { letterSpacing: '1px', color: st.loop ? 'var(--accent-text)' : 'var(--muted)' } }, st.loop ? 'REPETINDO · ' + st.loop.name.toUpperCase() : 'PARTE'))));
 
-    // Linha do tempo: tocar ou arrastar muda o cursor (não começa a tocar).
-    u.canvas = h('canvas');
-    var ov = h('div', { class: 'overview', role: 'slider', 'aria-label': 'Posição na música' }, u.canvas);
-    var dragging = false;
-    ov.addEventListener('pointerdown', function (ev) { dragging = true; ov.setPointerCapture(ev.pointerId); overviewSeek(ev); });
-    ov.addEventListener('pointermove', function (ev) { if (dragging) overviewSeek(ev); });
-    ov.addEventListener('pointerup', function (ev) { if (!dragging) return; dragging = false; var t = overviewSeek(ev); if (st.loop) { var sc = sectionAt(t); if (sc) st.loop = { a: sc.start, b: sc.end, name: sc.name }; } seek(t); if (st.loop) L.render(); });
-    ov.addEventListener('pointercancel', function () { dragging = false; });
-    body.appendChild(ov);
-
     // Partes: atalhos para pular.
     var list = sections();
     if (list.length) {
@@ -444,10 +467,13 @@
 
     if (st.lyrics) { u.lyric = h('div', { class: 'lyric col', style: { gap: '2px' } }, lyricNodes()); body.appendChild(u.lyric); }
 
-    // Faixas: volume, mudo e solo (vale só neste aparelho).
-    var rows = targets().map(function (tg) {
+    // Faixas como numa DAW: uma linha para cada faixa, com a onda dela e o volume dela.
+    // Tocar ou arrastar na régua ou nas ondas muda o cursor (não começa a tocar).
+    var gone = anySolo();
+    u.lanes = [];
+    var laneRows = targets().map(function (tg) {
       var vol = volOf(tg.key), muted = mutedOf(tg.key), solo = !!st.solo[tg.key];
-      var pct = h('span', { class: 'mono muted small', style: { width: '40px', textAlign: 'right' } }, vol + '%');
+      var pct = h('span', { class: 'mono muted pct', style: { fontSize: '11px', width: '34px', textAlign: 'right', flex: 'none' } }, vol + '%');
       var range = h('input', { type: 'range', class: 'vol', min: '0', max: '150', step: '1', value: String(vol), 'aria-label': 'Volume de ' + tg.label, style: { '--p': (vol / 150 * 100) + '%' } });
       range.addEventListener('input', function () {
         var v = Number(range.value);
@@ -456,22 +482,37 @@
       });
       range.addEventListener('change', saveMix);
       var loaded = !!st.buffers[tg.key];
-      return h('div', { class: 'track' },
-        h('span', { style: { color: tg.kind === 'track' ? U.colorFor(tg.key) : 'var(--accent-text)', flex: 'none' } }, ic(tg.kind === 'track' ? instrumentIcon(tg.label) : 'Mic', 18)),
-        h('div', { class: 'col grow', style: { gap: 0, minWidth: 0 } },
-          h('div', { class: 'row', style: { gap: '6px' } }, h('span', { class: 'nm ell grow' }, tg.label), loaded ? pct : h('span', { class: 'muted small' }, 'baixando…')),
-          range),
-        h('button', { class: 'mini' + (muted ? ' m' : ''), 'aria-pressed': muted ? 'true' : 'false', 'aria-label': 'Mudo de ' + tg.label, onclick: function () {
-          if (muted) delete st.mix['m:' + tg.key]; else st.mix['m:' + tg.key] = 1;
-          saveMix(); applyGains(); L.render();
-        } }, 'M'),
-        h('button', { class: 'mini' + (solo ? ' s' : ''), 'aria-pressed': solo ? 'true' : 'false', 'aria-label': 'Solo de ' + tg.label, onclick: function () {
-          st.solo[tg.key] = !solo; applyGains(); L.render();
-        } }, 'S'));
+      var canvas = h('canvas');
+      u.lanes.push({ tg: tg, canvas: canvas });
+      var off = muted || (gone && !solo);
+      var head = h('div', { class: 'lhead' },
+        h('div', { class: 'row', style: { gap: '6px', minWidth: 0 } },
+          h('span', { style: { color: tg.kind === 'track' ? U.colorFor(tg.key) : 'var(--accent-light)', flex: 'none' } }, ic(tg.kind === 'track' ? instrumentIcon(tg.label) : 'Mic', 15)),
+          h('span', { class: 'nm ell grow' }, tg.label)),
+        h('div', { class: 'row', style: { gap: '5px' } },
+          h('button', { class: 'mini' + (muted ? ' m' : ''), 'aria-pressed': muted ? 'true' : 'false', 'aria-label': 'Mudo de ' + tg.label, onclick: function () {
+            if (muted) delete st.mix['m:' + tg.key]; else st.mix['m:' + tg.key] = 1;
+            saveMix(); applyGains(); L.render();
+          } }, 'M'),
+          h('button', { class: 'mini' + (solo ? ' s' : ''), 'aria-pressed': solo ? 'true' : 'false', 'aria-label': 'Solo de ' + tg.label, onclick: function () {
+            st.solo[tg.key] = !solo; applyGains(); L.render();
+          } }, 'S'),
+          range, loaded ? pct : h('span', { class: 'muted pct', style: { fontSize: '11px', flex: 'none' } }, '…')));
+      return h('div', { class: 'lane' + (off ? ' off' : '') + (tg.kind !== 'track' ? ' voice' : '') }, head, h('div', { class: 'lwave' }, canvas));
     });
+    u.ruler = h('canvas');
+    u.head = h('span', { class: 'dawhead' });
+    var area = h('div', { class: 'dawarea', role: 'slider', 'aria-label': 'Posição na música' }, u.head);
+    var dragging = false;
+    area.addEventListener('pointerdown', function (ev) { dragging = true; area.setPointerCapture(ev.pointerId); dawSeek(ev, area); });
+    area.addEventListener('pointermove', function (ev) { if (dragging) dawSeek(ev, area); });
+    area.addEventListener('pointerup', function (ev) { if (!dragging) return; dragging = false; var t = dawSeek(ev, area); if (st.loop) { var sc = sectionAt(t); if (sc) st.loop = { a: sc.start, b: sc.end, name: sc.name }; } seek(t); if (st.loop) L.render(); });
+    area.addEventListener('pointercancel', function () { dragging = false; });
     body.appendChild(h('div', { class: 'row' }, U.label('Faixas'), h('span', { class: 'grow' }),
       U.textBtn('Volume original', function () { st.mix = {}; st.solo = {}; saveMix(); applyGains(); L.render(); })));
-    body.appendChild(h('div', { class: 'tracks' }, rows));
+    body.appendChild(h('div', { class: 'daw' },
+      h('div', { class: 'lane rulerlane' }, h('div', { class: 'lhead' }, h('span', { class: 'muted tiny', style: { letterSpacing: '0.06em' } }, 'PARTES · TEMPO')), h('div', { class: 'lwave' }, u.ruler)),
+      laneRows, area));
     if (st.otherTakes.length && !st.voices.length) {
       body.appendChild(U.btn2('Ouvir as vozes para estudar', 'Users', voicesSheet, { full: true }));
     }
@@ -485,7 +526,7 @@
       tbtn('ChevronsRight', 'Avançar', function () { jump(1); }),
       tbtn('Repeat', 'Repetir', toggleLoop, st.loop ? 'on' : '')));
 
-    requestAnimationFrame(function () { if (st && st.ui === u) drawOverview(); });
+    requestAnimationFrame(function () { if (st && st.ui === u) drawDaw(); });
     return root;
   });
 

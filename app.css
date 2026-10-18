@@ -396,6 +396,25 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 .tbtn.big .c { width: 62px; height: 62px; background: var(--gradient); color: var(--on-accent); }
 .tbtn.on { color: var(--accent-light); }
 .tbtn.on .c { background: var(--sel); color: var(--accent-light); }
+/* Faixas como numa DAW: cabeça (nome, M, S, volume) e a onda de cada faixa; um cursor atravessa tudo. */
+.daw { --hw: 150px; position: relative; display: flex; flex-direction: column; background: var(--panel); border-radius: var(--r-group); overflow: hidden; }
+.lane { display: grid; grid-template-columns: var(--hw) minmax(0, 1fr); min-height: 64px; position: relative; }
+.lane + .lane::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--line); z-index: 1; }
+.lane .lhead { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 6px 8px 6px 10px; background: rgba(5, 11, 18, 0.25); box-shadow: inset -1px 0 0 var(--line); min-width: 0; }
+.lane .lhead .nm { font-size: 13px; font-weight: 600; color: var(--hi); }
+.lane .lhead .mini { width: 26px; height: 24px; border-radius: 7px; font-size: 11px; flex: none; }
+.lane .lhead .pct { display: none; }
+.lane .lhead input[type=range].vol { height: 18px; flex: 1; min-width: 0; }
+.lane .lwave { position: relative; background: #071724; }
+.lane .lwave canvas { position: absolute; inset: 6px 0; width: 100%; height: calc(100% - 12px); }
+.lane.voice .lwave { background: #0A2236; }
+.lane.off .lwave canvas, .lane.off .lhead .nm { opacity: 0.35; }
+.rulerlane { min-height: 40px; }
+.rulerlane .lhead { justify-content: flex-end; padding-bottom: 6px; }
+.rulerlane .lwave canvas { inset: 2px 0; height: calc(100% - 4px); }
+.dawarea { position: absolute; top: 0; bottom: 0; left: var(--hw); right: 0; z-index: 2; touch-action: none; cursor: pointer; }
+.dawhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--hi); box-shadow: 0 0 8px rgba(245, 250, 255, 0.5); pointer-events: none; }
+.dawhead::before { content: ""; position: absolute; top: 0; left: -5px; border: 6px solid transparent; border-top: 8px solid var(--hi); }
 .lyric { background: var(--panel); border-radius: var(--r-group); padding: 14px 16px; }
 .lyric .bt { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 6px; }
 .lyric .ln { color: var(--hi); font-size: 17px; line-height: 25px; }
@@ -474,6 +493,12 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
   .studio .scroll:has(> .lyric) > * { grid-column: 1; }
   .studio .scroll > .lyric { grid-column: 2; grid-row: 1 / span 9; position: sticky; top: 72px; max-height: calc(100dvh - 200px); overflow-y: auto; align-self: start; }
   .overview { height: 120px; }
+  .daw { --hw: 250px; }
+  .lane { min-height: 76px; }
+  .lane .lhead { padding: 8px 12px 8px 14px; }
+  .lane .lhead .nm { font-size: 14px; }
+  .lane .lhead .mini { width: 30px; height: 26px; }
+  .lane .lhead .pct { display: inline; }
   .transport { left: calc(var(--side) + 32px); right: 32px; max-width: 760px; margin: 0 auto; }
   .frame:not(.has-side) .transport { left: 32px; }
   .frame.has-side .wizfoot { margin: 0; }
@@ -566,9 +591,9 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 .fx-ink .fx-pen path { fill: none; stroke: #63D4FF; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(99, 212, 255, 0.5)); }
 .fx-confetti { position: absolute; inset: 0; width: 100%; height: 100%; }
 .fx-mark { position: absolute; border-radius: 6px; background: linear-gradient(90deg, rgba(255, 181, 71, 0.34), rgba(255, 181, 71, 0.22)); mix-blend-mode: screen; }
-.finger { position: absolute; left: 0; top: 0; width: 40px; height: 40px; opacity: 0; }
-.finger i { display: block; width: 100%; height: 100%; border-radius: 50%;
-  background: radial-gradient(circle, rgba(245, 250, 255, 0.55), rgba(245, 250, 255, 0.18) 60%, transparent 72%); box-shadow: 0 0 0 2px rgba(245, 250, 255, 0.7), 0 6px 16px rgba(0, 0, 0, 0.45); }
+.finger { position: absolute; left: 0; top: 0; width: 26px; height: 26px; opacity: 0; z-index: 3; }
+.finger i { display: block; width: 26px; height: 26px; transform-origin: 5px 3px; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55)); }
+.finger i svg { display: block; }
 .fx-ring { position: absolute; width: 44px; height: 44px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(245, 250, 255, 0.85); }
 .fx-ring.wide { border-radius: 9999px; box-shadow: 0 0 0 2px rgba(99, 212, 255, 0.9), 0 0 18px rgba(8, 169, 245, 0.5); }
 .fx-tip { position: absolute; width: 220px; padding: 9px 12px; border-radius: 12px; background: var(--hi); color: var(--on-accent); font-size: 13px; font-weight: 700; text-align: center;
@@ -628,8 +653,24 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 .ad-parts span { border-radius: 4px; font-size: 9.5px; font-weight: 700; color: #071724; padding: 1px 4px; overflow: hidden; white-space: nowrap; }
 .ad-wave { position: absolute; left: 6px; right: 6px; top: 28px; bottom: 6px; display: flex; align-items: center; gap: 2px; }
 .ad-wave i { flex: 1; border-radius: 2px; background: #24485F; }
-.ad-playhead { position: absolute; left: 0; top: 2px; bottom: 2px; width: 2px; border-radius: 1px; background: var(--hi); }
-.ad-tracks { flex: none; }
+.ad-playhead { position: absolute; left: 0; top: 0; bottom: 0; width: 2px; border-radius: 1px; background: var(--hi); box-shadow: 0 0 6px rgba(245, 250, 255, 0.5); z-index: 2; }
+.ad-daw { position: relative; flex: none; border-radius: 14px; background: var(--panel); overflow: hidden; }
+.ad-tracks { display: flex; flex-direction: column; }
+.ad-lane { display: grid; grid-template-columns: 112px minmax(0, 1fr); min-height: 46px; position: relative; transition: opacity 260ms ease; }
+.ad-lane + .ad-lane::before, .ad-tracks .ad-lane:first-child::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--line); }
+.ad-lh { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 5px 8px; background: rgba(5, 11, 18, 0.28); box-shadow: inset -1px 0 0 var(--line); min-width: 0; color: var(--muted); }
+.ad-lh .ad-rt { font-size: 12px; }
+.ad-lh .mini { width: 24px; height: 20px; border-radius: 6px; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; }
+.ad-vol { flex: 1; height: 3px; border-radius: 2px; background: rgba(220, 232, 242, 0.14); position: relative; }
+.ad-vol i { position: absolute; left: 0; top: 0; bottom: 0; width: 66%; border-radius: 2px; background: var(--accent-deep); }
+.ad-lw { display: flex; align-items: center; gap: 1.5px; padding: 0 4px; background: #071724; }
+.ad-lw i { flex: 1; border-radius: 1px; opacity: 0.85; }
+.ad-lane.ruler { min-height: 26px; }
+.ad-lane.ruler .ad-lh { padding: 0 8px; }
+.ad-lane.ruler .ad-parts { display: flex; gap: 2px; height: 16px; margin: 5px 4px; }
+.ad-lane.mine .ad-lh { background: var(--sel); }
+.ad-lane.mine .ad-rt { color: var(--accent-light); }
+.ad-lane.dim { opacity: 0.38; }
 .ad-track { display: flex; align-items: center; gap: 10px; padding: 7px 10px 7px 12px; min-height: 48px; position: relative; color: var(--muted); transition: opacity 260ms ease, background-color 260ms ease; }
 .ad-track + .ad-track::before { content: ""; position: absolute; top: 0; left: 12px; right: 0; height: 1px; background: var(--line); }
 .ad-track .mini { width: 32px; height: 32px; border-radius: 10px; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; }

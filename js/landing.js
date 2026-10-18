@@ -216,8 +216,8 @@
     // Camada de efeitos por cima da tela (não é afetada pelo zoom).
     var spot = h('div', { class: 'fx-spot' });
     var ink = document.createElementNS(SVGNS, 'svg'); ink.setAttribute('class', 'fx-ink');
-    // O dedo: o de fora anda (posição); o de dentro afunda no toque (assim o aperto não muda a posição).
-    var fingerTip = h('i');
+    // O cursor do mouse: o de fora anda (posição); o de dentro "clica" (assim o clique não muda a posição).
+    var fingerTip = h('i', { html: '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M4.5 2.8v16.4l4.3-4.1 2.8 6.3 3-1.3-2.8-6.2h6z" fill="#F5FAFF" stroke="#050B12" stroke-width="1.5" stroke-linejoin="round"/></svg>' });
     var finger = h('span', { class: 'finger' }, fingerTip);
     var tip = h('div', { class: 'fx-tip' });
     var confettiCanvas = h('canvas', { class: 'fx-confetti' });
@@ -233,13 +233,13 @@
     var fpos = { x: -100, y: -100 }, calmAt = 0;
     /** Põe o dedo no centro do ponto p (com ou sem viagem). */
     function place(p, ms) {
-      fpos = { x: p.cx - 20, y: p.cy - 20 };
+      fpos = { x: p.cx - 5, y: p.cy - 3 };
       finger.style.transition = (ms ? 'transform ' + ms + 'ms ' + EASE_MOVE + ', ' : '') + 'opacity 200ms ease-out';
       finger.style.transform = 'translate(' + fpos.x.toFixed(1) + 'px, ' + fpos.y.toFixed(1) + 'px)';
     }
     function settle(el) {
       var p = rel(el);
-      if (Math.abs(p.cx - 20 - fpos.x) < 1 && Math.abs(p.cy - 20 - fpos.y) < 1) return Promise.resolve();
+      if (Math.abs(p.cx - 5 - fpos.x) < 1 && Math.abs(p.cy - 3 - fpos.y) < 1) return Promise.resolve();
       place(p, 140);
       return new Promise(function (res) { setTimeout(res, 150); });
     }
@@ -291,7 +291,7 @@
       press: function (el) {
         var p = rel(el);
         place(p, 0);
-        fingerTip.animate([{ transform: 'scale(1)' }, { transform: 'scale(0.78)' }, { transform: 'scale(1)' }], { duration: 240, easing: 'ease-out' });
+        fingerTip.animate([{ transform: 'scale(1)' }, { transform: 'scale(0.86)' }, { transform: 'scale(1)' }], { duration: 200, easing: 'ease-out' });
         var ring = h('span', { class: 'fx-ring', style: { left: p.cx + 'px', top: p.cy + 'px' } });
         box.lastChild.appendChild(ring);
         ring.animate([{ opacity: 0.8, transform: 'translate(-50%, -50%) scale(0.4)' }, { opacity: 0, transform: 'translate(-50%, -50%) scale(1.6)' }], { duration: 460, easing: 'ease-out' })
@@ -596,21 +596,33 @@
     var partDot = h('span', { class: 'dot', style: { width: '9px', height: '9px', background: STUDIO_PARTS[0][2] } });
     var partName = h('span', { class: 'hi semi' }, STUDIO_PARTS[0][0]);
     var head = h('span', { class: 'ad-playhead' });
-    var bars = [];
-    for (var i = 0; i < 64; i++) {
-      var x = i / 64, v = 0.25 + 0.75 * Math.abs(Math.sin(x * 19) * 0.6 + Math.sin(x * 47) * 0.4) * (x < 0.12 ? 0.45 : x > 0.36 && x < 0.56 ? 1 : 0.75);
-      bars.push(h('i', { style: { height: Math.round(10 + v * 34) + 'px' } }));
+    /** Onda de uma faixa (desenho de exemplo, diferente para cada instrumento). */
+    function laneWave(seed, color, quiet) {
+      var bars = [];
+      for (var i = 0; i < 48; i++) {
+        var x = i / 48, sec = x < 0.12 ? 0.35 : x > 0.36 && x < 0.56 ? 1 : x > 0.72 && x < 0.84 ? 0.5 : 0.75;
+        var v = Math.abs(Math.sin(x * (11 + seed * 3) + seed) * 0.6 + Math.sin(x * (31 + seed * 5)) * 0.4) * sec * (quiet && x < 0.12 ? 0.1 : 1);
+        bars.push(h('i', { style: { height: Math.round(3 + v * 22) + 'px', background: color } }));
+      }
+      return h('span', { class: 'ad-lw' }, bars);
     }
-    var ov = h('div', { class: 'ad-ov' }, h('div', { class: 'ad-parts' }, STUDIO_PARTS.map(function (p) { return h('span', { style: { flex: p[1] + ' 1 0', background: p[2] } }, p[0]); })),
-      h('div', { class: 'ad-wave' }, bars), head);
+    var ov = h('div', { class: 'ad-daw' },
+      h('div', { class: 'ad-lane ruler' }, h('span', { class: 'ad-lh' }, h('span', { class: 'ad-rs' }, 'Partes')),
+        h('span', { class: 'ad-parts' }, STUDIO_PARTS.map(function (p) { return h('span', { style: { flex: p[1] + ' 1 0', background: p[2] } }, p[0]); }))));
     var playBtn = h('span', { class: 'ad-play' }, ic('Play', 26));
     var voicesBtn = h('span', { class: 'ad-icon' }, ic('Users', 20));
-    var tracks = h('div', { class: 'tracks ad-tracks' });
-    function trackRow(icon, name, mine) {
+    var tracks = h('div', { class: 'ad-tracks' });
+    ov.appendChild(tracks);
+    ov.appendChild(head);
+    var COLORS = ['#E9A863', '#B7D46B', '#9BA7EC', '#7DBAE4', '#63D4FF'];
+    /** Uma faixa como numa DAW: nome, M e S à esquerda e a onda dela à direita. */
+    function trackRow(icon, name, mine, n) {
       var s = h('span', { class: 'mini' }, 'S');
-      var nm = h('span', { class: 'grow ad-rt ell' }, name);
-      var row = h('div', { class: 'ad-track' + (mine ? ' mine' : '') }, ic(icon, 16), nm,
-        h('span', { class: 'ad-meter' }, h('i'), h('i'), h('i'), h('i'), h('i')), h('span', { class: 'mini' }, 'M'), s);
+      var nm = h('span', { class: 'ad-rt ell' }, name);
+      var row = h('div', { class: 'ad-lane' + (mine ? ' mine' : '') },
+        h('span', { class: 'ad-lh' }, h('span', { class: 'row', style: { gap: '5px', minWidth: 0 } }, ic(icon, 14), nm),
+          h('span', { class: 'row', style: { gap: '4px' } }, h('span', { class: 'mini' }, 'M'), s, h('span', { class: 'ad-vol' }, h('i')))),
+        laneWave(n + 1, COLORS[n % COLORS.length], name === 'Voz guia' || mine));
       row._s = s; row._nm = nm;
       return row;
     }
@@ -622,14 +634,15 @@
     var display = h('div', { class: 'ad-display' }, clock, h('span', { class: 'ad-sep' }), partDot, partName);
     var f = frame('O estúdio tocando a música; a pessoa abre Vozes para estudar, escolhe o tenor do Miquéas e ouve só essa voz junto com a multitrack.', [
       h('div', { class: 'cd-top' }, ic('ChevronLeft', 22), h('div', { class: 'grow' }, h('div', { class: 'cd-title' }, 'Em Teus Braços'), h('div', { class: 'cd-sub' }, 'Tom A · 70 BPM · multitrack')), voicesBtn),
-      h('div', { class: 'ad-studio' }, display, ov, tracks),
+      h('div', { class: 'ad-studio' }, display, ov),
       h('div', { class: 'ad-transport' }, h('span', { class: 'ad-tb' }, ic('SkipBack', 20)), playBtn, h('span', { class: 'ad-tb' }, ic('Repeat', 20))), sheet]);
     var box = f.box;
 
     var DUR = 64, pos = 0, playing = false, last = 0;
     function render() {
       var fr = pos / DUR;
-      head.style.transform = 'translateX(' + (fr * (ov.clientWidth - 2)).toFixed(1) + 'px)';
+      var lw = ov.clientWidth - 112;
+      head.style.transform = 'translateX(' + (112 + fr * (lw - 2)).toFixed(1) + 'px)';
       clock.textContent = Math.floor(pos / 60) + ':' + String(Math.floor(pos % 60)).padStart(2, '0');
       var acc = 0;
       for (var p = 0; p < STUDIO_PARTS.length; p++) { acc += STUDIO_PARTS[p][1]; if (fr < acc) { partDot.style.background = STUDIO_PARTS[p][2]; partName.textContent = STUDIO_PARTS[p][0]; break; } }
@@ -646,14 +659,14 @@
       box.classList.toggle('playing', on);
     }
     function reset() {
-      tracks.replaceChildren.apply(tracks, STUDIO_TRACKS.map(function (t) { return trackRow(t[0], t[1]); }));
+      tracks.replaceChildren.apply(tracks, STUDIO_TRACKS.map(function (t, n) { return trackRow(t[0], t[1], false, n); }));
       sheetList.replaceChildren(); chips.forEach(function (c) { c.classList.remove('on'); });
       sheet.classList.remove('up'); pos = 0; setPlaying(false); render();
     }
 
     if (REDUCE) {
       reset(); pos = 21; render();
-      var tn = trackRow('Mic', 'Tenor · Miquéas', true); tn._s.classList.add('s'); tracks.appendChild(tn);
+      var tn = trackRow('Mic', 'Tenor · Miquéas', true, 4); tn._s.classList.add('s'); tracks.appendChild(tn);
       return box;
     }
     requestAnimationFrame(tick);
@@ -663,7 +676,7 @@
       // 1) Holofote no Tocar; o dedo toca; o holofote corre para a música andando.
       await r.wait(400); await r.spot(playBtn, 46);
       await r.tap(playBtn, 560); setPlaying(true);
-      await r.wait(200); r.hideFinger(); await r.spot(ov, 120);
+      await r.wait(200); r.hideFinger(); await r.spot(ov, 150);
       await r.wait(1500); await r.spotOff();
       // 2) Vozes para estudar: círculo à mão no botão e o toque.
       await r.circle(voicesBtn, 700); await r.tap(voicesBtn, 420);
@@ -684,7 +697,7 @@
       popIn(st, 'scale(0.6)');
       await r.wait(500); r.hideFinger(); await r.cam.out(440); sheet.classList.remove('up');
       await r.wait(420);
-      var tenor = trackRow('Mic', 'Tenor · Miquéas', true);
+      var tenor = trackRow('Mic', 'Tenor · Miquéas', true, 4);
       tracks.appendChild(tenor); popIn(tenor, 'translateY(18px) scale(0.96)');
       // 5) A faixa nova chega: caixa à mão em volta dela.
       await r.wait(300); await r.boxAround(tenor, 900);

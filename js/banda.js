@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.2.0', [
+      'Estúdio como uma DAW: cada faixa na sua linha, com a onda dela, o volume, o mudo e o solo. O cursor de tempo atravessa todas e a régua mostra as partes.'
+    ]],
     ['1.1.0', [
       'Visual novo, igual ao app: azul, com o passe da próxima escala no Início.',
       'No computador, a tela inteira: menu à esquerda com as próximas escalas, Início em duas colunas e o repertório em lista com tom e BPM.',
