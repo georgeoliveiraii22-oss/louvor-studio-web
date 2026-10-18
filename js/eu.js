@@ -5,7 +5,7 @@
 
   L.screen('tab-eu', function () {
     var me = L.me();
-    var root = h('div', { class: 'screen' },
+    var root = h('div', { class: 'screen narrow' },
       h('div', { class: 'tabhead' }, h('h1', { class: 'h1 t' }, 'Eu')),
       U.clickRow(function () { L.go({ name: 'profile' }); }, U.avatar(me, 56),
         h('div', { class: 'grow' }, h('div', { class: 'hi semi', style: { fontSize: '17px' } }, me ? me.name : 'Meu perfil'),

@@ -13,11 +13,11 @@
     var news = D.unseenNews();
 
     var head = h('div', { class: 'tabhead' },
-      h('div', { class: 't' }, U.label(S.current.org.name), h('h1', { class: 'h1 ell' }, first ? hello + ', ' + first : hello)),
+      h('div', { class: 't' }, h('span', { class: 'bandpill' }, h('span', null, S.current.org.name)), h('h1', { class: 'h1 ell' }, first ? hello + ', ' + first : hello)),
       U.iconBtn('Newspaper', 'Avisos e novidades', function () { L.go({ name: 'news' }); }, { badge: news }),
       U.iconBtn('RefreshCw', 'Atualizar', L.reload));
 
-    var nextBlock = next ? nextCard(next) : h('div', { class: 'panel', style: { borderRadius: '12px', padding: '16px' } },
+    var nextBlock = next ? nextCard(next) : h('div', { class: 'panel', style: { padding: '16px' } },
       h('div', { class: 'hi semi', style: { fontSize: '17px' } }, 'Nenhuma escala marcada'),
       U.body(L.perm.schedule() ? 'Crie a próxima escala: o dia, as músicas e quem vai tocar e cantar.' : 'Quando o líder marcar a próxima escala, ela aparece aqui.', 'var(--muted)', 13),
       L.perm.schedule() ? h('div', null, U.btn('Nova escala', 'Plus', function () { L.go({ name: 'wizard' }); })) : null);
@@ -25,16 +25,16 @@
     var todos = buildTodos(me, next && next.id);
     var todoBlock = todos.length ? h('div', { class: 'list' }, todos.map(function (t) {
       return h('div', { class: 'todo', role: 'button', onclick: t.go },
-        h('span', { class: 'ic' + (t.warn ? ' warn' : '') }, ic(t.icon, 17)),
+        h('span', { class: 'ic' + (t.warn ? ' warn' : '') }, ic(t.icon, 18)),
         h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, t.title), h('div', { class: 'muted small', style: { display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' } }, t.sub)),
         ic('ChevronRight', 18, 'muted'));
-    })) : h('div', { class: 'box row', style: { padding: '14px', gap: '12px' } }, ic('CircleCheckBig', 22, 'ok'), U.body('Tudo em dia. Bom ensaio!'));
+    })) : h('div', { class: 'box row', style: { padding: '16px', gap: '12px' } }, ic('CircleCheckBig', 22, 'ok'), U.body('Tudo em dia. Bom ensaio!'));
 
     var unread = L.unreadTotal();
     var msgBlock = null;
     if (unread > 0) {
       var last = S.lastMessages.find(function (m) { return m.author !== me; });
-      msgBlock = [U.label('Mensagens novas'), U.clickRow(function () { L.setTab('membros'); },
+      msgBlock = [h('h2', { class: 'gtitle' }, 'Mensagens novas'), U.clickRow(function () { L.setTab('membros'); },
         h('span', { class: 'circle' }, ic('MessagesSquare', 19)),
         h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, (unread === 1 ? '1 mensagem que você não leu' : unread + ' mensagens que você não leu')),
           last ? h('div', { class: 'muted small ell' }, L.nameOf(last.author) + ': ' + last.body) : null),
@@ -42,36 +42,50 @@
     }
 
     var notices = S.announcements.slice().sort(function (a, b) { return (b.pinned - a.pinned) || (a.created_at < b.created_at ? 1 : -1); }).slice(0, 2);
-    return h('div', { class: 'screen' }, head, nextBlock,
-      U.label('Para você fazer'), todoBlock,
-      msgBlock,
-      h('div', { class: 'row' }, h('div', { class: 'grow' }, U.label('Mural da banda')), h('button', { class: 'textbtn', style: { fontSize: '12px', padding: '6px' }, onclick: function () { L.go({ name: 'news' }); } }, 'ver tudo')),
-      notices.length ? notices.map(function (n) { return L.noticeCard(n, true); })
-        : U.body(L.perm.leader() ? 'Nenhum aviso. Toque em ver tudo para escrever um aviso para a banda.' : 'Nenhum aviso do líder por enquanto.', 'var(--muted)', 13));
+    // Celular: uma coluna, na ordem. Computador: passe e tarefas à esquerda, conversa e mural à direita.
+    return h('div', { class: 'screen' }, head,
+      h('div', { class: 'home-grid' },
+        h('div', { class: 'home-a' }, nextBlock, h('h2', { class: 'gtitle' }, 'Para você'), todoBlock),
+        h('div', { class: 'home-b' }, msgBlock,
+          h('div', { class: 'row', style: { alignItems: 'baseline' } }, h('h2', { class: 'gtitle grow' }, 'Mural da banda'),
+            h('button', { class: 'textbtn', style: { fontSize: '15px', padding: '6px 4px' }, onclick: function () { L.go({ name: 'news' }); } }, 'Ver tudo')),
+          notices.length ? notices.map(function (n) { return L.noticeCard(n, true); })
+            : U.body(L.perm.leader() ? 'Nenhum aviso. Toque em Ver tudo para escrever um aviso para a banda.' : 'Nenhum aviso do líder por enquanto.', 'var(--muted)', 13))));
   });
 
+  /** Passe da próxima escala (o mesmo do app): quando, a hora, o que eu faço e a minha resposta. */
   function nextCard(s) {
     var me = L.uid();
     var mine = L.peopleOf(s, me);
     var days = L.daysBetween(L.today(), s.starts_on);
-    var multi = s.songIds.filter(function (id) { var p = L.project(id); return p && L.hasMulti(p); }).length;
+    var d = L.d(s.starts_on);
     var p0 = mine[0];
-    return h('div', { class: 'nextcard', onclick: function () { L.go({ name: 'escala', id: s.id }); } },
-      h('div', { class: 'row' }, h('span', { class: 'label grow', style: { color: 'var(--accent-text)', fontWeight: 700 } }, mine.length ? 'Sua próxima escala' : 'Próxima escala da banda'),
-        h('span', { class: 'bold', style: { fontSize: '12px', color: days <= 1 ? 'var(--hi)' : 'var(--muted)' } }, days === 0 ? 'HOJE' : days === 1 ? 'AMANHÃ' : 'em ' + days + ' dias')),
-      h('div', { class: 'hi bold', style: { fontSize: '22px', lineHeight: 1.2 } }, s.title),
-      h('div', { style: { fontSize: '14px' } }, [L.cap(L.fullDate(s.starts_on)), L.timeRange(s)].filter(Boolean).join(' · ')),
-      s.location ? h('div', { class: 'row muted', style: { gap: '6px', fontSize: '13px' } }, ic('MapPin', 14), s.location) : null,
-      h('div', { class: 'row wrap', style: { gap: '14px' } },
-        h('span', { class: 'ministat' }, ic('ListMusic', 14), L.plural(s.songIds.length, 'música', 'músicas')),
-        s.songIds.length ? h('span', { class: 'ministat' }, ic('AudioWaveform', 14), multi + ' com multitrack') : null,
-        h('span', { class: 'ministat' }, ic('UsersRound', 14), L.plural(uniq(s.people).length, 'pessoa', 'pessoas'))),
-      mine.length ? h('div', { class: 'row' }, h('span', { class: 'hi semi grow', style: { fontSize: '14px' } }, 'Você: ' + mine.map(function (p) { return L.fnLabel(p.function); }).join(', ')), U.statusFor(p0)) : null,
-      mine.length && p0.status === 'pendente' && !p0.swap_requested ? h('div', { class: 'row', onclick: function (e) { e.stopPropagation(); } },
-        U.btn('Confirmar', 'Check', function () { D.scheduleAction('Presença confirmada. Obrigado!', function () { return D.respond(s.id, { status: 'confirmado' }); }); }, { style: { flex: 1 } }),
-        U.btn2('Não posso', 'X', function () { D.scheduleAction('O líder vai saber que você não pode.', function () { return D.respond(s.id, { status: 'recusado' }); }); }, { style: { flex: 1 } })) : null,
-      h('div', { class: 'row', onclick: function (e) { e.stopPropagation(); } },
-        U.btn2('Ver escala', 'CalendarDays', function () { L.go({ name: 'escala', id: s.id }); }, { style: { flex: 1 } })));
+    var pending = mine.length && p0.status === 'pendente' && !p0.swap_requested;
+    function go() { L.go({ name: 'escala', id: s.id }); }
+    function field(k, v, num) { return h('div', null, h('small', null, k), h('b', { class: num ? 'n' : null }, v)); }
+    var names = s.songIds.map(function (id) { var p = L.project(id); return p ? p.song_title : null; }).filter(Boolean);
+    var main = h('div', { class: 'pass-main' },
+      h('div', { class: 'pass-head' }, h('span', { class: 'mark' }, ic('AudioLines', 18), h('span', null, S.current.org.name)),
+        h('span', { class: 'when' }, days === 0 ? 'Hoje' : days === 1 ? 'Amanhã' : 'Em ' + days + ' dias')),
+      h('div', { class: 'pass-title' }, s.title),
+      h('div', { class: 'pass-fields' },
+        field('Dia', L.cap(L.SEMANA_CURTA[L.dow(s.starts_on) - 1].toLowerCase()) + ', ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0')),
+        field('Hora', L.hhmm(s.start_time) || '—', true),
+        mine.length ? field('Você', mine.map(function (p) { return L.fnLabel(p.function); }).join(', ')) : field('Equipe', L.plural(uniq(s.people).length, 'pessoa', 'pessoas'))),
+      names.length ? h('div', { class: 'pass-songs' }, names.slice(0, 2).map(function (n) { return h('span', null, n); }),
+        names.length > 2 ? h('em', null, '+' + (names.length - 2)) : null) : null);
+    var stub = h('div', { class: 'pass-stub', onclick: function (e) { e.stopPropagation(); } },
+      pending ? h('div', { class: 'pass-actions' },
+        h('button', { class: 'pbtn soft', onclick: function () { D.scheduleAction('O líder vai saber que você não pode.', function () { return D.respond(s.id, { status: 'recusado' }); }); } }, ic('X', 18), 'Não posso'),
+        h('button', { class: 'pbtn dark', onclick: function () { D.scheduleAction('Presença confirmada. Obrigado!', function () { return D.respond(s.id, { status: 'confirmado' }); }); } }, ic('Check', 18), 'Confirmar'))
+        : h('div', { class: 'row' }, h('div', { class: 'pass-status grow' }, mine.length ? U.statusFor(p0) : h('span', null, L.plural(s.songIds.length, 'música', 'músicas'))),
+          h('button', { class: 'pbtn dark', style: { padding: '0 18px' }, onclick: go }, ic('CalendarDays', 18), 'Ver escala')));
+    var pass = h('div', { class: 'pass', role: 'button', tabindex: '0', 'aria-label': 'Abrir a escala ' + s.title, onclick: go }, main, stub);
+    // Os recortes laterais ficam na linha pontilhada, qualquer que seja a altura do título.
+    function cut() { if (main.offsetHeight) pass.style.setProperty('--cut', main.offsetHeight + 'px'); }
+    requestAnimationFrame(cut);
+    if (window.ResizeObserver) new ResizeObserver(cut).observe(main);
+    return h('div', { class: 'passwrap' }, pass);
   }
 
   function uniq(people) { return people.map(function (p) { return p.user_id; }).filter(function (v, i, a) { return a.indexOf(v) === i; }); }

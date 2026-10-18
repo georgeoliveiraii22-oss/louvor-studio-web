@@ -53,7 +53,7 @@
       var list = S.services.filter(function (s) { return s.starts_on === day; });
       root.appendChild(U.label(L.fullDate(day)));
       if (!list.length) root.appendChild(U.empty('Nada marcado neste dia.'));
-      list.forEach(function (s) { root.appendChild(L.scheduleCard(s)); });
+      if (list.length) root.appendChild(h('div', { class: 'cardgrid' }, list.map(function (s) { return L.scheduleCard(s); })));
       if (can && day >= L.today()) root.appendChild(U.btn2('Nova escala neste dia', 'Plus', function () { L.go({ name: 'wizard', day: day }); }, { full: true }));
       root.appendChild(U.btn2('Dias que não posso', 'CalendarX', function () { L.go({ name: 'availability' }); }, { full: true }));
     } else {
@@ -69,14 +69,14 @@
           h('span', { class: 'grow' }), h('span', { class: 'muted', style: { fontSize: '13px', paddingBottom: '3px' } }, L.plural(count, 'escala', 'escalas'))));
         mg.weeks.forEach(function (w) {
           root.appendChild(h('div', { class: 'weekhead' + (w.label === 'Esta semana' ? ' cur' : '') }, w.label));
-          w.items.forEach(function (s) { root.appendChild(L.scheduleCard(s)); });
+          root.appendChild(h('div', { class: 'cardgrid' }, w.items.map(function (s) { return L.scheduleCard(s); })));
         });
       });
       var past = S.services.filter(function (s) { return s.starts_on < L.today(); }).sort(function (a, b) { return a.starts_on < b.starts_on ? 1 : -1; });
       if (past.length && E.view === 'proximas') {
         root.appendChild(h('button', { class: 'textbtn muted', style: { alignSelf: 'flex-start' }, onclick: function () { E.showPast = !E.showPast; L.render(); } },
           (E.showPast ? 'Esconder' : 'Ver') + ' escalas que já passaram (' + past.length + ')'));
-        if (E.showPast) past.slice(0, 30).forEach(function (s) { root.appendChild(L.scheduleCard(s, true)); });
+        if (E.showPast) root.appendChild(h('div', { class: 'cardgrid' }, past.slice(0, 30).map(function (s) { return L.scheduleCard(s, true); })));
       }
     }
     if (can) root.appendChild(U.fab('Nova escala', 'Plus', function () { newMenu(E.view === 'calendario' ? E.day : null); }));

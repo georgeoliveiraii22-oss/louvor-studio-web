@@ -14,7 +14,7 @@
   // ------------------------------------------------------------------ Aba
   L.screen('tab-musicas', function () {
     var soon = soonSet();
-    var listBox = h('div', { class: 'col', style: { gap: '4px' } });
+    var listBox = h('div', { class: 'songlist' });
     function fill() {
       listBox.replaceChildren();
       var q = L.norm(R.query.trim());
@@ -24,6 +24,10 @@
       if (!list.length) listBox.appendChild(U.empty(R.query.trim() ? 'Nenhuma música encontrada para "' + R.query + '".'
         : R.filter === 'escala' ? 'Nenhuma música nas suas escalas das próximas 3 semanas.' : R.filter === 'multi' ? 'Nenhuma música com multitrack ainda.'
           : L.perm.songs() ? 'O repertório está vazio. Toque em Adicionar música para colocar a primeira.' : 'O repertório está vazio. Quem cuida das músicas da banda adiciona aqui.'));
+      // No computador a lista ganha colunas (como a setlist do Moises).
+      if (list.length) listBox.appendChild(h('div', { class: 'songrow songhead', 'aria-hidden': 'true', style: { display: 'none', cursor: 'default', gridTemplateColumns: '1fr auto', background: 'none' } },
+        h('span', { class: 'label', style: { paddingLeft: '70px' } }, 'Música'),
+        h('span', { class: 'cols label' }, h('span', null, 'Tom'), h('span', null, 'BPM'), h('span', null, 'Multitrack'))));
       list.forEach(function (p) { listBox.appendChild(songRow(p, soon[p.id])); });
     }
     fill();
@@ -52,6 +56,8 @@
         h('div', { class: 'muted small ell' }, [key ? 'Tom ' + key : null, p.artist].filter(Boolean).join(' · ') || ' '),
         h('div', { class: 'row', style: { gap: 0 } }, h('span', { class: 'small semi', style: { color: multi ? 'var(--accent-text)' : 'var(--muted)' } }, multi ? 'Com multitrack' : 'Sem multitrack'),
           inSchedule ? h('span', { class: 'accent small semi ell' }, ' · na sua escala') : null)),
+      h('span', { class: 'cols' }, h('span', { class: 'hi' }, key || '—'), h('span', null, p.bpm ? String(p.bpm) : '—'),
+        h('span', { class: 'row', style: { gap: '6px', color: multi ? 'var(--accent)' : 'var(--muted)' } }, ic(multi ? 'AudioWaveform' : 'Minus', 16), multi ? 'Tem' : 'Não tem')),
       U.neon('AudioWaveform', multi, multi ? 'Tem multitrack' : 'Sem multitrack'));
   }
 
@@ -198,7 +204,7 @@
         })),
         (g ? g[1] : []).map(function (t) {
           var on = chosen.indexOf(t.id) >= 0;
-          return h('div', { class: 'row', style: { minHeight: '56px', padding: '0 10px', borderRadius: '4px', cursor: 'pointer', background: on ? '#2a1214' : 'var(--control)', border: '1px solid ' + (on ? 'var(--accent)' : '#000') },
+          return h('div', { class: 'pickrow' + (on ? ' on' : ''),
             onclick: function () { chosen = on ? chosen.filter(function (x) { return x !== t.id; }) : chosen.concat([t.id]); L.studyVoices.set(p.id, chosen); fill(); } },
             U.avatar(L.member(t.user_id), 32),
             h('div', { class: 'grow', style: { marginLeft: '2px' } }, h('div', { class: 'hi semi ell' }, L.nameOf(t.user_id)),

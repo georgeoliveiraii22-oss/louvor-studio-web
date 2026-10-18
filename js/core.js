@@ -79,7 +79,7 @@
   L.VOICES = [['', 'Não informado'], ['soprano', 'Soprano'], ['mezzo', 'Mezzo-soprano'], ['contralto', 'Contralto'], ['tenor', 'Tenor'], ['baritono', 'Barítono'], ['baixo', 'Baixo']];
   L.KINDS = [['culto', 'Culto'], ['ensaio', 'Ensaio'], ['evento', 'Evento']];
   L.kindLabel = function (k) { var f = L.KINDS.find(function (x) { return x[0] === k; }); return f ? f[1] : 'Culto'; };
-  L.kindColor = function (k) { return k === 'ensaio' ? '#6cc4b0' : k === 'evento' ? '#c59de3' : 'var(--accent-text)'; };
+  L.kindColor = function (k) { return k === 'ensaio' ? '#6CC4B0' : k === 'evento' ? '#C59DE3' : 'var(--accent)'; };
 
   L.MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   L.MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -175,6 +175,8 @@
   L.replace = function (r) { S.stack[S.stack.length - 1] = r; L.render(); };
 
   L.setTab = function (t) {
+    // No computador o menu fica à vista também nas telas de dentro: volta para a aba.
+    if (S.stack.length > 1) { scrolls[routeKey()] = window.scrollY; S.stack = [{ name: 'main' }]; S.tab = t; L.render(); return; }
     if (S.tab === t) { window.scrollTo(0, 0); return; }
     scrolls[routeKey()] = window.scrollY;
     S.tab = t;
@@ -217,7 +219,9 @@
     }
     var view = h('div', { class: 'view' + (withNav ? ' with-nav' : '') }, body);
     frame.appendChild(view);
-    if (withNav) frame.appendChild(L.bottomNav());
+    // Abas: embaixo no celular (só nas abas); no computador, menu à esquerda em todas as telas.
+    var side = !rfn && S.loggedIn && !!S.current;
+    if (side) { frame.classList.add('has-side'); frame.appendChild(L.bottomNav(!withNav)); }
     root.replaceChildren(frame);
     lastKey = key;
     if (sameRoute) window.scrollTo(0, y);
@@ -226,16 +230,38 @@
     if (L.studio) L.studio.check();
   };
 
-  L.bottomNav = function () {
+  L.bottomNav = function (inner) {
     var items = [
       ['inicio', 'House', 'Início', 0], ['escalas', 'CalendarDays', 'Escalas', L.pendingMine()],
       ['musicas', 'Library', 'Repertório', 0], ['membros', 'UsersRound', 'Banda', L.unreadTotal()], ['eu', 'CircleUserRound', 'Eu', 0]
     ];
-    return h('nav', { class: 'nav', 'aria-label': 'Abas' }, items.map(function (it) {
-      return h('button', { class: S.tab === it[0] ? 'on' : '', 'aria-current': S.tab === it[0] ? 'page' : null, onclick: function () { L.setTab(it[0]); } },
-        h('span', { class: 'pill' }, ic(it[1], 22), it[3] > 0 ? h('span', { class: 'badge' }, it[3] > 9 ? '9+' : String(it[3])) : null),
-        it[2]);
+    var onMain = L.route().name === 'main';
+    var tabs = h('div', { class: 'tabs' }, items.map(function (it) {
+      var on = onMain && S.tab === it[0];
+      var badge = it[3] > 0 ? h('span', { class: 'badge' }, it[3] > 9 ? '9+' : String(it[3])) : null;
+      return h('button', { class: on ? 'on' : '', 'aria-current': on ? 'page' : null, onclick: function () { L.setTab(it[0]); } },
+        h('span', { class: 'pill' }, ic(it[1], 22), badge ? badge.cloneNode(true) : null),
+        h('span', { class: 'tl' }, it[2]), badge ? h('span', { class: 'side-only' }, badge) : null);
     }));
+    // Só no computador: marca, banda, próximas escalas e eu (como o menu do Moises).
+    var me = L.me();
+    var next = L.upcoming().slice(0, 5);
+    var uid = L.uid();
+    return h('nav', { class: 'nav' + (inner ? ' inner' : ''), 'aria-label': 'Abas' },
+      h('div', { class: 'side-only navbrand' }, h('span', { class: 'logo' }, ic('AudioLines', 20)), h('span', { class: 'brand' }, 'Louvor Studio')),
+      S.current ? h('div', { class: 'side-only bandpill navband' }, h('span', null, S.current.org.name)) : null,
+      tabs,
+      next.length ? h('div', { class: 'side-only navsec' }, h('div', { class: 'label' }, 'Próximas escalas'), next.map(function (s) {
+        var d = L.d(s.starts_on);
+        var mine = s.people.some(function (p) { return p.user_id === uid; });
+        return h('button', { class: 'navsvc' + (mine ? ' mine' : ''), onclick: function () { L.setTab('escalas'); L.go({ name: 'escala', id: s.id }); } },
+          h('span', { class: 'dt' }, h('small', null, L.SEMANA_CURTA[L.dow(s.starts_on) - 1]), h('b', null, String(d.getDate()))),
+          h('span', { class: 'grow' }, h('div', { class: 'hi semi ell', style: { fontSize: '14px' } }, s.title),
+            h('div', { class: 'muted ell', style: { fontSize: '12.5px' } }, [L.hhmm(s.start_time), mine ? 'você está' : null].filter(Boolean).join(' · ') || L.kindLabel(s.kind))));
+      })) : null,
+      h('span', { class: 'side-only fill' }),
+      me ? h('button', { class: 'side-only navme', onclick: function () { L.setTab('eu'); } }, L.ui.avatar(me, 36),
+        h('span', { class: 'grow' }, h('div', { class: 'hi semi ell' }, me.name), h('div', { class: 'muted small' }, S.current.role === 'leader' ? 'Líder' : 'Integrante'))) : null);
   };
 
   // ------------------------------------------------------------------ Avisos e janelas

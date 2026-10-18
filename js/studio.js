@@ -119,7 +119,7 @@
     var p = L.project(pid);
     st = { pid: pid, loading: 'Carregando a música…', done: 0, total: 0, error: null, tracks: [], myTake: null, otherTakes: [], edits: {}, markers: [],
       buffers: {}, leads: {}, voices: L.studyVoices.get(pid), mix: L.store.get('mix.' + pid, {}), solo: {}, playing: false, pos: 0, loop: null,
-      nodes: [], vgs: {}, wave: null, lyrics: !!(p && p.lyrics) && L.store.get('estudio_letra', false), ui: {} };
+      nodes: [], vgs: {}, wave: null, lyrics: !!(p && p.lyrics) && L.store.get('estudio_letra', window.innerWidth >= 1024), ui: {} };
     var mine = st;
     try {
       var r = await Promise.all([
@@ -329,19 +329,19 @@
       g.fillStyle = s.color; g.globalAlpha = 0.85;
       g.fillRect(x(s.start) + 0.5, 2, Math.max(1, x(s.end) - x(s.start) - 1), 15);
       g.globalAlpha = 1;
-      if (x(s.end) - x(s.start) > 26) { g.fillStyle = '#111'; g.font = '600 10px system-ui, sans-serif'; g.fillText(s.name, x(s.start) + 4, 13, x(s.end) - x(s.start) - 6); }
+      if (x(s.end) - x(s.start) > 26) { g.fillStyle = '#050B12'; g.font = '600 10px Geist, system-ui, sans-serif'; g.fillText(s.name, x(s.start) + 4, 13, x(s.end) - x(s.start) - 6); }
     });
-    if (st.loop) { g.fillStyle = 'rgba(217,45,54,0.18)'; g.fillRect(x(st.loop.a), top, x(st.loop.b) - x(st.loop.a), hh - top); }
+    if (st.loop) { g.fillStyle = 'rgba(8,169,245,0.16)'; g.fillRect(x(st.loop.a), top, x(st.loop.b) - x(st.loop.a), hh - top); }
     var px = x(st.pos);
     if (st.wave) {
       var bw = w / BINS;
       for (var i = 0; i < BINS; i++) {
         var v = Math.max(0.02, st.wave[i]) * amp;
-        g.fillStyle = i * bw < px ? '#9a9a9a' : '#3d3d3d';
+        g.fillStyle = i * bw < px ? '#08A9F5' : '#24485F';
         g.fillRect(i * bw, mid - v, Math.max(1, bw - 0.6), v * 2);
       }
     }
-    g.fillStyle = '#fff';
+    g.fillStyle = '#F5FAFF';
     g.fillRect(Math.min(w - 2, Math.max(0, px - 1)), 0, 2, hh);
   }
 
@@ -415,7 +415,7 @@
     u.clock = h('span', { class: 'mono hi', style: { fontSize: '26px', fontWeight: 600 } }, L.clock(st.pos));
     u.secDot = h('span', { style: { width: '10px', height: '10px', borderRadius: '50%', background: s ? s.color : 'transparent', flex: 'none' } });
     u.secName = h('span', { class: 'hi semi ell' }, s ? s.name : '—');
-    body.appendChild(h('div', { class: 'row', style: { background: '#0e0e0e', border: '1px solid #000', borderRadius: '8px', padding: '8px 14px', gap: '14px' } },
+    body.appendChild(h('div', { class: 'row display', style: { gap: '14px' } },
       h('div', { class: 'col', style: { gap: 0 } }, u.clock, h('span', { class: 'tiny muted', style: { letterSpacing: '1px' } }, 'TEMPO · ' + L.clock(sessionEnd()))),
       h('div', { style: { width: '1px', alignSelf: 'stretch', background: 'var(--line)' } }),
       h('div', { class: 'col grow', style: { gap: '2px', minWidth: 0 } }, h('div', { class: 'row', style: { gap: '6px' } }, u.secDot, u.secName),
@@ -526,7 +526,7 @@
         shown.map(function (g) {
           return [U.label(g[0] ? VoiceParts.label(g[0]) : 'Sem voz marcada'), g[1].map(function (t) {
             var on = st.voices.indexOf(t.id) >= 0;
-            return h('div', { class: 'row', style: { minHeight: '60px', padding: '0 10px', borderRadius: '4px', cursor: 'pointer', background: on ? '#2a1214' : 'var(--control)', border: '1px solid ' + (on ? 'var(--accent)' : '#000') },
+            return h('div', { class: 'pickrow' + (on ? ' on' : ''), style: { minHeight: '60px' },
               onclick: function () { if (!busy) toggleVoice(t, !on); } },
               U.avatar(L.member(t.user_id), 36),
               h('div', { class: 'grow', style: { minWidth: 0 } }, h('div', { class: 'hi semi ell' }, L.nameOf(t.user_id)),

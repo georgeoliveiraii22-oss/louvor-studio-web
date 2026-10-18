@@ -5,6 +5,12 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.1.0', [
+      'Visual novo, igual ao app: azul, com o passe da próxima escala no Início.',
+      'No computador, a tela inteira: menu à esquerda com as próximas escalas, Início em duas colunas e o repertório em lista com tom e BPM.',
+      'Estúdio no computador com a letra aberta ao lado das faixas.',
+      'Página de entrada nova para quem ainda não tem conta, com uma música de exemplo para ouvir cada instrumento.'
+    ]],
     ['1.0.0', [
       'O Louvor Studio agora abre no navegador do celular, com as mesmas telas do app.',
       'Escalas: confirme presença, peça troca, marque os dias que não pode e veja quem toca em cada culto.',

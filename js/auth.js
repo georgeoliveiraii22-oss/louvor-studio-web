@@ -4,60 +4,7 @@
   var L = window.L, S = L.S, h = L.h, ic = L.ic, U = L.ui, D = L.data, sb = L.sb;
   var A = L.auth = {};
 
-  // ------------------------------------------------------------------ Apresentação (antes de entrar)
-  A.landing = function () {
-    var canvas = h('canvas', { class: 'wave', 'aria-hidden': 'true' });
-    startWave(canvas);
-    function feature(icon, title, text) {
-      return h('div', { class: 'feature' }, h('span', { class: 'circle' }, ic(icon, 20)),
-        h('div', { class: 'col', style: { gap: '3px' } }, h('div', { class: 'hi semi', style: { fontSize: '15px' } }, title), h('div', { class: 'muted', style: { fontSize: '13px', lineHeight: '18px' } }, text)));
-    }
-    function goEntry(e) { S.entry = e; L.render(); }
-    return h('div', { class: 'landing' },
-      h('div', { class: 'row' }, h('span', { class: 'logo' }, ic('AudioLines', 20)), h('span', { class: 'brand grow' }, 'LOUVOR STUDIO'),
-        U.textBtn('Entrar', function () { goEntry('entrar'); })),
-      canvas,
-      h('h1', { class: 'hero' }, 'O ensaio da sua banda, em qualquer lugar.'),
-      h('p', { class: 'body', style: { fontSize: '15px', lineHeight: '21px' } }, 'Cada um ensaia em casa com a multitrack e chega no culto sabendo a música. As escalas, as músicas e a conversa da banda ficam num lugar só.'),
-      feature('Headphones', 'Ensaie com a banda inteira', 'Ouça cada instrumento separado, abaixe ou deixe só o que você precisa.'),
-      feature('CalendarDays', 'Escalas sem confusão', 'Quem toca em cada culto, as músicas e o tom do dia. Confirme com um toque.'),
-      feature('MessagesSquare', 'A banda conversando', 'A conversa da banda e de cada escala, e os avisos do líder.'),
-      U.btn('Criar minha banda', 'Plus', function () { goEntry('criar'); }, { full: true, style: { minHeight: '54px' } }),
-      U.btn2('Entrar com convite', 'Users', function () { goEntry('convite'); }, { full: true, style: { minHeight: '52px' } }),
-      h('div', { class: 'row', style: { justifyContent: 'center' } }, h('span', { class: 'muted', style: { fontSize: '13px' } }, 'Já tem conta?'),
-        U.textBtn('Entrar', function () { goEntry('entrar'); })),
-      h('div', { class: 'row muted small', style: { justifyContent: 'center' } }, ic('Smartphone', 14), 'Funciona no navegador do celular. Dá para pôr na tela inicial.'));
-  };
-
-  /** Onda de áudio em barras vermelhas (para quieta se o celular pede menos animação). */
-  function startWave(canvas) {
-    var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var t0 = performance.now();
-    function draw(now) {
-      if (!canvas.isConnected && now - t0 > 500) return;
-      var w = canvas.clientWidth || 360, hh = canvas.clientHeight || 120;
-      var dpr = window.devicePixelRatio || 1;
-      if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(hh * dpr); }
-      var g = canvas.getContext('2d');
-      g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      g.clearRect(0, 0, w, hh);
-      var phase = still ? 0 : ((now - t0) / 4200) % 1;
-      var n = 48, gap = w / n, bw = gap * 0.55, mid = hh / 2, p = phase * 2 * Math.PI;
-      for (var i = 0; i < n; i++) {
-        var x = i / n;
-        var env = Math.pow(Math.sin(x * Math.PI), 2);
-        var v = (0.55 * Math.abs(Math.sin(x * 9 - p)) + 0.3 * Math.abs(Math.sin(x * 23 + p * 2)) + 0.15) * env;
-        var bh = Math.max(3, v * hh * 0.95);
-        g.fillStyle = 'rgba(217,45,54,' + (0.35 + 0.65 * env) + ')';
-        var x0 = i * gap + (gap - bw) / 2, y0 = mid - bh / 2, r = bw / 2;
-        g.beginPath();
-        if (g.roundRect) g.roundRect(x0, y0, bw, bh, r); else g.rect(x0, y0, bw, bh);
-        g.fill();
-      }
-      if (!still) requestAnimationFrame(draw);
-    }
-    requestAnimationFrame(draw);
-  }
+  // A página de entrada (antes de entrar) fica em landing.js.
 
   // ------------------------------------------------------------------ Entrar / criar conta
   A.login = function () {
@@ -88,9 +35,9 @@
     }
     var sub = st.mode === 'entrar' ? 'Entre com o e-mail e a senha da sua conta.'
       : S.entry === 'convite' ? 'Depois você digita o código de convite que o líder mandou.' : 'Depois você dá um nome para a sua banda e convida o pessoal.';
-    return h('div', { class: 'screen' },
+    return h('div', { class: 'screen authwrap' },
       h('div', { class: 'row' }, U.iconBtn('ChevronLeft', 'Voltar', function () { S.entry = null; A.loginState = null; L.render(); }),
-        h('span', { class: 'logo', style: { width: '36px', height: '36px' } }, ic('AudioLines', 22)), h('span', { class: 'brand', style: { fontSize: '15px' } }, 'LOUVOR STUDIO')),
+        h('span', { class: 'logo' }, ic('AudioLines', 20)), h('span', { class: 'brand' }, 'Louvor Studio')),
       h('div', { style: { height: '12px' } }),
       U.title(st.mode === 'entrar' ? 'Que bom te ver de novo.' : 'Crie sua conta', sub),
       h('div', { class: 'row' },
