@@ -5,9 +5,15 @@
     { id: 'soprano', label: 'Soprano' }, { id: 'mezzo', label: 'Mezzo-soprano' }, { id: 'contralto', label: 'Contralto' },
     { id: 'tenor', label: 'Tenor' }, { id: 'baritono', label: 'Barítono' }, { id: 'baixo', label: 'Baixo' }
   ];
+  // Instrumentos gravados no app (migração 0025): o id começa com "inst_".
+  var INSTRUMENTS = [
+    { id: 'inst_violao', label: 'Violão' }, { id: 'inst_guitarra', label: 'Guitarra' }, { id: 'inst_baixo', label: 'Baixo (instrumento)' },
+    { id: 'inst_teclado', label: 'Teclado' }, { id: 'inst_bateria', label: 'Bateria' }, { id: 'inst_percussao', label: 'Percussão' },
+    { id: 'inst_sopro', label: 'Sopro' }, { id: 'inst_cordas', label: 'Cordas' }, { id: 'inst_outro', label: 'Outro instrumento' }
+  ];
   function label(id) {
-    var v = ALL.find(function (x) { return x.id === id; });
+    var v = ALL.concat(INSTRUMENTS).find(function (x) { return x.id === id; });
     return v ? v.label : null;
   }
-  root.VoiceParts = { ALL: ALL, label: label };
+  root.VoiceParts = { ALL: ALL, INSTRUMENTS: INSTRUMENTS, label: label };
 })(typeof window !== 'undefined' ? window : globalThis);
