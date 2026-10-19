@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.8.0', [
+      'O líder pode excluir a banda: Banda › Pessoas › Excluir banda (no fim). Pede para digitar o nome da banda para confirmar.'
+    ]],
     ['1.7.3', [
       'Convidar ficou à vista: botão no alto da aba Banda e o código de convite logo no começo de Pessoas.'
     ]],
@@ -96,11 +99,59 @@
     if (m.role === 'leader') root.appendChild(L.igreja.panel());
 
     var limit = Math.max(1, m.org.storage_limit_bytes || 1073741824);
+    var deletePanel = m.role === 'leader' ? U.panel('Excluir banda', 'Trash2',
+      U.body('Apaga a banda inteira: músicas, multitracks, gravações, escalas e conversas. As pessoas continuam com a conta delas, só saem da banda.', 'var(--muted)', 12),
+      U.btn2('Excluir esta banda', 'Trash2', deleteBand, { full: true, danger: true })) : null;
     var f = S.storageUsed / limit;
     root.appendChild(U.panel('Espaço da banda na nuvem', 'Cloud', U.keyValue('Usado', L.bytes(S.storageUsed) + ' de ' + L.bytes(limit)),
       U.bar(f, f > 0.9 ? 'var(--bad)' : f > 0.75 ? 'var(--warn)' : null)));
+    if (deletePanel) root.appendChild(deletePanel);
     return root;
   });
+
+  /** Excluir a banda (só o líder): diz o que some e pede para digitar o nome da banda. Migração 0022. */
+  function deleteBand() {
+    var m = S.current, st = { typed: '', busy: false };
+    var others = S.members.filter(function (x) { return x.user_id !== L.uid(); }).length;
+    var dlg = L.dialog({
+      title: 'Excluir ' + m.org.name + '?',
+      live: true,
+      body: function () {
+        return [
+          U.body('Some para sempre: ' + L.plural(S.projects.length, 'música', 'músicas') + ' com as multitracks e gravações, ' + L.plural(S.services.length, 'escala', 'escalas') +
+            ', as conversas e o mural.' + (others ? ' ' + L.plural(others, 'pessoa perde', 'pessoas perdem') + ' o acesso à banda.' : ''), null, 14),
+          m.org.plan && m.org.plan !== 'free' ? U.body('A banda está num plano pago: para parar a cobrança, escreva para contato@louvorstudio.app.br.', 'var(--warn)', 13) : null,
+          U.body('Para confirmar, digite o nome da banda: ' + m.org.name, 'var(--muted)', 13),
+          U.field('', 'Nome da banda', function (v) { st.typed = v; var b = document.getElementById('excluir-ok'); if (b) b.disabled = !match(); }, { max: 80 })
+        ];
+      },
+      actions: function (close) {
+        return [h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar'),
+          h('button', { id: 'excluir-ok', class: 'textbtn', disabled: true, style: { color: 'var(--bad)' }, onclick: function (e) {
+            if (!match() || st.busy) return;
+            st.busy = true; e.target.disabled = true; e.target.textContent = 'Excluindo…';
+            L.run(async function () {
+              try {
+                var covers = S.projects.map(function (p) { return p.cover_path; }).filter(Boolean);
+                if (covers.length) await sb.storage.from('covers').remove(covers);
+                var imgs = [S.church.logoPath, S.church.wallPath].filter(Boolean);
+                if (imgs.length) await sb.storage.from('igreja').remove(imgs);
+                L.must(await sb.rpc('delete_organization', { _org: m.org.id, _name: st.typed.trim() }));
+                try { await sb.functions.invoke('r2', { body: { action: 'empty_trash' } }); } catch (x) { /* a lixeira espera a função ser atualizada */ }
+                L.store.set('banda', null);
+                close();
+                S.current = null; S.choosingBand = true; S.stack = [{ name: 'main' }]; S.tab = 'inicio';
+                await D.refresh();
+                L.toast('A banda ' + m.org.name + ' foi excluída.');
+                L.render();
+              } finally { st.busy = false; }
+            });
+          } }, 'Excluir para sempre')];
+      }
+    });
+    function match() { return st.typed.trim().toLowerCase() === m.org.name.trim().toLowerCase(); }
+    return dlg;
+  }
 
   /** O código de convite com copiar e mandar pelo WhatsApp (aba Banda e a janela de convite). */
   L.inviteContent = function () {

@@ -3,7 +3,7 @@
   'use strict';
   var L = window.L, S = L.S, h = L.h, U = L.ui, D = L.data, A = L.auth;
 
-  L.VERSION = '1.7.3';
+  L.VERSION = '1.8.0';
 
   /** Antes das abas: apresentação, entrar, carregando, criar banda, "o que você faz". Nulo = abas normais. */
   L.rootView = function () {
