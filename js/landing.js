@@ -33,7 +33,7 @@
   }
 
   // Vídeo de apresentação: quando existir, coloque o arquivo em video/apresentacao.mp4 (ou um link do YouTube) aqui.
-  var VIDEO = { src: '', poster: 'img/desk-inicio.webp' };
+  var VIDEO = { src: 'video/apresentacao.mp4', poster: 'video/apresentacao.jpg' };
 
   function videoBlock() {
     var yt = /(?:youtu\.be\/|[?&]v=|\/embed\/)([A-Za-z0-9_-]{11})/.exec(VIDEO.src || '');
