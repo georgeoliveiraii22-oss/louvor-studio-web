@@ -53,38 +53,126 @@
         h('p', null, 'Um minuto para entender o Louvor Studio: da escala ao ensaio da sua parte.')),
       h('div', { class: 'vframe' }, frame)));
   }
-  // A semana de uma banda: situações de todo domingo (não são depoimentos; o app ainda não tem clientes
-  // e o usuário escolheu não inventar avaliações). Trilho de segunda a domingo, arrasta para o lado.
-  var SEMANA = [
-    ['Segunda', '21h10', 'Quem lidera', 'O culto de domingo nem chegou e as escalas do mês já estão prontas. Ela usou a agenda fixa da igreja e criou tudo de uma vez, sem perguntar no grupo "quem toca domingo?".', 'CalendarDays', 'Agenda do mês'],
-    ['Terça', '23h40', 'Vocal', 'As crianças finalmente dormiram. Ela põe o fone, abre a música de domingo no tom da banda e repete o refrão até a segunda voz sair sem pensar.', 'Repeat', 'Repetir uma parte'],
-    ['Quarta', '12h15', 'Bateria', 'Intervalo do almoço, marmita na mão. Chega o aviso da escala, ele toca em Confirmar e volta pro serviço. O líder já ficou sabendo.', 'CalendarCheck', 'Confirmar num toque'],
-    ['Quinta', '19h30', 'Teclado', 'Apareceu o aniversário da avó no sábado. Ela marca Não posso e pede troca, sem textão e sem ficar sem graça no grupo.', 'ArrowLeftRight', 'Pedir troca'],
-    ['Sexta', '22h05', 'Contralto', 'Música nova, e essa voz ela nunca cantou. Escolhe a contralto que o líder já liberou e canta junto com a multitrack até decorar a entrada.', 'Users', 'Vozes por naipe'],
-    ['Domingo', '17h50', 'A banda toda', 'Passagem de som curta. Todo mundo sabe a música, o tom e onde entra. Sobra tempo para orar juntos antes do culto.', 'HeartHandshake', 'Banda pronta']
+  // A semana de uma banda = uma multitrack: cada pessoa é uma faixa colorida, o cursor do estúdio anda
+  // pela semana conforme a página rola, cada momento acende quando o cursor passa e, no domingo, todas as
+  // faixas se juntam no culto. São situações do dia a dia, não depoimentos (o usuário escolheu não inventar avaliações).
+  var FAIXAS = [
+    { nome: 'Líder', cor: '#FFB547' },
+    { nome: 'Vocal', cor: '#63D4FF' },
+    { nome: 'Bateria', cor: '#34D399' },
+    { nome: 'Teclado', cor: '#A78BFA' },
+    { nome: 'Contralto', cor: '#5B8CFF' }
   ];
+  // [faixa, posição na semana (0–100), dia, hora, ícone, cena, recurso do app]
+  var MOMENTOS = [
+    [0, 6, 'Segunda', '21h10', 'CalendarDays', 'Criou as escalas do mês inteiro de uma vez, pela agenda fixa da igreja.', 'Agenda do mês'],
+    [1, 21, 'Terça', '23h40', 'Repeat', 'Com as crianças dormindo, repetiu o refrão no fone até a segunda voz sair sem pensar.', 'Repetir uma parte'],
+    [2, 36, 'Quarta', '12h15', 'CalendarCheck', 'No almoço, marmita na mão: tocou em Confirmar e voltou pro serviço.', 'Confirmar num toque'],
+    [3, 51, 'Quinta', '18h20', 'CloudDownload', 'Baixou as músicas da escala para ouvir no ônibus, sem gastar internet.', 'Música no celular'],
+    [4, 66, 'Sexta', '22h05', 'Users', 'Música nova: aprendeu a contralto com a voz que o líder já liberou.', 'Vozes por naipe'],
+    [0, 80, 'Sábado', '20h00', 'Megaphone', 'Fixou o recado no mural: todo mundo às 17h30 para a passagem de som.', 'Mural da banda']
+  ];
+  var CULTO = ['Domingo', '19h00', 'Todo mundo chega sabendo a música, o tom e onde entra. Sobra tempo para orar juntos antes de subir.'];
+  var LANE_Y = [10, 30, 50, 70, 90];
+  var JUNTA = 84; // onde as faixas começam a se juntar
+
   function semana() {
-    var track = h('ol', { class: 'track', tabindex: '0', 'aria-label': 'Os dias da semana: arraste para o lado' }, SEMANA.map(function (d) {
-      return h('li', { class: 'dia' },
-        h('div', { class: 'quando' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), h('b', null, d[0]), h('span', { class: 'hora' }, d[1])),
-        h('article', { class: 'cena' },
-          h('span', { class: 'quem' }, d[2]),
-          h('p', null, d[3]),
-          h('span', { class: 'rec' }, ic(d[4], 16), d[5])));
-    }));
-    function mover(dir) {
-      var card = track.querySelector('.dia');
-      var passo = card ? card.getBoundingClientRect().width + 16 : 320;
-      track.scrollBy({ left: dir * passo, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    var NS = 'http://www.w3.org/2000/svg';
+    function linhas(cls) {
+      var s = document.createElementNS(NS, 'svg');
+      s.setAttribute('viewBox', '0 0 100 100');
+      s.setAttribute('preserveAspectRatio', 'none');
+      s.setAttribute('class', 'linhas ' + cls);
+      s.setAttribute('aria-hidden', 'true');
+      FAIXAS.forEach(function (f, i) {
+        var y = LANE_Y[i];
+        var p = document.createElementNS(NS, 'path');
+        p.setAttribute('d', 'M0 ' + y + ' H' + JUNTA + ' C' + (JUNTA + 9) + ' ' + y + ' ' + (JUNTA + 7) + ' 50 100 50');
+        p.setAttribute('stroke', f.cor);
+        p.setAttribute('vector-effect', 'non-scaling-stroke');
+        s.appendChild(p);
+      });
+      return s;
     }
-    return h('section', { class: 'semana', id: 'semana' },
-      h('div', { class: 'wrap shead' },
-        h('div', null, h('h2', null, 'A semana de uma banda de louvor.'),
-          h('p', null, 'Ninguém vive de ensaio. Tem trabalho, casa, família. É no meio disso que o Louvor Studio entra.')),
-        h('div', { class: 'setas' },
-          h('button', { class: 'iconbtn', 'aria-label': 'Dia anterior', onclick: function () { mover(-1); } }, ic('ChevronLeft', 20)),
-          h('button', { class: 'iconbtn', 'aria-label': 'Próximo dia', onclick: function () { mover(1); } }, ic('ChevronRight', 20)))),
-      track);
+    var base = linhas('base'), viva = linhas('viva');
+    var cursor = h('span', { class: 'cursor', 'aria-hidden': 'true' });
+    var nos = MOMENTOS.map(function (m, i) {
+      var f = FAIXAS[m[0]];
+      return h('button', { class: 'no', type: 'button', style: { left: m[1] + '%', top: LANE_Y[m[0]] + '%', '--c': f.cor },
+        'aria-label': m[2] + ', ' + m[3] + ', ' + f.nome + ': ' + m[5], onclick: function () { mostrar(i, true); } }, ic(m[4], 16));
+    });
+    var culto = h('button', { class: 'no culto', type: 'button', style: { left: '100%', top: '50%' }, 'aria-label': 'Domingo: o culto',
+      onclick: function () { mostrar(MOMENTOS.length, true); } }, ic('AudioLines', 20));
+    var dias = h('div', { class: 'dias', 'aria-hidden': 'true' },
+      MOMENTOS.map(function (m) { return h('span', { style: { left: m[1] + '%' } }, m[2].slice(0, 3)); })
+        .concat([h('span', { class: 'dom', style: { left: '100%' } }, 'Dom')]));
+    var trilha = h('div', { class: 'trilha' }, base, viva, nos, culto, cursor);
+    var nomes = h('div', { class: 'nomes', 'aria-hidden': 'true' }, FAIXAS.map(function (f, i) {
+      return h('span', { style: { top: LANE_Y[i] + '%', '--c': f.cor } }, h('i'), f.nome);
+    }));
+
+    // A legenda: a cena do momento em que o cursor está, na cor da faixa.
+    var leg = h('div', { class: 'legenda', 'aria-live': 'polite' });
+    var atual = -2, fixoEm = null, pAgora = 0;
+    function conteudo(i) {
+      if (i < 0) return [h('div', { class: 'lq' }, h('b', null, 'Segunda de manhã'), h('span', null, 'a semana começa')),
+        h('p', null, 'Cada um tem trabalho, casa, família. Role a página e veja a semana da banda andar até o culto.')];
+      if (i >= MOMENTOS.length) return [h('div', { class: 'lq' }, h('b', null, CULTO[0]), h('span', { class: 'mono' }, CULTO[1]), h('span', { class: 'quem' }, 'A banda toda')),
+        h('p', { class: 'big' }, 'O culto.'), h('p', null, CULTO[2])];
+      var m = MOMENTOS[i], f = FAIXAS[m[0]];
+      return [h('div', { class: 'lq' }, h('span', { class: 'li' }, ic(m[4], 20)), h('b', null, m[2]), h('span', { class: 'mono' }, m[3]), h('span', { class: 'quem' }, f.nome)),
+        h('p', null, m[5]), h('span', { class: 'rec' }, ic('Check', 15), 'No app: ' + m[6])];
+    }
+    function mostrar(i, porToque) {
+      if (porToque) fixoEm = pAgora;
+      if (i === atual) return;
+      atual = i;
+      var cor = i < 0 ? 'var(--accent)' : i >= MOMENTOS.length ? 'var(--accent-light)' : FAIXAS[MOMENTOS[i][0]].cor;
+      leg.style.setProperty('--c', cor);
+      leg.classList.toggle('final', i >= MOMENTOS.length);
+      leg.replaceChildren.apply(leg, conteudo(i));
+      nos.forEach(function (n, k) { n.classList.toggle('agora', k === i); });
+      if (!REDUCE) leg.animate([{ opacity: 0, transform: 'translateY(8px)', filter: 'blur(4px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
+        { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+    }
+
+    var palco = h('div', { class: 'palco' }, h('div', { class: 'mesa' }, nomes, h('div', { class: 'tw' }, trilha, dias)), leg);
+    var sec = h('section', { class: 'semana', id: 'semana' },
+      h('div', { class: 'sticky' }, h('div', { class: 'wrap' },
+        h('h2', null, 'A semana de uma banda de louvor.'),
+        h('p', { class: 'sub' }, 'Cada um no seu tempo, como faixas de uma multitrack. No domingo, tudo se encontra.'),
+        palco)));
+
+    // O cursor anda com a rolagem (a seção fica presa na tela enquanto a semana passa).
+    function andar() {
+      if (!sec.isConnected) { window.removeEventListener('scroll', pedir); window.removeEventListener('resize', pedir); return; }
+      var r = sec.getBoundingClientRect(), curso = sec.offsetHeight - innerHeight;
+      var p = curso > 0 ? Math.min(1, Math.max(0, -r.top / curso)) : 1;
+      var x = Math.min(100, p * 108 - 2); // um respiro no começo e chega ao culto antes do fim
+      cursor.style.transform = 'translateX(' + (Math.max(0, x) / 100 * trilha.clientWidth) + 'px)';
+      cursor.style.opacity = x < 0 || x >= 100 ? '0' : '1';
+      viva.style.clipPath = 'inset(0 ' + (100 - Math.max(0, x)) + '% 0 0)';
+      var i = -1;
+      MOMENTOS.forEach(function (m, k) { var on = x >= m[1]; nos[k].classList.toggle('on', on); if (on) i = k; });
+      var fim = x >= 99.5;
+      culto.classList.toggle('on', fim);
+      palco.classList.toggle('fim', fim);
+      if (fim) i = MOMENTOS.length;
+      pAgora = p;
+      // Tocou num momento: a legenda fica nele até a pessoa rolar um pouco.
+      if (fixoEm !== null && Math.abs(p - fixoEm) > 0.03) fixoEm = null;
+      if (fixoEm === null) mostrar(i);
+    }
+    var agendado = false;
+    function pedir() {
+      if (agendado) return;
+      agendado = true;
+      requestAnimationFrame(function () { agendado = false; andar(); });
+    }
+    window.addEventListener('scroll', pedir, { passive: true });
+    window.addEventListener('resize', pedir);
+    requestAnimationFrame(andar);
+    return sec;
   }
 
   function point(icon, text) { return h('li', null, ic(icon, 20), h('span', null, text)); }
@@ -1100,7 +1188,7 @@
   function choreograph(page) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     var actors = [].slice.call(page.querySelectorAll('.dev > *'));
-    var lists = [].slice.call(page.querySelectorAll('.feat ul, .steps, .mixer .lanes, .semana .track'));
+    var lists = [].slice.call(page.querySelectorAll('.feat ul, .steps, .mixer .lanes'));
     var frames = [].slice.call(page.querySelectorAll('.vframe'));
     // Escondidos só enquanto esperam a vez; se a biblioteca não carregar, aparecem como estão.
     function hide() {

@@ -6,7 +6,7 @@
 
   L.NEWS = [
     ['1.5.1', [
-      'Página de entrada: a semana de uma banda de louvor, de segunda a domingo. E o ícone azul novo na aba do navegador.'
+      'Página de entrada: a semana de uma banda como uma multitrack. Cada pessoa é uma faixa, o cursor anda com a rolagem e tudo se junta no culto. E o ícone azul novo na aba do navegador.'
     ]],
     ['1.5.0', [
       'Planos: na página de entrada e em louvorstudio.app.br/planos. Tem plano grátis, e todos os planos têm todos os recursos.',
