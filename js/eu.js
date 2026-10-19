@@ -16,6 +16,8 @@
       U.menuRow('CalendarX', 'Dias que não posso', 'Marque para quem monta a escala já saber', function () { L.go({ name: 'availability' }); })));
 
     root.appendChild(planPanel());
+    if (S.isAdmin) root.appendChild(U.panel('Administração', 'ShieldCheck',
+      U.menuRow('ShieldCheck', 'Painel de administração', 'Todas as bandas do Louvor Studio: planos, pessoas e espaço.', function () { location.href = 'admin/'; })));
 
     if (S.memberships.length > 1) {
       root.appendChild(U.panel('Minhas bandas', 'Users', h('div', { class: 'row wrap' }, S.memberships.map(function (b) {
