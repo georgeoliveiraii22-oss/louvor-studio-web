@@ -33,10 +33,16 @@
         (all.data || []).forEach(function (x) { count[x.org_id] = (count[x.org_id] || 0) + 1; });
         S.memberships.forEach(function (m) { m.people = count[m.org.id] || 1; });
       }
-      var saved = L.store.get('banda', null);
-      var biggest = S.memberships.slice().sort(function (a, b) { return (b.people || 1) - (a.people || 1); })[0];
-      S.current = S.memberships.find(function (m) { return m.org.id === saved; }) || biggest || null;
-      if (S.current) await D.loadOrg();
+      if (S.choosingBand && S.memberships.length) {
+        // Acabou de entrar na conta: espera a pessoa tocar na banda (tela "Escolha a banda").
+        S.current = null;
+      } else {
+        S.choosingBand = false;
+        var saved = L.store.get('banda', null);
+        var biggest = S.memberships.slice().sort(function (a, b) { return (b.people || 1) - (a.people || 1); })[0];
+        S.current = S.memberships.find(function (m) { return m.org.id === saved; }) || biggest || null;
+        if (S.current) await D.loadOrg();
+      }
     } finally {
       S.loading = false;
     }

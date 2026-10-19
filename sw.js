@@ -1,7 +1,7 @@
 // Louvor Studio (web) — guarda o app no celular para abrir rápido.
 // Arquivos do site: busca a versão nova na internet e, sem internet, usa a guardada.
 // Bibliotecas com versão fixa (CDN): usa a guardada. Dados e áudio da banda nunca ficam aqui.
-var CACHE = 'louvor-web-v18';
+var CACHE = 'louvor-web-v19';
 
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) {

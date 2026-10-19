@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.7.2', [
+      'Ao entrar na conta, o site mostra "Escolha a banda": toque na sua banda, ou crie uma nova, ou entre com código. A tela de criar banda não pisca mais.'
+    ]],
     ['1.7.1', [
       'Novo cartão da próxima escala no Início, no estilo agenda: a data grande, o nome, a hora, o local e os rostos de quem toca com você.'
     ]],

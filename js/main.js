@@ -3,13 +3,14 @@
   'use strict';
   var L = window.L, S = L.S, h = L.h, U = L.ui, D = L.data, A = L.auth;
 
-  L.VERSION = '1.7.1';
+  L.VERSION = '1.7.2';
 
   /** Antes das abas: apresentação, entrar, carregando, criar banda, "o que você faz". Nulo = abas normais. */
   L.rootView = function () {
     if (!S.booted) return U.spinner();
     if (!S.loggedIn) return S.entry ? A.login() : A.landing();
     if (S.loading && !S.memberships.length) return U.spinner('Carregando a sua banda…');
+    if (S.choosingBand && S.memberships.length && !S.current) return A.bandChooser();
     if (!S.current) return A.onboarding();
     if (A.needsFunctions()) return A.functionsPrompt();
     return null;
@@ -29,7 +30,7 @@
       if (S.loggedIn) {
         // Saiu: limpa tudo.
         S.loggedIn = false; S.user = null; S.memberships = []; S.current = null; S.members = []; S.projects = []; S.services = [];
-        S.stack = [{ name: 'main' }]; S.tab = 'inicio'; S.viewAsMember = false; S.entry = null; loadedFor = null;
+        S.stack = [{ name: 'main' }]; S.tab = 'inicio'; S.viewAsMember = false; S.entry = null; S.choosingBand = false; loadedFor = null;
         if (L.studio) L.studio.stopAll();
       }
       L.render();
@@ -39,7 +40,10 @@
     S.loggedIn = true;
     if (loadedFor === uid) return;
     loadedFor = uid;
+    // Entrou agora pela tela de login (não é só o site abrindo já logado): escolhe a banda primeiro.
+    if (S.entry) S.choosingBand = true;
     S.entry = null;
+    S.loading = true; // senão a tela de criar banda pisca antes de carregar
     if (A.loginState) A.loginState = null;
     L.render();
     try { await D.refresh(); } catch (e) { L.toast(L.errorText(e)); }

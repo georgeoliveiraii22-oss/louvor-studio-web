@@ -88,14 +88,15 @@
   // ------------------------------------------------------------------ Criar banda ou entrar com código
   A.onboarding = function () {
     var st = A.obState = A.obState || { band: '', code: '' };
-    var inviteFirst = S.entry === 'convite';
+    var inviteFirst = S.entry === 'convite' || A.obMode === 'convite';
+    var fromChooser = !!A.obMode;
     var createP = U.panel('Criar banda', 'Plus',
       U.field(st.band, 'Nome da banda', function (v) { st.band = v; }, { max: 80 }),
       U.btn('Criar banda', null, function () {
         if (!st.band.trim()) return;
         L.run(async function () {
-          L.must(await sb.rpc('create_organization', { _name: st.band.trim() }));
-          await D.refresh(); L.toast('Banda criada. Você é o líder.'); L.render();
+          var id = L.must(await sb.rpc('create_organization', { _name: st.band.trim() }));
+          await A.enterBand(id); L.toast('Banda criada. Você é o líder.');
         });
       }, { full: true }));
     var joinBtn = inviteFirst ? U.btn : U.btn2;
@@ -104,15 +105,57 @@
       joinBtn('Entrar na banda', null, function () {
         if (!st.code.trim()) return;
         L.run(async function () {
-          L.must(await sb.rpc('join_organization', { _code: st.code.trim().toLowerCase() }));
-          await D.refresh(); L.toast('Você entrou na banda.'); L.render();
+          var id = L.must(await sb.rpc('join_organization', { _code: st.code.trim().toLowerCase() }));
+          await A.enterBand(id); L.toast('Você entrou na banda.');
         });
       }, { full: true }));
-    return h('div', { class: 'screen' },
-      U.title('Comece pela sua banda', 'Crie a banda (você será o líder) ou entre numa que já existe com o código de convite.'),
+    return h('div', { class: 'screen narrow' },
+      fromChooser ? U.topRow(inviteFirst ? 'Entrar numa banda' : 'Nova banda', null, null, function () { A.obMode = null; L.render(); })
+        : U.title('Comece pela sua banda', 'Crie a banda (você será o líder) ou entre numa que já existe com o código de convite.'),
       inviteFirst ? [joinP, createP] : [createP, joinP],
-      U.btn2('Sair da conta', 'LogOut', function () { A.signOut(); }));
+      fromChooser ? null : U.btn2('Sair da conta', 'LogOut', function () { A.signOut(); }));
   };
+
+  /** Criou ou entrou numa banda agora: abre ela. */
+  A.enterBand = async function (id) {
+    if (typeof id === 'string' && id) L.store.set('banda', id.replace(/"/g, ''));
+    S.choosingBand = false; A.obMode = null;
+    await D.refresh(); L.render();
+  };
+
+  // ------------------------------------------------------------------ Escolha a banda (logo depois de entrar na conta)
+  A.bandChooser = function () {
+    if (A.obMode) return A.onboarding();
+    var last = L.store.get('banda', null);
+    var bands = S.memberships.slice().sort(function (a, b) { return (a.org.id === last ? 0 : 1) - (b.org.id === last ? 0 : 1) || a.org.name.localeCompare(b.org.name); });
+    return h('div', { class: 'screen narrow chooser' },
+      h('span', { class: 'logo big' }, ic('AudioLines', 26)),
+      h('h1', { class: 'h1' }, 'Escolha a banda'),
+      U.body(bands.length === 1 ? 'Toque na sua banda para entrar.' : 'Você está em ' + bands.length + ' bandas. Toque na que quer abrir agora; dá para trocar depois em Eu › Minhas bandas.', 'var(--text)', 15),
+      h('div', { class: 'list' }, bands.map(function (b) {
+        var parts = b.org.name.trim().split(/\s+/);
+        var ini = (parts[0].charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : '')).toUpperCase();
+        var twin = bands.some(function (o) { return o !== b && o.org.name === b.org.name; });
+        return h('div', { class: 'li bandpick', role: 'button', tabindex: '0', onclick: function () { pick(b); },
+          onkeydown: function (e) { if (e.key === 'Enter') pick(b); } },
+          h('span', { class: 'bico', style: { background: U.colorFor(b.org.id) } }, ini),
+          h('div', { class: 'grow', style: { minWidth: 0 } }, h('div', { class: 'hi semi ell', style: { fontSize: '17px' } }, b.org.name),
+            h('div', { class: 'muted small row', style: { gap: '6px' } }, ic(b.role === 'leader' ? 'Crown' : 'Users', 14), b.role === 'leader' ? 'Líder' : 'Integrante',
+              twin && b.people ? ' · ' + L.plural(b.people, 'pessoa', 'pessoas') : null,
+              b.org.id === last && bands.length > 1 ? h('span', { class: 'accent' }, '· a última que você abriu') : null)),
+          ic('ChevronRight', 20, 'muted'));
+      })),
+      h('h2', { class: 'gtitle' }, 'Outra banda'),
+      U.panel(null, null,
+        U.menuRow('Plus', 'Criar uma banda', 'Você será o líder e convida o pessoal.', function () { A.obMode = 'criar'; L.render(); }),
+        U.menuRow('UserPlus', 'Entrar com código de convite', 'O líder da banda manda o código.', function () { A.obMode = 'convite'; L.render(); })),
+      h('button', { class: 'textbtn muted', style: { alignSelf: 'center' }, onclick: function () { A.signOut(); } }, 'Sair da conta'));
+  };
+  function pick(b) {
+    S.choosingBand = false; S.current = b; L.store.set('banda', b.org.id);
+    L.render();
+    L.run(async function () { S.loading = true; try { await D.loadOrg(); } finally { S.loading = false; } L.render(); });
+  }
 
   /** Logo depois de entrar na banda: "O que você faz?" */
   A.functionsPrompt = function () {
