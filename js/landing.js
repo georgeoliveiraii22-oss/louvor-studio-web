@@ -62,6 +62,7 @@
         h('a', { href: '#video', onclick: function (e) { e.preventDefault(); jump('video'); } }, 'Vídeo'),
         h('a', { href: '#recursos', onclick: function (e) { e.preventDefault(); jump('recursos'); } }, 'Recursos'),
         h('a', { href: '#como', onclick: function (e) { e.preventDefault(); jump('como'); } }, 'Como começar'),
+        h('a', { href: '#planos', onclick: function (e) { e.preventDefault(); jump('planos'); } }, 'Planos'),
         h('a', { href: '#perguntas', onclick: function (e) { e.preventDefault(); jump('perguntas'); } }, 'Perguntas')),
       h('span', { class: 'sp' }),
       h('button', { class: 'textbtn', onclick: function () { goEntry('entrar'); } }, 'Entrar'),
@@ -120,7 +121,8 @@
 
     var qa = [
       ['O que é o Louvor Studio?', 'Um app para bandas de louvor: escalas, repertório, ensaio com multitrack, gravação da sua voz e a conversa da banda, num lugar só.'],
-      ['É grátis?', 'Sim, tem plano grátis para a sua banda começar a usar.'],
+      ['É grátis?', 'Sim, tem plano grátis: até 8 pessoas e 1 GB para as músicas, com todos os recursos. Quando a banda crescer, é só escolher um plano maior.'],
+      ['Como funciona o pagamento?', 'Os planos pagos são por mês ou por ano (no anual, você paga 10 meses e usa 12). Se um pagamento atrasar, a banda continua usando por 7 dias; depois fica só para consulta até acertar. Nada é apagado.'],
       ['Funciona no navegador ou preciso baixar?', 'Funciona no navegador do celular e do computador, sem instalar nada. No celular, dá para pôr na tela inicial e abrir como um app. O app de Android chega em breve na Play Store.'],
       ['Como o pessoal entra na banda?', 'O líder cria a banda e manda o código de convite. Cada pessoa cria a própria conta e entra com o código.'],
       ['Dá para gravar a minha voz pelo site?', 'Por enquanto, no site você ouve e ensaia. Gravar a sua voz (com o atraso do fone compensado) é no app de Android.'],
@@ -145,7 +147,7 @@
       h('a', { href: 'painel/' }, 'Painel do líder'),
       h('span', null, '© 2026 Louvor Studio')));
 
-    var page = h('div', { class: 'site' }, top, h('main', null, hero, videoBlock(), demo, feats, how, faq, close), foot);
+    var page = h('div', { class: 'site' }, top, h('main', null, hero, videoBlock(), demo, feats, how, LSPlanos.secao({ comecar: function () { goEntry('criar'); } }), faq, close), foot);
     watchTop(top, page);
     choreograph(page);
     return page;

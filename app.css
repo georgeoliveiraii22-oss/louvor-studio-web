@@ -870,3 +870,92 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
   .faq h2 { position: sticky; top: 96px; }
   .close .card { padding: 80px 40px; }
 }
+
+/* ---------------------------------------------------------------- Planos (js/planos.js): na página de entrada e em /planos/ */
+.planos { padding: 72px 0 24px; }
+.planos .phead { display: grid; gap: 14px; max-width: 40em; }
+.planos h2 { font-size: clamp(30px, 6.4vw, 48px); line-height: 1.05; }
+.planos .phead p { color: var(--text); font-size: 16.5px; line-height: 1.55; }
+.planos h3 { font-size: 20px; letter-spacing: -0.015em; }
+
+/* Mensal | Anual: a pílula clara desliza para o lado escolhido */
+.ciclo { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; margin: 30px 0 22px; padding: 4px; border-radius: 9999px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
+.ciclo .thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 9999px; background: var(--control);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(220, 232, 242, 0.08); transition: transform 260ms var(--ease-out); }
+.ciclo.anual .thumb { transform: translateX(100%); }
+.ciclo button { position: relative; border: 0; background: none; min-height: 44px; padding: 0 18px; border-radius: 9999px; color: var(--muted); font-weight: 600; font-size: 15px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; transition: color 160ms ease; }
+.ciclo button.on { color: var(--hi); }
+.ciclo .off { font-size: 12px; font-weight: 600; color: var(--ok); background: var(--ok-bg); padding: 3px 8px; border-radius: 9999px; }
+
+.pgrid { display: grid; gap: 14px; }
+.plano { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 24px 22px 22px; border-radius: 24px; background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line); }
+.plano .ptop { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; }
+.plano .chip { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 9999px; background: var(--accent); color: var(--on-accent); }
+.plano .chip.seu { background: var(--ok-bg); color: var(--ok); }
+.plano .para { color: var(--muted); font-size: 14.5px; line-height: 1.45; min-height: 2.9em; }
+.plano .preco { display: flex; align-items: baseline; gap: 4px; margin-top: 14px; }
+.plano .preco .v, .pextra .v { font-size: 38px; font-weight: 700; color: var(--hi); letter-spacing: -0.035em; font-variant-numeric: tabular-nums; line-height: 1; }
+.plano .preco .u, .pextra .u { color: var(--muted); font-size: 15px; font-weight: 500; }
+.plano .pnota { color: var(--muted); font-size: 13px; min-height: 1.4em; }
+.plano .specs { list-style: none; margin: 18px 0 0; padding: 18px 0 0; display: grid; gap: 12px; box-shadow: inset 0 1px 0 var(--line); }
+.plano .specs li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; color: var(--text); line-height: 1.35; }
+.plano .specs svg { color: var(--accent-light); margin-top: 1px; }
+.plano .specs b { color: var(--hi); font-weight: 600; }
+.plano .meter { height: 6px; border-radius: 3px; background: var(--control); overflow: hidden; margin: 16px 0 20px; }
+.plano .meter i { display: block; height: 100%; background: var(--gradient); transform-origin: left; border-radius: 3px; }
+.plano .pcta { margin-top: auto; text-decoration: none; }
+.plano .pcta svg { transition: transform 200ms var(--ease-out); }
+.pcta.is-current { color: var(--ok); background: var(--ok-bg); cursor: default; }
+@media (hover: hover) and (pointer: fine) {
+  .plano a.btn.pcta:hover svg { transform: translateX(3px); }
+}
+/* O recomendado: contorno no degradê da marca e um brilho azul embaixo */
+.plano.destaque { background: radial-gradient(120% 70% at 50% 0%, rgba(8, 169, 245, 0.16), transparent 70%), var(--panel);
+  box-shadow: 0 18px 50px -18px rgba(8, 169, 245, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3); }
+.plano.destaque::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: var(--gradient); pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.plano.atual { box-shadow: inset 0 0 0 1.5px rgba(52, 211, 153, 0.55); }
+
+.pextra { margin-top: 14px; display: grid; grid-template-columns: auto 1fr; gap: 14px 16px; align-items: center; padding: 20px 22px; border-radius: 24px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
+.pextra .xi { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: var(--sel); color: var(--accent-light); }
+.pextra .xt { display: grid; gap: 4px; }
+.pextra .xt p { color: var(--text); font-size: 14.5px; line-height: 1.45; }
+.pextra .xp { display: flex; align-items: baseline; gap: 4px; }
+.pextra .xpw { display: grid; gap: 4px; }
+.pextra .pnota { color: var(--muted); font-size: 13px; }
+.pextra .v { font-size: 28px; }
+.pextra .pcta { text-decoration: none; justify-self: start; }
+
+.ptudo { margin-top: 44px; display: grid; gap: 18px; }
+.ptudo ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px 28px; }
+.ptudo li { display: flex; gap: 10px; align-items: flex-start; font-size: 15.5px; color: var(--text); line-height: 1.4; }
+.ptudo svg { color: var(--ok); margin-top: 2px; }
+.pfino { margin-top: 30px; display: grid; gap: 8px; max-width: 46em; }
+.pfino p { color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+
+@media (max-width: 699px) {
+  .ciclo { display: grid; width: 100%; }
+  .ciclo button { padding: 0 10px; }
+  .pextra .xpw { grid-column: 2; }
+  .pextra .pcta { grid-column: 1 / -1; width: 100%; }
+}
+@media (min-width: 700px) {
+  .pgrid { grid-template-columns: 1fr 1fr; }
+  .ptudo ul { grid-template-columns: 1fr 1fr; }
+  .pextra { grid-template-columns: auto 1fr auto auto; gap: 20px; }
+}
+@media (min-width: 1100px) {
+  .pgrid { grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: stretch; }
+  .plano.destaque { transform: translateY(-10px); }
+  .ptudo { grid-template-columns: 0.8fr 2.2fr; gap: 64px; align-items: start; }
+  .ptudo ul { grid-template-columns: 1fr 1fr 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ciclo .thumb { transition: none; }
+}
+
+/* Página /planos/ sozinha */
+.planos-page .planos { padding-top: 40px; }
+.planos-page .site-top nav { display: none !important; }

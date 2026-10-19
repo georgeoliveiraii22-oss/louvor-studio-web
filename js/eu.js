@@ -15,6 +15,8 @@
     root.appendChild(U.panel('Escalas', 'CalendarDays',
       U.menuRow('CalendarX', 'Dias que não posso', 'Marque para quem monta a escala já saber', function () { L.go({ name: 'availability' }); })));
 
+    root.appendChild(planPanel());
+
     if (S.memberships.length > 1) {
       root.appendChild(U.panel('Minhas bandas', 'Users', h('div', { class: 'row wrap' }, S.memberships.map(function (b) {
         var twin = S.memberships.some(function (o) { return o !== b && o.org.name === b.org.name; });
@@ -48,6 +50,24 @@
     root.appendChild(h('div', { class: 'center muted small' }, 'Louvor Studio (web) ' + L.VERSION));
     return root;
   });
+
+  // Plano da banda: o nome, as pessoas e o espaço usado; os planos e a assinatura ficam em /planos/.
+  function planPanel() {
+    var org = S.current.org;
+    var p = window.LSPlanos ? LSPlanos.achar(org.plan) : { nome: org.plan, pessoas: 0 };
+    var limit = Math.max(1, org.storage_limit_bytes || 1);
+    var f = S.storageUsed / limit;
+    var people = S.members.length;
+    var leader = S.current.role === 'leader';
+    return U.panel('Plano da banda', 'BadgeCheck',
+      U.keyValue('Plano', p.nome),
+      U.keyValue('Pessoas', p.pessoas ? people + ' de ' + p.pessoas : String(people)),
+      U.keyValue('Espaço usado', L.bytes(S.storageUsed) + ' de ' + L.bytes(limit)),
+      U.bar(f, f > 0.9 ? 'var(--bad)' : f > 0.75 ? 'var(--warn)' : null),
+      leader ? null : U.body('Quem escolhe o plano da banda é o líder.', 'var(--muted)', 12),
+      h('a', { class: 'btn2 full', href: 'planos/?atual=' + encodeURIComponent(org.plan || 'free'), target: '_blank', rel: 'noopener', style: { textDecoration: 'none' } },
+        ic('Sparkles', 18), leader ? 'Ver planos e assinar' : 'Ver os planos'));
+  }
 
   function installHelp() {
     var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);

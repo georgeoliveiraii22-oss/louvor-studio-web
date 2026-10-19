@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.5.0', [
+      'Planos: na página de entrada e em louvorstudio.app.br/planos. Tem plano grátis, e todos os planos têm todos os recursos.',
+      'Em Eu, o plano da banda: quantas pessoas, o espaço usado e o botão para ver os planos.'
+    ]],
     ['1.4.2', [
       'Mais segurança: os links da música só abrem se forem da web, e o site confere as bibliotecas que carrega.'
     ]],

@@ -3,7 +3,7 @@
   'use strict';
   var L = window.L, S = L.S, h = L.h, U = L.ui, D = L.data, A = L.auth;
 
-  L.VERSION = '1.4.2';
+  L.VERSION = '1.5.0';
 
   /** Antes das abas: apresentação, entrar, carregando, criar banda, "o que você faz". Nulo = abas normais. */
   L.rootView = function () {
@@ -14,6 +14,12 @@
     if (A.needsFunctions()) return A.functionsPrompt();
     return null;
   };
+
+  // Veio da página de planos ("Começar grátis"): abre direto o criar conta.
+  if (/[?&]criar=1/.test(location.search)) {
+    S.entry = 'criar';
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
 
   var loadedFor = null;
   async function onSession(session) {

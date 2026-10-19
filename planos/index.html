@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050B12">
+<meta name="description" content="Planos do Louvor Studio: tem plano grátis. Todos os recursos em todos os planos; muda só o tamanho da banda e o espaço para as músicas.">
+<title>Planos do Louvor Studio</title>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../app.css">
+<script defer src="../js/planos.js"></script>
+</head>
+<body>
+<div class="site planos-page">
+  <header class="site-top solid"><div class="wrap">
+    <a class="row" href="../" style="gap:10px;text-decoration:none">
+      <span class="logo"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg></span>
+      <span class="brand">Louvor Studio</span>
+    </a>
+    <span class="sp"></span>
+    <a class="btn2" href="../" style="min-height:40px;text-decoration:none">Abrir o app</a>
+  </div></header>
+  <main id="conteudo"></main>
+  <footer class="site-foot"><div class="wrap">
+    <span class="hi semi">Louvor Studio</span>
+    <span>O ensaio da sua banda, em qualquer lugar.</span>
+    <span class="sp"></span>
+    <a href="../">Início</a>
+    <span>© 2026 Louvor Studio</span>
+  </div></footer>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // ?atual=banda (vem do app): marca o plano que a banda já tem.
+  var q = new URLSearchParams(location.search);
+  document.getElementById('conteudo').appendChild(LSPlanos.secao({ comecar: '../?criar=1', atual: q.get('atual') || null }));
+});
+</script>
+</body>
+</html>
