@@ -117,6 +117,7 @@
           h('span', { class: 'muted small ell' }, [L.kindLabel(s.kind), L.timeRange(s), s.location].filter(Boolean).join(' · '))),
         mine.length ? h('div', { class: 'row wrap', style: { gap: '6px' } }, h('span', { class: 'accent semi small' }, 'Você: ' + mine.map(function (p) { return L.fnLabel(p.function); }).join(', ')), U.statusFor(mine[0]))
           : h('div', { class: 'muted small' }, L.plural(s.songIds.length, 'música', 'músicas') + ' · ' + L.plural(L.uniqPeople(s.people).length, 'pessoa', 'pessoas')),
+        (S.unread[s.id] || 0) > 0 && !faded ? h('div', { class: 'accent tiny semi row', style: { gap: '4px' } }, ic('MessageCircle', 13), L.plural(S.unread[s.id], 'mensagem nova', 'mensagens novas') + ' na conversa') : null,
         L.perm.schedule() && !faded && (pending || swaps) ? h('div', { class: 'warn tiny' }, [pending ? pending + ' sem resposta' : null, swaps ? swaps + ' pediu troca' : null].filter(Boolean).join(' · ')) : null),
       ic('ChevronRight', 18, 'muted'));
   };

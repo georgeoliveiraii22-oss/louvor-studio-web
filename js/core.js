@@ -232,8 +232,8 @@
 
   L.bottomNav = function (inner) {
     var items = [
-      ['inicio', 'House', 'Início', 0], ['escalas', 'CalendarDays', 'Escalas', L.pendingMine()],
-      ['musicas', 'Library', 'Repertório', 0], ['membros', 'UsersRound', 'Banda', L.unreadTotal()], ['eu', 'CircleUserRound', 'Eu', 0]
+      ['inicio', 'House', 'Início', 0], ['escalas', 'CalendarDays', 'Escalas', L.pendingMine() + L.unreadTotal() - (S.unread[''] || 0)],
+      ['musicas', 'Library', 'Repertório', 0], ['conversa', 'MessagesSquare', 'Conversa', S.unread[''] || 0], ['membros', 'UsersRound', 'Banda', 0], ['eu', 'CircleUserRound', 'Eu', 0]
     ];
     var onMain = L.route().name === 'main';
     var tabs = h('div', { class: 'tabs' }, items.map(function (it) {

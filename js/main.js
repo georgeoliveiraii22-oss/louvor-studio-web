@@ -3,7 +3,7 @@
   'use strict';
   var L = window.L, S = L.S, h = L.h, U = L.ui, D = L.data, A = L.auth;
 
-  L.VERSION = '1.8.1';
+  L.VERSION = '1.9.0';
 
   /** Antes das abas: apresentação, entrar, carregando, criar banda, "o que você faz". Nulo = abas normais. */
   L.rootView = function () {
@@ -61,7 +61,8 @@
     D.refreshMessages().then(function () {
       var r = L.route();
       // Só redesenha nas abas (não atrapalha quem está digitando ou ouvindo).
-      if (r.name === 'main' && !document.querySelector('.scrim,.sheetwrap')) L.render();
+      // Na aba Conversa não redesenha (a pessoa pode estar digitando; a conversa se atualiza sozinha).
+      if (r.name === 'main' && S.tab !== 'conversa' && !document.querySelector('.scrim,.sheetwrap')) L.render();
     });
   }, 30000);
 

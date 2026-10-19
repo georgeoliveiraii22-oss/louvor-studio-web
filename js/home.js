@@ -34,7 +34,11 @@
     var msgBlock = null;
     if (unread > 0) {
       var last = S.lastMessages.find(function (m) { return m.author !== me; });
-      msgBlock = [h('h2', { class: 'gtitle' }, 'Mensagens novas'), U.clickRow(function () { L.setTab('membros'); },
+      msgBlock = [h('h2', { class: 'gtitle' }, 'Mensagens novas'), U.clickRow(function () {
+        if (S.unread['']) { L.setTab('conversa'); return; }
+        var k = Object.keys(S.unread).find(function (x) { return x && S.unread[x] > 0; });
+        if (k) L.go({ name: 'chat', id: k }); else L.setTab('conversa');
+      },
         h('span', { class: 'circle' }, ic('MessagesSquare', 19)),
         h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, (unread === 1 ? '1 mensagem que você não leu' : unread + ' mensagens que você não leu')),
           last ? h('div', { class: 'muted small ell' }, L.nameOf(last.author) + ': ' + last.body) : null),

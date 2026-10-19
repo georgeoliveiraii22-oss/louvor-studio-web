@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.9.0', [
+      'Aba nova Conversa: a conversa da banda inteira. A aba Banda agora é só das pessoas e do convite.',
+      'A conversa de cada escala continua dentro da escala; o cartão da escala avisa quando há mensagem nova.'
+    ]],
     ['1.8.0', [
       'O líder pode excluir a banda: Banda › Pessoas › Excluir banda (no fim). Pede para digitar o nome da banda para confirmar.'
     ]],
@@ -73,18 +77,8 @@
     var m = S.current;
     var unread = L.unreadTotal();
     var root = h('div', { class: 'screen' },
-      U.tabHead('Banda', [(function (b) { b.style.color = 'var(--accent)'; return b; })(U.iconBtn('UserPlus', 'Convidar pessoas', L.openInvite)), U.iconBtn('RefreshCw', 'Atualizar', L.reload)]),
-      h('div', { class: 'row' },
-        U.toggle('Conversas' + (unread ? ' (' + unread + ')' : ''), B.view === 'conversas', 'MessagesSquare', function () { B.view = 'conversas'; L.render(); }),
-        U.toggle('Pessoas (' + S.members.length + ')', B.view === 'pessoas', 'UsersRound', function () { B.view = 'pessoas'; L.render(); })));
-
-    if (B.view === 'conversas') {
-      root.appendChild(chatRow(null, 'Conversa da banda', 'Todo mundo da banda'));
-      L.upcoming().filter(function (s) { return S.lastMessages.some(function (x) { return x.service_id === s.id; }) || (S.unread[s.id] || 0) > 0; })
-        .forEach(function (s) { root.appendChild(chatRow(s.id, s.title, L.scheduleLine(s))); });
-      root.appendChild(U.body('Cada escala tem a sua conversa: abra a escala e toque no balão no alto. Ela aparece aqui quando alguém escrever.', 'var(--muted)', 12));
-      return root;
-    }
+      U.tabHead('Banda', [(function (b) { b.style.color = 'var(--accent)'; return b; })(U.iconBtn('UserPlus', 'Convidar pessoas', L.openInvite)), U.iconBtn('RefreshCw', 'Atualizar', L.reload)]));
+    // A conversa da banda tem aba própria (Conversa); a de cada escala fica dentro da escala.
 
     // Convidar: primeiro, à vista (antes ficava no fim da lista e ninguém achava)
     root.appendChild(U.panel('Convidar pessoas', 'UserPlus', L.inviteContent()));
@@ -224,8 +218,10 @@
 
   // ------------------------------------------------------------------ Conversa
   var C = null; // { ch, msgs, timer, text }
-  L.screen('chat', function (r) {
-    var serviceId = r.id || null;
+  L.screen('chat', function (r) { return chatView(r.id || null, false); });
+  L.screen('tab-conversa', function () { return chatView(null, true); });
+
+  function chatView(serviceId, asTab) {
     var ch = serviceId || '';
     var service = serviceId ? L.service(serviceId) : null;
     var fresh = !C || C.ch !== ch;
@@ -248,7 +244,7 @@
     function paint() {
       list.replaceChildren();
       if (c.msgs === null) { list.appendChild(h('div', { class: 'fill-center', style: { minHeight: '40vh' } }, h('div', { class: 'spinner' }))); return; }
-      if (!c.msgs.length) list.appendChild(h('div', { class: 'empty', style: { paddingTop: '40px' } }, service ? 'Nenhuma mensagem ainda. Combine aqui os detalhes desta escala.' : 'Nenhuma mensagem ainda. Diga um oi para a banda!'));
+      if (!c.msgs.length) list.appendChild(h('div', { class: 'empty', style: { paddingTop: '40px' } }, service ? 'Nenhuma mensagem ainda. Combine aqui os detalhes desta escala.' : 'A conversa da banda inteira. Nenhuma mensagem ainda: diga um oi!'));
       var prevDay = null, prevAuthor = null;
       c.msgs.forEach(function (msg) {
         var dt = new Date(msg.created_at);
@@ -277,7 +273,8 @@
       D.markRead(ch);
       if (C === c) c.paint();
       c.timer = setInterval(async function () {
-        if (C !== c || L.route().name !== 'chat') { clearInterval(c.timer); return; }
+        var here = asTab ? (L.route().name === 'main' && S.tab === 'conversa') : L.route().name === 'chat';
+        if (C !== c || !here) { clearInterval(c.timer); C = null; return; }
         if (document.hidden) return;
         var last = c.msgs.length ? c.msgs[c.msgs.length - 1].created_at : null;
         try {
@@ -309,13 +306,14 @@
     c.paint = paint;
     paint();
     if (fresh) load();
-    return h('div', { class: 'chat' },
-      h('div', { style: { padding: '8px 8px 0' } }, U.topRow(service ? service.title : 'Conversa da banda', service ? L.scheduleLine(service) : 'Todo mundo da banda lê',
-        service ? U.iconBtn('CalendarDays', 'Abrir a escala', function () { L.go({ name: 'escala', id: service.id }); }) : null,
-        function () { D.markRead(ch); L.back(); })),
+    return h('div', { class: 'chat' + (asTab ? ' astab' : '') },
+      asTab ? h('div', { style: { padding: '16px 16px 4px' } }, U.tabHead('Conversa', (function (b) { b.style.color = 'var(--accent)'; return b; })(U.iconBtn('UserPlus', 'Convidar pessoas', L.openInvite))))
+        : h('div', { style: { padding: '8px 8px 0' } }, U.topRow(service ? service.title : 'Conversa da banda', service ? L.scheduleLine(service) : 'Todo mundo da banda lê',
+          service ? U.iconBtn('CalendarDays', 'Abrir a escala', function () { L.go({ name: 'escala', id: service.id }); }) : null,
+          function () { D.markRead(ch); L.back(); })),
       list,
       h('div', { class: 'composer' }, ta, sendBtn));
-  });
+  }
 
   /** Segurar a mensagem (como no app): apaga. */
   function holdToDelete(el, fn) {
