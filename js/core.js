@@ -249,7 +249,7 @@
     var uid = L.uid();
     return h('nav', { class: 'nav' + (inner ? ' inner' : ''), 'aria-label': 'Abas' },
       h('div', { class: 'side-only navbrand' }, h('span', { class: 'logo' }, ic('AudioLines', 20)), h('span', { class: 'brand' }, 'Louvor Studio')),
-      S.current ? h('div', { class: 'side-only bandpill navband' }, h('span', null, S.current.org.name)) : null,
+      S.current ? h('div', { class: 'side-only navbandwrap' }, L.igreja.pill(S.current.org.name, 'navband')) : null,
       tabs,
       next.length ? h('div', { class: 'side-only navsec' }, h('div', { class: 'label' }, 'Próximas escalas'), next.map(function (s) {
         var d = L.d(s.starts_on);

@@ -131,7 +131,7 @@
   /** Topo das abas: nome da banda, título grande e ações. */
   U.tabHead = function (title, actions, label) {
     var band = label !== undefined ? label : (S.current ? S.current.org.name : '');
-    return h('div', { class: 'tabhead' }, h('div', { class: 't' }, band ? h('span', { class: 'bandpill' }, h('span', null, band)) : null, h('h1', { class: 'h1' }, title)), actions || null);
+    return h('div', { class: 'tabhead' }, h('div', { class: 't' }, band ? L.igreja.pill(band) : null, h('h1', { class: 'h1' }, title)), actions || null);
   };
 
   U.spinner = function (text) { return h('div', { class: 'fill-center' }, h('div', { class: 'spinner' }), text ? h('div', null, text) : null); };

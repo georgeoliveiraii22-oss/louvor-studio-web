@@ -13,7 +13,7 @@
     var news = D.unseenNews();
 
     var head = h('div', { class: 'tabhead' },
-      h('div', { class: 't' }, h('span', { class: 'bandpill' }, h('span', null, S.current.org.name)), h('h1', { class: 'h1 ell' }, first ? hello + ', ' + first : hello)),
+      h('div', { class: 't' }, L.igreja.pill(S.current.org.name), h('h1', { class: 'h1 ell' }, first ? hello + ', ' + first : hello)),
       U.iconBtn('Newspaper', 'Avisos e novidades', function () { L.go({ name: 'news' }); }, { badge: news }),
       U.iconBtn('RefreshCw', 'Atualizar', L.reload));
 
@@ -43,7 +43,7 @@
 
     var notices = S.announcements.slice().sort(function (a, b) { return (b.pinned - a.pinned) || (a.created_at < b.created_at ? 1 : -1); }).slice(0, 2);
     // Celular: uma coluna, na ordem. Computador: passe e tarefas à esquerda, conversa e mural à direita.
-    return h('div', { class: 'screen' }, head,
+    return h('div', { class: 'screen' + (S.church.wall ? ' haswall' : '') }, L.igreja.wallpaper(), head,
       h('div', { class: 'home-grid' },
         h('div', { class: 'home-a' }, nextBlock, h('h2', { class: 'gtitle' }, 'Para você'), todoBlock, L.social.section()),
         h('div', { class: 'home-b' }, msgBlock,

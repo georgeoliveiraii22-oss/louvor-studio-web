@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.7.0', [
+      'Gerenciar escalas (em Escalas, para quem monta escala): criar a escala, o mês pela agenda fixa e as equipes num lugar só, e editar várias de uma vez (apagar, hora, local, tipo, lembrar quem não respondeu).',
+      'Identidade da igreja: o líder coloca o logo e o papel de parede em Banda › Pessoas.'
+    ]],
     ['1.6.0', [
       'Aniversários: coloque o seu em Eu › Meu perfil. No dia, a banda vê no Início e pode te dar parabéns com um toque.',
       'Quem acabou de chegar na banda aparece no Início, com um botão para dar boas-vindas. E o cartão da próxima escala mostra os rostos de quem toca com você.'
@@ -76,6 +80,8 @@
           h('div', { class: 'muted small ell' }, mb.functions.map(L.fnLabel).join(', ') || 'sem função marcada')),
         mb.role === 'leader' ? U.chip('Líder', 'accent', 'Crown') : mb.can_schedule ? U.chip('Escalas', 'ok', 'CalendarDays') : mb.can_manage_songs ? U.chip('Músicas', 'ok', 'Library') : null);
     })));
+
+    if (m.role === 'leader') root.appendChild(L.igreja.panel());
 
     var code = m.org.invite_code;
     root.appendChild(U.panel('Convidar', 'Share2',

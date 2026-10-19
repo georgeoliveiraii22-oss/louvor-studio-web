@@ -35,6 +35,11 @@
     var can = L.perm.schedule();
     var root = h('div', { class: 'screen', style: { paddingBottom: '96px' } },
       U.tabHead('Escalas'),
+      can ? h('div', { class: 'manage', role: 'button', tabindex: '0', onclick: function () { L.go({ name: 'gerenciar' }); } },
+        h('span', { class: 'mi' }, ic('SlidersHorizontal', 19)),
+        h('div', { class: 'grow' }, h('div', { class: 'hi semi', style: { fontSize: '16px' } }, 'Gerenciar escalas'),
+          h('div', { class: 'muted small' }, 'Criar o mês, agenda fixa, equipes e editar várias de uma vez')),
+        ic('ChevronRight', 18, 'muted')) : null,
       h('div', { class: 'row' }, [['proximas', 'Próximas'], ['minhas', 'Minhas'], ['calendario', 'Calendário']].map(function (v) {
         return U.toggle(v[1], E.view === v[0], null, function () { E.view = v[0]; L.render(); });
       })));
@@ -91,7 +96,8 @@
           U.menuRow('CalendarDays', 'Uma escala', 'Passo a passo: dia, músicas, ministro, vozes, músicos e técnica.', function () { close(); setTimeout(function () { L.go({ name: 'wizard', day: day }); }, 60); }),
           U.menuRow('CalendarCheck', 'O mês inteiro', S.templates.length ? 'Cria as escalas do mês pela agenda fixa da igreja (' + S.templates.filter(function (t) { return t.active !== false; }).length + ' horários).'
             : 'Cadastre os cultos fixos da igreja (ex.: quarta 19h, domingo 9h) e crie o mês num toque.', function () { close(); setTimeout(function () { L.go({ name: 'templates' }); }, 60); }),
-          U.menuRow('UsersRound', 'Equipes fixas', 'Equipe A, Equipe B…: escale a equipe inteira com um toque.', function () { close(); setTimeout(function () { L.go({ name: 'teams' }); }, 60); })
+          U.menuRow('UsersRound', 'Equipes fixas', 'Equipe A, Equipe B…: escale a equipe inteira com um toque.', function () { close(); setTimeout(function () { L.go({ name: 'teams' }); }, 60); }),
+          U.menuRow('SlidersHorizontal', 'Gerenciar escalas', 'Escolha várias para apagar, mudar a hora, o local ou lembrar quem não respondeu.', function () { close(); setTimeout(function () { L.go({ name: 'gerenciar' }); }, 60); })
         ];
       },
       actions: function (close) { return [h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar')]; }

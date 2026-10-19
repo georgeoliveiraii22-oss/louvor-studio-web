@@ -87,7 +87,7 @@
     S.teams = soft(more[5]).map(function (t) { return { id: t.id, name: t.name, members: (t.team_members || []).map(function (x) { return { user_id: x.user_id, function: x.function }; }) }; });
     S.templates = soft(more[6]);
     S.storageUsed = Number(more[7].data) || 0;
-    await Promise.all([D.readiness(), D.refreshMessages(), D.loadImages()]);
+    await Promise.all([D.readiness(), D.refreshMessages(), D.loadImages(), L.igreja.load().catch(function () { /* sem a migração 0021 */ })]);
   };
 
   D.loadImages = async function () {
