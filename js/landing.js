@@ -75,7 +75,7 @@
           U.btn('Criar minha banda', 'Plus', function () { goEntry('criar'); }),
           U.btn2('Entrar com convite', 'Users', function () { goEntry('convite'); })),
         h('div', { class: 'facts rise d3' },
-          h('span', null, ic('Check', 16), 'Grátis por enquanto'),
+          h('span', null, ic('Check', 16), 'Tem plano grátis'),
           h('span', null, ic('MonitorSmartphone', 16), 'No celular e no computador'),
           h('span', null, ic('Smartphone', 16), 'App Android em breve'))),
       h('div', { class: 'devices' },
@@ -120,7 +120,7 @@
 
     var qa = [
       ['O que é o Louvor Studio?', 'Um app para bandas de louvor: escalas, repertório, ensaio com multitrack, gravação da sua voz e a conversa da banda, num lugar só.'],
-      ['É grátis?', 'Sim. Por enquanto, é grátis para a sua banda usar.'],
+      ['É grátis?', 'Sim, tem plano grátis para a sua banda começar a usar.'],
       ['Funciona no navegador ou preciso baixar?', 'Funciona no navegador do celular e do computador, sem instalar nada. No celular, dá para pôr na tela inicial e abrir como um app. O app de Android chega em breve na Play Store.'],
       ['Como o pessoal entra na banda?', 'O líder cria a banda e manda o código de convite. Cada pessoa cria a própria conta e entra com o código.'],
       ['Dá para gravar a minha voz pelo site?', 'Por enquanto, no site você ouve e ensaia. Gravar a sua voz (com o atraso do fone compensado) é no app de Android.'],
@@ -133,7 +133,7 @@
 
     var close = h('section', { class: 'close' }, h('div', { class: 'wrap' }, h('div', { class: 'card' },
       h('h2', null, 'Sua banda chega pronta no culto.'),
-      h('p', null, 'Crie a banda agora e convide o pessoal. É grátis por enquanto.'),
+      h('p', null, 'Crie a banda agora e convide o pessoal. Acesse grátis.'),
       h('div', { class: 'ctas' }, U.btn('Criar minha banda', 'Plus', function () { goEntry('criar'); }), U.btn2('Entrar com convite', 'Users', function () { goEntry('convite'); })))));
 
     var foot = h('footer', { class: 'site-foot' }, h('div', { class: 'wrap' },

@@ -393,7 +393,7 @@
 
   function decode(key, objectKey) {
     if (st.buffers[key] || !objectKey) return Promise.resolve();
-    return A().client().storage.from('audio').createSignedUrl(objectKey, 3600).then(function (res) {
+    return Nuvem.signedUrl(A().client(), objectKey, 3600).then(function (res) {
       if (res.error) throw res.error;
       return fetch(res.data.signedUrl);
     }).then(function (r) {
@@ -434,8 +434,8 @@
     var sb = A().client();
     var pid = st.projectId;
     var queries = [
-      sb.from('tracks').select('id,name,gain,timeline_offset_ms,sort_order,source_file:files(object_key)').eq('project_id', pid).order('sort_order'),
-      sb.from('takes').select('*,file:files(object_key)').eq('project_id', pid).order('created_at', { ascending: false }),
+      sb.from('tracks').select('id,name,gain,timeline_offset_ms,sort_order,source_file:files(id,object_key,bucket)').eq('project_id', pid).order('sort_order'),
+      sb.from('takes').select('*,file:files(id,object_key,bucket)').eq('project_id', pid).order('created_at', { ascending: false }),
       sb.from('audio_edits').select('*').eq('project_id', pid),
       sb.from('beat_grids').select('*').eq('project_id', pid),
       sb.from('song_markers').select('*').eq('project_id', pid).order('at_ms')
@@ -443,8 +443,8 @@
     if (editable()) queries.push(sb.from('edit_log').select('*').eq('project_id', pid).order('created_at', { ascending: false }).limit(15));
     return Promise.all(queries).then(function (r) {
       var must = A().must;
-      st.tracks = must(r[0]);
-      st.takes = must(r[1]);
+      st.tracks = Nuvem.mark(must(r[0]));
+      st.takes = Nuvem.mark(must(r[1]));
       st.edits = {};
       must(r[2]).forEach(function (e) {
         st.edits[e.take_id ? 'take:' + e.take_id : 'track:' + e.track_id] = e;

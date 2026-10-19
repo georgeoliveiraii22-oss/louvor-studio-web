@@ -36,8 +36,8 @@
     ex.loading = 'Carregando faixas…';
     paint();
     return Promise.all([
-      sb.from('tracks').select('id,name,gain,timeline_offset_ms,sort_order,source_file:files(object_key)').eq('project_id', pid).order('sort_order'),
-      sb.from('takes').select('*,file:files(object_key)').eq('project_id', pid).order('created_at', { ascending: false }),
+      sb.from('tracks').select('id,name,gain,timeline_offset_ms,sort_order,source_file:files(id,object_key,bucket)').eq('project_id', pid).order('sort_order'),
+      sb.from('takes').select('*,file:files(id,object_key,bucket)').eq('project_id', pid).order('created_at', { ascending: false }),
       sb.from('audio_edits').select('*').eq('project_id', pid)
     ]).then(function (r) {
       var must = A().must;
@@ -70,7 +70,7 @@
     return items.reduce(function (chain, it, i) {
       return chain.then(function () {
         say('Baixando ' + (i + 1) + ' de ' + items.length + ': ' + it.label);
-        return sb.storage.from('audio').createSignedUrl(it.objectKey, 3600);
+        return Nuvem.signedUrl(sb, it.objectKey, 3600);
       }).then(function (res) {
         if (res.error) throw res.error;
         return fetch(res.data.signedUrl);

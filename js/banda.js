@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.4.1', [
+      'Nuvem nova: as multitracks enviadas daqui em diante vão para um armazenamento mais rápido. As antigas continuam funcionando.',
+      'Na página de entrada: tem plano grátis para a sua banda começar.'
+    ]],
     ['1.4.0', [
       'Estúdio igual ao do app: abre mostrando uns 20 segundos, pinça com dois dedos para o zoom, arrastar anda na música e só o toque parado muda o cursor.',
       'A grade do click aparece nas faixas e na régua (compassos), com o ímã; Repetir: dois toques e arraste.',

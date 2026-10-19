@@ -69,11 +69,11 @@
     var sheet = L.sheet(function (close) { return sheetBody(p, extra, close); });
     Promise.all([
       sb.from('project_parts').select('*').eq('project_id', p.id).order('name'),
-      sb.from('takes').select('*,file:files(object_key)').eq('project_id', p.id).order('created_at', { ascending: false }),
+      sb.from('takes').select('*,file:files(id,object_key,bucket)').eq('project_id', p.id).order('created_at', { ascending: false }),
       sb.from('song_markers').select('*').eq('project_id', p.id).order('at_ms')
     ]).then(function (r) {
       extra.parts = r[0].error ? [] : r[0].data;
-      extra.takes = r[1].error ? [] : r[1].data;
+      extra.takes = r[1].error ? [] : Nuvem.mark(r[1].data);
       extra.markers = r[2].error ? [] : r[2].data;
       sheet.refresh();
     });
@@ -343,9 +343,7 @@
       var fileId = crypto.randomUUID();
       var key = org + '/' + pid + '/stems/' + fileId + '.mp3';
       var hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', it.buf))).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-      L.must(await sb.from('files').insert({ id: fileId, org_id: org, project_id: pid, object_key: key, size_bytes: it.file.size, checksum_sha256: hash, mime: 'audio/mpeg', uploaded_by: S.user.id }));
-      L.must(await sb.storage.from('audio').upload(key, it.file, { contentType: 'audio/mpeg', upsert: false }));
-      L.must(await sb.rpc('confirm_file', { _file: fileId, _checksum: hash }));
+      await Nuvem.uploadAudio(sb, { id: fileId, org_id: org, project_id: pid, object_key: key, size_bytes: it.file.size, checksum_sha256: hash, mime: 'audio/mpeg', uploaded_by: S.user.id }, it.file);
       L.must(await sb.from('tracks').insert({ project_id: pid, name: it.file.name.replace(/\.[^.]+$/, '').slice(0, 60), type: 'stem', source_file_id: fileId, sort_order: existing + j }));
     }
     say('Pronto!', 1);

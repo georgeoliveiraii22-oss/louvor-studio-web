@@ -71,7 +71,7 @@
   // ------------------------------------------------------------------ Baixar e decodificar
   async function decode(tg) {
     if (st.buffers[tg.key] || !tg.objectKey) return;
-    var s = await sb.storage.from('audio').createSignedUrl(tg.objectKey, 3600);
+    var s = await Nuvem.signedUrl(sb, tg.objectKey, 3600);
     if (s.error) throw s.error;
     var r = await fetch(s.data.signedUrl);
     if (!r.ok) throw new Error('Falha ao baixar o áudio (' + r.status + ').');
@@ -100,15 +100,15 @@
     var mine = st;
     try {
       var r = await Promise.all([
-        sb.from('tracks').select('id,name,gain,timeline_offset_ms,sort_order,source_file:files(object_key)').eq('project_id', pid).order('sort_order'),
-        sb.from('takes').select('*,file:files(object_key)').eq('project_id', pid).order('created_at', { ascending: false }),
+        sb.from('tracks').select('id,name,gain,timeline_offset_ms,sort_order,source_file:files(id,object_key,bucket)').eq('project_id', pid).order('sort_order'),
+        sb.from('takes').select('*,file:files(id,object_key,bucket)').eq('project_id', pid).order('created_at', { ascending: false }),
         sb.from('audio_edits').select('*').eq('project_id', pid).eq('published', true),
         sb.from('song_markers').select('*').eq('project_id', pid).order('at_ms'),
         sb.from('beat_grids').select('*').eq('project_id', pid)
       ]);
       if (st !== mine) return;
-      st.tracks = L.must(r[0]);
-      var takes = L.must(r[1]).filter(function (t) { return t.file && t.file.object_key; });
+      st.tracks = Nuvem.mark(L.must(r[0]));
+      var takes = Nuvem.mark(L.must(r[1])).filter(function (t) { return t.file && t.file.object_key; });
       st.myTake = takes.find(function (t) { return t.user_id === S.user.id; }) || null;
       st.otherTakes = takes.filter(function (t) { return t.user_id !== S.user.id && (t.released_for_rehearsal || L.perm.edit()); });
       st.voices = st.voices.filter(function (id) { return st.otherTakes.some(function (t) { return t.id === id; }); });

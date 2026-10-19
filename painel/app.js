@@ -598,18 +598,11 @@
     var key = S.org.id + '/' + project.id + '/stems/' + fileId + '.mp3';
     say('  ' + it.file.name + ': calculando checksum…');
     return sha256Hex(it.buf).then(function (sum) {
-      return sb.from('files').insert({
+      say('  ' + it.file.name + ': enviando…');
+      return Nuvem.uploadAudio(sb, {
         id: fileId, org_id: S.org.id, project_id: project.id, object_key: key,
         size_bytes: it.file.size, checksum_sha256: sum, mime: 'audio/mpeg', uploaded_by: S.user.id
-      }).then(function (res) {
-        if (res.error) throw res.error;
-        say('  ' + it.file.name + ': enviando…');
-        return sb.storage.from('audio').upload(key, it.file, { contentType: 'audio/mpeg', upsert: false });
-      }).then(function (res) {
-        if (res.error) throw res.error;
-        return sb.rpc('confirm_file', { _file: fileId, _checksum: sum });
-      }).then(function (res) {
-        if (res.error) throw res.error;
+      }, it.file).then(function () {
         return sb.from('tracks').insert({
           project_id: project.id, name: it.file.name.replace(/\.[^.]+$/, ''), type: 'stem',
           source_file_id: fileId, sort_order: index
@@ -870,9 +863,9 @@
   function loadReview() {
     var pid = rev.projectId;
     if (!pid) { rev.takes = []; return Promise.resolve(); }
-    return sb.from('takes').select('*,file:files(object_key,size_bytes)').eq('project_id', pid).order('created_at', { ascending: false })
+    return sb.from('takes').select('*,file:files(id,object_key,size_bytes,bucket)').eq('project_id', pid).order('created_at', { ascending: false })
       .then(function (res) {
-        rev.takes = must(res);
+        rev.takes = Nuvem.mark(must(res));
         var ids = rev.takes.map(function (t) { return t.id; });
         if (!ids.length) { rev.comments = {}; return; }
         return sb.from('take_comments').select('*').in('take_id', ids).order('created_at')
@@ -896,7 +889,7 @@
     }
 
     function loadAudio(take) {
-      sb.storage.from('audio').createSignedUrl(take.file.object_key, 3600).then(function (res) {
+      Nuvem.signedUrl(sb, take.file.object_key, 3600).then(function (res) {
         if (res.error) throw res.error;
         rev.urls[take.id] = res.data.signedUrl;
         render();

@@ -78,9 +78,8 @@
             var b = await sb.rpc('account_deletion_blocker', {});
             if (b.error) throw b.error;
             if (b.data) { L.toast(String(b.data)); return; }
-            var takes = await sb.from('takes').select('file:files(object_key)').eq('user_id', S.user.id);
-            var keys = (takes.data || []).map(function (t) { return t.file && t.file.object_key; }).filter(Boolean);
-            if (keys.length) await sb.storage.from('audio').remove(keys);
+            var takes = await sb.from('takes').select('file:files(id,object_key,bucket)').eq('user_id', S.user.id);
+            await Nuvem.removeMine(sb, (takes.data || []).map(function (t) { return t.file; }));
             var me = L.me();
             if (me && me.avatar_path) await sb.storage.from('avatars').remove([me.avatar_path]);
             L.must(await sb.rpc('delete_my_account', {}));
