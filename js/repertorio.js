@@ -288,7 +288,7 @@
       try {
         var org = S.current.org.id;
         var opt = function (s) { return s.trim() || null; };
-        var row = { song_title: e.title.trim(), name: e.title.trim(), artist: opt(e.artist), version_url: opt(e.link), musical_key: opt(e.key), band_key: opt(e.bandKey),
+        var row = { song_title: e.title.trim(), name: e.title.trim(), artist: opt(e.artist), version_url: (function (v) { v = opt(v); return v && !/^https?:\/\//i.test(v) ? 'https://' + v : v; })(e.link), musical_key: opt(e.key), band_key: opt(e.bandKey),
           bpm: e.bpm ? parseInt(e.bpm, 10) : null, time_signature: e.sig || null, chart_url: opt(e.chart), leader_note: opt(e.note) };
         if (e.lyrics.trim() || (p && p.lyrics)) row.lyrics = opt(e.lyrics);
         var pid;

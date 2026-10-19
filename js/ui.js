@@ -177,5 +177,6 @@
     });
   };
 
-  U.openUrl = function (url) { window.open(url, '_blank', 'noopener'); };
+  // Só abre links da web: um link "javascript:" salvo numa música rodaria dentro do site.
+  U.openUrl = function (url) { if (/^https?:\/\//i.test(String(url || '').trim())) window.open(String(url).trim(), '_blank', 'noopener'); };
 })();

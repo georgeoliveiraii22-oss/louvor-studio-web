@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.4.2', [
+      'Mais segurança: os links da música só abrem se forem da web, e o site confere as bibliotecas que carrega.'
+    ]],
     ['1.4.1', [
       'Nuvem nova: as multitracks enviadas daqui em diante vão para um armazenamento mais rápido. As antigas continuam funcionando.',
       'Na página de entrada: tem plano grátis para a sua banda começar.'
