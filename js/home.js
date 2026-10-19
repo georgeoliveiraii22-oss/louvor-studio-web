@@ -53,7 +53,10 @@
             : U.body(L.perm.leader() ? 'Nenhum aviso. Toque em Ver tudo para escrever um aviso para a banda.' : 'Nenhum aviso do líder por enquanto.', 'var(--muted)', 13))));
   });
 
-  /** Passe da próxima escala (o mesmo do app): quando, a hora, o que eu faço e a minha resposta. */
+  /**
+   * A próxima escala como uma folha de agenda (o mesmo do app): a data grande à esquerda, uma linha fina azul,
+   * o nome, a hora e o local; embaixo, os rostos, o que eu faço e a minha resposta. O azul fica só no Confirmar.
+   */
   function nextCard(s) {
     var me = L.uid();
     var mine = L.peopleOf(s, me);
@@ -61,32 +64,44 @@
     var d = L.d(s.starts_on);
     var p0 = mine[0];
     var pending = mine.length && p0.status === 'pendente' && !p0.swap_requested;
+    var people = uniq(s.people);
+    var songs = s.songIds.map(function (id) { return L.project(id); }).filter(Boolean);
+    var whenCls = days === 0 ? 'hoje' : days === 1 ? 'amanha' : '';
     function go() { L.go({ name: 'escala', id: s.id }); }
-    function field(k, v, num) { return h('div', null, h('small', null, k), h('b', { class: num ? 'n' : null }, v)); }
-    var names = s.songIds.map(function (id) { var p = L.project(id); return p ? p.song_title : null; }).filter(Boolean);
-    var main = h('div', { class: 'pass-main' },
-      h('div', { class: 'pass-head' }, h('span', { class: 'mark' }, ic('AudioLines', 18), h('span', null, S.current.org.name)),
-        h('span', { class: 'when' }, days === 0 ? 'Hoje' : days === 1 ? 'Amanhã' : 'Em ' + days + ' dias')),
-      h('div', { class: 'pass-title' }, s.title),
-      h('div', { class: 'pass-fields' },
-        field('Dia', L.cap(L.SEMANA_CURTA[L.dow(s.starts_on) - 1].toLowerCase()) + ', ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0')),
-        field('Hora', L.hhmm(s.start_time) || '—', true),
-        mine.length ? field('Você', mine.map(function (p) { return L.fnLabel(p.function); }).join(', ')) : field('Equipe', L.plural(uniq(s.people).length, 'pessoa', 'pessoas'))),
-      names.length ? h('div', { class: 'pass-songs' }, names.slice(0, 2).map(function (n) { return h('span', null, n); }),
-        names.length > 2 ? h('em', null, '+' + (names.length - 2)) : null) : null,
-      L.social.faces(s));
-    var stub = h('div', { class: 'pass-stub', onclick: function (e) { e.stopPropagation(); } },
-      pending ? h('div', { class: 'pass-actions' },
-        h('button', { class: 'pbtn soft', onclick: function () { D.scheduleAction('O líder vai saber que você não pode.', function () { return D.respond(s.id, { status: 'recusado' }); }); } }, ic('X', 18), 'Não posso'),
-        h('button', { class: 'pbtn dark', onclick: function () { D.scheduleAction('Presença confirmada. Obrigado!', function () { return D.respond(s.id, { status: 'confirmado' }); }); } }, ic('Check', 18), 'Confirmar'))
-        : h('div', { class: 'row' }, h('div', { class: 'pass-status grow' }, mine.length ? U.statusFor(p0) : h('span', null, L.plural(s.songIds.length, 'música', 'músicas'))),
-          h('button', { class: 'pbtn dark', style: { padding: '0 18px' }, onclick: go }, ic('CalendarDays', 18), 'Ver escala')));
-    var pass = h('div', { class: 'pass', role: 'button', tabindex: '0', 'aria-label': 'Abrir a escala ' + s.title, onclick: go }, main, stub);
-    // Os recortes laterais ficam na linha pontilhada, qualquer que seja a altura do título.
-    function cut() { if (main.offsetHeight) pass.style.setProperty('--cut', main.offsetHeight + 'px'); }
-    requestAnimationFrame(cut);
-    if (window.ResizeObserver) new ResizeObserver(cut).observe(main);
-    return h('div', { class: 'passwrap' }, pass);
+    var others = people.filter(function (u) { return u !== me; });
+    var faces = (others.length ? others : people).slice(0, 4);
+
+    var actions;
+    if (pending) {
+      actions = [
+        U.btn2('Não posso', 'X', function () { D.scheduleAction('O líder vai saber que você não pode.', function () { return D.respond(s.id, { status: 'recusado' }); }); }, { full: true }),
+        U.btn('Confirmar', 'Check', function () { D.scheduleAction('Presença confirmada. Obrigado!', function () { return D.respond(s.id, { status: 'confirmado' }); }); }, { full: true })];
+    } else if (!mine.length && L.perm.schedule() && (!people.length || !songs.length)) {
+      actions = [U.btn('Completar escala', 'Pencil', function () { L.go({ name: 'wizard', id: s.id }); }, { full: true })];
+    } else if (!mine.length) {
+      actions = [U.btn('Ver escala', 'CalendarDays', go, { full: true })];
+    } else {
+      actions = [songs.length ? U.btn2('Ensaiar', 'Headphones', go, { full: true }) : null, U.btn2('Ver escala', 'CalendarDays', go, { full: true })];
+    }
+
+    return h('div', { class: 'agenda', role: 'button', tabindex: '0', 'aria-label': 'Abrir a escala ' + s.title, onclick: go,
+      onkeydown: function (e) { if (e.key === 'Enter' && e.target === this) go(); } },
+      h('div', { class: 'folha' },
+        h('div', { class: 'data' }, h('b', { class: 'w' }, L.SEMANA_CURTA[L.dow(s.starts_on) - 1]), h('b', { class: 'n' }, String(d.getDate())), h('span', { class: 'm' }, L.MES_CURTO[d.getMonth()].toUpperCase())),
+        h('span', { class: 'linha', 'aria-hidden': 'true' }),
+        h('div', { class: 'info' },
+          h('div', { class: 'titulo' }, s.title),
+          h('div', { class: 'onde' }, [L.timeRange(s), s.location].filter(Boolean).join(' · ') || L.kindLabel(s.kind)),
+          h('div', { class: 'quando ' + whenCls }, h('i'), days === 0 ? 'Hoje' : days === 1 ? 'Amanhã' : 'Em ' + days + ' dias'))),
+      h('div', { class: 'sep' }),
+      h('div', { class: 'quem' },
+        faces.length ? h('span', { class: 'stack' }, faces.map(function (u) { return U.avatar(S.members.find(function (x) { return x.user_id === u; }) || { user_id: u, name: L.nameOf(u) }, 30); }),
+          (others.length || people.length) > faces.length ? h('em', null, '+' + ((others.length || people.length) - faces.length)) : null) : null,
+        h('div', { class: 'grow', style: { minWidth: 0 } },
+          h('div', { class: 'eu ell' }, mine.length ? 'Você: ' + mine.map(function (p) { return L.fnLabel(p.function); }).join(', ') : people.length ? L.plural(people.length, 'pessoa', 'pessoas') : 'Ainda sem equipe'),
+          h('div', { class: 'muted small ell' }, songs.length ? L.plural(songs.length, 'música', 'músicas') + ': ' + songs.slice(0, 2).map(function (p) { return p.song_title; }).join(', ') + (songs.length > 2 ? '…' : '') : 'Músicas a definir')),
+        mine.length && !pending ? U.statusFor(p0) : null),
+      h('div', { class: 'acoes', onclick: function (e) { e.stopPropagation(); } }, actions));
   }
 
   function uniq(people) { return people.map(function (p) { return p.user_id; }).filter(function (v, i, a) { return a.indexOf(v) === i; }); }

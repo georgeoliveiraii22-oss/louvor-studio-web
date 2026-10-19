@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.7.1', [
+      'Novo cartão da próxima escala no Início, no estilo agenda: a data grande, o nome, a hora, o local e os rostos de quem toca com você.'
+    ]],
     ['1.7.0', [
       'Gerenciar escalas (em Escalas, para quem monta escala): criar a escala, o mês pela agenda fixa e as equipes num lugar só, e editar várias de uma vez (apagar, hora, local, tipo, lembrar quem não respondeu).',
       'Identidade da igreja: o líder coloca o logo e o papel de parede em Banda › Pessoas.'

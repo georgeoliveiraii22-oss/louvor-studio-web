@@ -112,17 +112,4 @@
     return out;
   };
 
-  /** Os rostos de quem está na escala com você (cartão da próxima escala). */
-  SC.faces = function (s) {
-    var me = L.uid();
-    var others = L.uniqPeople(s.people).filter(function (u) { return u !== me; });
-    if (!others.length) return null;
-    var shown = others.slice(0, 5);
-    var names = shown.map(function (u) { var m = S.members.find(function (x) { return x.user_id === u; }); return m ? first(m) : null; }).filter(Boolean);
-    return h('div', { class: 'pass-faces' },
-      h('b', null, L.peopleOf(s, me).length ? 'Com você' : 'Na escala'),
-      h('span', { class: 'stack' }, shown.map(function (u) { return U.avatar(S.members.find(function (x) { return x.user_id === u; }) || { user_id: u, name: L.nameOf(u) }, 28); })),
-      others.length > shown.length ? h('em', null, '+' + (others.length - shown.length)) : null,
-      h('span', { class: 'who' }, names.slice(0, 2).join(', ') + (others.length > 2 ? ' e mais ' + (others.length - 2) : '')));
-  };
 })();
