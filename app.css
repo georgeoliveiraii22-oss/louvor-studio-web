@@ -967,10 +967,6 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
   .ptudo ul { grid-template-columns: 1fr 1fr; }
   .pextra { grid-template-columns: auto 1fr auto auto; gap: 20px; }
 }
-/* Celular e tablet: o recomendado vem primeiro (no tablet, ocupa a linha inteira) */
-@media (max-width: 1099px) {
-  .plano.destaque { order: -1; grid-column: 1 / -1; }
-}
 @media (min-width: 1100px) {
   .pgrid { grid-template-columns: 1fr 1fr 1.18fr 1fr; gap: 16px; align-items: stretch; padding-top: 18px; }
   .plano.destaque { padding: 32px 26px 26px; margin: -18px 0; }
