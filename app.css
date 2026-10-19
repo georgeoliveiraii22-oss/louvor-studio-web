@@ -984,3 +984,40 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 /* Página /planos/ sozinha */
 .planos-page .planos { padding-top: 40px; }
 .planos-page .site-top nav { display: none !important; }
+
+/* ---------------------------------------------------------------- A semana de uma banda (página de entrada)
+   Trilho de segunda a domingo: uma linha com um ponto por dia e a cena embaixo. Arrasta para o lado. */
+.semana { padding: 88px 0 24px; --edge: max(var(--pad), calc((100vw - 1240px) / 2 + var(--pad))); }
+.semana .shead { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.semana h2 { font-size: clamp(30px, 6.4vw, 48px); line-height: 1.05; max-width: 13em; }
+.semana .shead p { color: var(--text); font-size: 16.5px; line-height: 1.55; margin-top: 14px; max-width: 34em; }
+.semana .setas { display: none; gap: 8px; }
+.semana .setas .iconbtn { background: var(--control); color: var(--hi); }
+.semana .track { list-style: none; margin: 36px 0 0; padding: 0 var(--edge) 18px; display: flex; gap: 16px;
+  overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--edge); scrollbar-width: none; overscroll-behavior-x: contain; }
+.semana .track::-webkit-scrollbar { display: none; }
+.semana .track:focus-visible { outline-offset: -2px; border-radius: 0; }
+.semana .dia { flex: none; width: min(80vw, 330px); scroll-snap-align: start; display: flex; flex-direction: column; gap: 16px; }
+.semana .quando { position: relative; display: flex; align-items: baseline; gap: 10px; padding-left: 24px; }
+/* a linha da semana passa pelos pontos e segue até o próximo dia */
+.semana .quando::before { content: ""; position: absolute; left: 0; right: -16px; top: 50%; height: 1px; background: linear-gradient(90deg, rgba(99, 212, 255, 0.45), rgba(99, 212, 255, 0.12)); transform: translateY(-50%); }
+.semana .dia:last-child .quando::before { right: 0; background: linear-gradient(90deg, rgba(99, 212, 255, 0.45), transparent); }
+.semana .dot { position: absolute; left: 0; top: 50%; width: 11px; height: 11px; margin-top: -5.5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--bg), 0 0 14px rgba(8, 169, 245, 0.7); }
+.semana .quando b, .semana .quando .hora { position: relative; background: var(--bg); padding: 0 8px; }
+.semana .quando b { color: var(--hi); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; margin-left: -8px; padding-left: 8px; padding-right: 2px; }
+.semana .quando .hora { font-family: var(--mono); font-size: 13px; color: var(--accent-light); margin-left: -10px; font-variant-numeric: tabular-nums; }
+.semana .cena { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 24px 22px 20px; border-radius: 24px;
+  background: linear-gradient(180deg, rgba(18, 54, 80, 0.55), rgba(10, 38, 58, 0.55)); box-shadow: inset 0 0 0 1px var(--line), 0 12px 32px -18px rgba(0, 0, 0, 0.6); }
+.semana .cena .quem { align-self: flex-start; font-size: 12.5px; font-weight: 600; color: var(--glass-label); padding: 5px 10px; border-radius: 9999px; background: rgba(220, 232, 242, 0.06); }
+.semana .cena p { color: var(--hi); font-size: 17px; line-height: 1.55; letter-spacing: -0.005em; text-wrap: pretty; }
+.semana .cena .rec { margin-top: auto; display: inline-flex; align-items: center; gap: 8px; padding-top: 14px; color: var(--accent-light); font-size: 13.5px; font-weight: 600; box-shadow: inset 0 1px 0 var(--line); }
+.semana .dia:last-child .cena { background: radial-gradient(120% 90% at 50% 0%, rgba(8, 169, 245, 0.28), transparent 65%), var(--panel); }
+.semana .dia:last-child .dot { background: var(--accent-light); }
+@media (hover: hover) and (pointer: fine) {
+  .semana .setas .iconbtn:hover { background: var(--sel); }
+}
+@media (min-width: 1024px) {
+  .semana .setas { display: flex; }
+  .semana .dia { width: 360px; }
+  .semana .cena p { font-size: 18px; }
+}

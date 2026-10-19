@@ -53,6 +53,40 @@
         h('p', null, 'Um minuto para entender o Louvor Studio: da escala ao ensaio da sua parte.')),
       h('div', { class: 'vframe' }, frame)));
   }
+  // A semana de uma banda: situações de todo domingo (não são depoimentos; o app ainda não tem clientes
+  // e o usuário escolheu não inventar avaliações). Trilho de segunda a domingo, arrasta para o lado.
+  var SEMANA = [
+    ['Segunda', '21h10', 'Quem lidera', 'O culto de domingo nem chegou e as escalas do mês já estão prontas. Ela usou a agenda fixa da igreja e criou tudo de uma vez, sem perguntar no grupo "quem toca domingo?".', 'CalendarDays', 'Agenda do mês'],
+    ['Terça', '23h40', 'Vocal', 'As crianças finalmente dormiram. Ela põe o fone, abre a música de domingo no tom da banda e repete o refrão até a segunda voz sair sem pensar.', 'Repeat', 'Repetir uma parte'],
+    ['Quarta', '12h15', 'Bateria', 'Intervalo do almoço, marmita na mão. Chega o aviso da escala, ele toca em Confirmar e volta pro serviço. O líder já ficou sabendo.', 'CalendarCheck', 'Confirmar num toque'],
+    ['Quinta', '19h30', 'Teclado', 'Apareceu o aniversário da avó no sábado. Ela marca Não posso e pede troca, sem textão e sem ficar sem graça no grupo.', 'ArrowLeftRight', 'Pedir troca'],
+    ['Sexta', '22h05', 'Contralto', 'Música nova, e essa voz ela nunca cantou. Escolhe a contralto que o líder já liberou e canta junto com a multitrack até decorar a entrada.', 'Users', 'Vozes por naipe'],
+    ['Domingo', '17h50', 'A banda toda', 'Passagem de som curta. Todo mundo sabe a música, o tom e onde entra. Sobra tempo para orar juntos antes do culto.', 'HeartHandshake', 'Banda pronta']
+  ];
+  function semana() {
+    var track = h('ol', { class: 'track', tabindex: '0', 'aria-label': 'Os dias da semana: arraste para o lado' }, SEMANA.map(function (d) {
+      return h('li', { class: 'dia' },
+        h('div', { class: 'quando' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), h('b', null, d[0]), h('span', { class: 'hora' }, d[1])),
+        h('article', { class: 'cena' },
+          h('span', { class: 'quem' }, d[2]),
+          h('p', null, d[3]),
+          h('span', { class: 'rec' }, ic(d[4], 16), d[5])));
+    }));
+    function mover(dir) {
+      var card = track.querySelector('.dia');
+      var passo = card ? card.getBoundingClientRect().width + 16 : 320;
+      track.scrollBy({ left: dir * passo, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }
+    return h('section', { class: 'semana', id: 'semana' },
+      h('div', { class: 'wrap shead' },
+        h('div', null, h('h2', null, 'A semana de uma banda de louvor.'),
+          h('p', null, 'Ninguém vive de ensaio. Tem trabalho, casa, família. É no meio disso que o Louvor Studio entra.')),
+        h('div', { class: 'setas' },
+          h('button', { class: 'iconbtn', 'aria-label': 'Dia anterior', onclick: function () { mover(-1); } }, ic('ChevronLeft', 20)),
+          h('button', { class: 'iconbtn', 'aria-label': 'Próximo dia', onclick: function () { mover(1); } }, ic('ChevronRight', 20)))),
+      track);
+  }
+
   function point(icon, text) { return h('li', null, ic(icon, 20), h('span', null, text)); }
 
   A.landing = function () {
@@ -147,7 +181,7 @@
       h('a', { href: 'painel/' }, 'Painel do líder'),
       h('span', null, '© 2026 Louvor Studio')));
 
-    var page = h('div', { class: 'site' }, top, h('main', null, hero, videoBlock(), demo, feats, how, LSPlanos.secao({ comecar: function () { goEntry('criar'); } }), faq, close), foot);
+    var page = h('div', { class: 'site' }, top, h('main', null, hero, videoBlock(), demo, feats, semana(), how, LSPlanos.secao({ comecar: function () { goEntry('criar'); } }), faq, close), foot);
     watchTop(top, page);
     choreograph(page);
     return page;
@@ -1066,7 +1100,7 @@
   function choreograph(page) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     var actors = [].slice.call(page.querySelectorAll('.dev > *'));
-    var lists = [].slice.call(page.querySelectorAll('.feat ul, .steps, .mixer .lanes'));
+    var lists = [].slice.call(page.querySelectorAll('.feat ul, .steps, .mixer .lanes, .semana .track'));
     var frames = [].slice.call(page.querySelectorAll('.vframe'));
     // Escondidos só enquanto esperam a vez; se a biblioteca não carregar, aparecem como estão.
     function hide() {
