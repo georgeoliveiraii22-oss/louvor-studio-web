@@ -8,7 +8,6 @@
 
   var FUNCTIONS = [
     { id: 'ministro', label: 'Ministro(a) de louvor' },
-    { id: 'vocal', label: 'Vocal' },
     { id: 'backing_vocal', label: 'Backing vocal' },
     { id: 'violao', label: 'Violão' },
     { id: 'guitarra', label: 'Guitarra' },

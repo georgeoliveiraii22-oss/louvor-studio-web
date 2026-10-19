@@ -7,7 +7,7 @@
     { title: 'Quando e onde', icon: 'CalendarDays', fns: [], hint: 'O dia e o horário. Use um horário fixo da igreja para preencher num toque.' },
     { title: 'Músicas', icon: 'ListMusic', fns: [], hint: 'Marque as músicas na ordem em que vão ser tocadas.' },
     { title: 'Ministro(a)', icon: 'Crown', fns: ['ministro'], hint: 'Quem vai conduzir o louvor.' },
-    { title: 'Vozes', icon: 'Mic', fns: ['vocal', 'backing_vocal'], hint: 'Quem canta junto.' },
+    { title: 'Vozes', icon: 'Mic', fns: ['backing_vocal'], hint: 'Quem canta junto (backing vocal).' },
     { title: 'Músicos', icon: 'Guitar', fns: ['violao', 'guitarra', 'baixo', 'bateria', 'teclado', 'percussao', 'sopro', 'cordas'], hint: 'Quem toca. Pule os instrumentos que não vão ter.' },
     { title: 'Técnica', icon: 'SlidersVertical', fns: ['tecnico_som', 'projecao'], hint: 'Som e projeção. Se a banda não usa, pule.' },
     { title: 'Revisar', icon: 'Check', fns: [], hint: 'Confira tudo e publique. Cada pessoa recebe o pedido para confirmar.' }

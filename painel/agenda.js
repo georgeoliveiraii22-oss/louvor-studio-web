@@ -13,7 +13,7 @@
   };
 
   var KINDS = [['culto', 'Culto'], ['ensaio', 'Ensaio'], ['evento', 'Evento']];
-  var FUNCS = [['ministro', 'Ministro(a) de louvor'], ['vocal', 'Vocal'], ['backing_vocal', 'Backing vocal'], ['violao', 'Violão'],
+  var FUNCS = [['ministro', 'Ministro(a) de louvor'], ['backing_vocal', 'Backing vocal'], ['violao', 'Violão'],
     ['guitarra', 'Guitarra'], ['baixo', 'Baixo'], ['bateria', 'Bateria'], ['teclado', 'Teclado'], ['percussao', 'Percussão'],
     ['sopro', 'Sopro'], ['cordas', 'Cordas'], ['tecnico_som', 'Técnico(a) de som'], ['projecao', 'Projeção/mídia']];
   var STATUS = { pendente: ['Sem resposta', 'pending', ''], confirmado: ['Confirmado', 'check', 'ok'], recusado: ['Não pode', 'discard', 'bad'] };

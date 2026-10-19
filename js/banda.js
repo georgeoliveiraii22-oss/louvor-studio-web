@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.10.0', [
+      'O líder pode remover uma pessoa da banda (Banda › toque na pessoa) e trocar o código de convite.',
+      'Funções: "Vocal" saiu; ficaram Ministro(a) de louvor e Backing vocal.'
+    ]],
     ['1.9.0', [
       'Aba nova Conversa: a conversa da banda inteira. A aba Banda agora é só das pessoas e do convite.',
       'A conversa de cada escala continua dentro da escala; o cartão da escala avisa quando há mensagem nova.'
@@ -83,6 +87,7 @@
     // Convidar: primeiro, à vista (antes ficava no fim da lista e ninguém achava)
     root.appendChild(U.panel('Convidar pessoas', 'UserPlus', L.inviteContent()));
 
+    if (L.perm.leader()) root.appendChild(U.body('Toque numa pessoa para mudar as permissões ou remover da banda.', 'var(--muted)', 12));
     root.appendChild(h('div', { class: 'list' }, S.members.map(function (mb) {
       return h('div', { class: 'li', onclick: function () { memberSheet(mb); } }, U.avatar(mb, 42),
         h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, mb.name + (mb.user_id === L.uid() ? ' (você)' : '')),
@@ -154,6 +159,9 @@
       U.body('Quem tiver este código entra na banda como integrante. Mande pelo WhatsApp ou copie.', 'var(--muted)', 13),
       h('div', { class: 'invitecode' }, h('div', { class: 'grow' }, h('div', { class: 'muted small' }, 'Código de convite'), h('div', { class: 'c' }, code)),
         U.iconBtn('Copy', 'Copiar código', function () { copy(code); L.toast('Código copiado.'); })),
+      L.perm.leader() ? h('button', { class: 'textbtn', style: { alignSelf: 'flex-start', fontSize: '13px', padding: '4px 0' }, onclick: function () {
+        L.run(async function () { L.must(await sb.rpc('new_invite_code', { _org: S.current.org.id })); await D.refresh(); L.toast('Código de convite trocado. O antigo não vale mais.'); L.render(); });
+      } }, 'Trocar o código (o antigo deixa de valer)') : null,
       U.btn('Convidar pelo WhatsApp', 'Share2', function () {
         var text = ['Entre na banda ' + m.org.name + ' no Louvor Studio! 🎶', '', '1. Abra https://louvorstudio.app.br no celular e crie sua conta. Tem plano grátis.',
           '2. Toque em "Entrar com código de convite" e digite o código abaixo.', '', 'Código de convite: ' + code].join('\n');
@@ -209,10 +217,40 @@
             U.switchRow('Pode editar áudio', 'Aprova gravações e ajusta o estúdio', mb.can_edit_audio || mb.role === 'leader', function (v) { set({ can_edit_audio: v }, v ? mb.name + ' agora pode editar áudio.' : 'Permissão retirada.', close); }, mb.role === 'leader'),
             U.switchRow('Pode montar escalas', 'Cria escalas e chama as pessoas', mb.can_schedule || mb.role === 'leader', function (v) { set({ can_schedule: v }, v ? mb.name + ' agora pode montar escalas.' : 'Permissão retirada.', close); }, mb.role === 'leader'),
             U.switchRow('Pode adicionar músicas', 'Coloca e edita músicas no repertório, com capa e multitrack', mb.can_manage_songs || mb.role === 'leader', function (v) { set({ can_manage_songs: v }, v ? mb.name + ' agora pode adicionar músicas.' : 'Permissão retirada.', close); }, mb.role === 'leader'),
-            U.switchRow('Líder', 'Pode tudo, inclusive mudar permissões', mb.role === 'leader', function (v) { set({ role: v ? 'leader' : 'member' }, v ? mb.name + ' agora é líder.' : mb.name + ' agora é integrante.', close); })] : null
+            U.switchRow('Líder', 'Pode tudo, inclusive mudar permissões', mb.role === 'leader', function (v) { set({ role: v ? 'leader' : 'member' }, v ? mb.name + ' agora é líder.' : mb.name + ' agora é integrante.', close); }),
+            U.btn2('Remover da banda', 'UserMinus', function () { close(); setTimeout(function () { removeMember(mb); }, 60); }, { full: true, danger: true })] : null
         ];
       },
       actions: function (close) { return [h('button', { class: 'textbtn muted', onclick: close }, 'Fechar')]; }
+    });
+  }
+
+  /** O líder tira a pessoa da banda (e, por padrão, troca o código de convite). Migração 0024. */
+  function removeMember(mb) {
+    var first = mb.name.split(' ')[0], st = { code: true };
+    var next = L.upcoming().filter(function (s) { return s.people.some(function (p) { return p.user_id === mb.user_id; }); }).length;
+    L.dialog({
+      title: 'Remover ' + first + ' da banda?',
+      body: function () {
+        return [U.body(first + ' perde o acesso à banda' + (next === 1 ? ' e sai da próxima escala' : next > 1 ? ' e sai das ' + next + ' próximas escalas' : '') + '. As gravações que ' + first + ' fez continuam na banda.', null, 14),
+          U.switchRow('Trocar o código de convite', 'Assim ' + first + ' não volta com o código antigo. Quem já está na banda não é afetado.', st.code, function (v) { st.code = v; })];
+      },
+      actions: function (close) {
+        return [h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar'), h('button', { class: 'textbtn', style: { color: 'var(--bad)' }, onclick: function (e) {
+          e.target.disabled = true; e.target.textContent = 'Removendo…';
+          L.run(async function () {
+            var org = S.current.org.id;
+            var r = await sb.rpc('remove_member', { _org: org, _user: mb.user_id });
+            if (r.error && /function|não encontrad|schema cache/i.test(r.error.message)) r = await sb.from('memberships').delete().eq('org_id', org).eq('user_id', mb.user_id);
+            L.must(r);
+            if (st.code) await sb.rpc('new_invite_code', { _org: org });
+            close();
+            await D.refresh();
+            L.toast(first + ' saiu da banda.' + (st.code ? ' O código de convite foi trocado.' : ''));
+            L.render();
+          });
+        } }, 'Remover')];
+      }
     });
   }
 

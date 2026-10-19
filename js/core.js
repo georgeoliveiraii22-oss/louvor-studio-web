@@ -66,11 +66,12 @@
 
   // ------------------------------------------------------------------ Textos e datas
   L.FUNCTIONS = [
-    ['ministro', 'Ministro(a) de louvor'], ['vocal', 'Vocal'], ['backing_vocal', 'Backing vocal'], ['violao', 'Violão'],
+    ['ministro', 'Ministro(a) de louvor'], ['backing_vocal', 'Backing vocal'], ['violao', 'Violão'],
     ['guitarra', 'Guitarra'], ['baixo', 'Baixo'], ['bateria', 'Bateria'], ['teclado', 'Teclado'], ['percussao', 'Percussão'],
     ['sopro', 'Sopro'], ['cordas', 'Cordas'], ['tecnico_som', 'Técnico(a) de som'], ['projecao', 'Projeção/mídia']
   ];
-  L.fnLabel = function (id) { var f = L.FUNCTIONS.find(function (x) { return x[0] === id; }); return f ? f[1] : id; };
+  // "vocal" saiu da lista (era o mesmo que backing vocal); quem ainda tem aparece como backing vocal.
+  L.fnLabel = function (id) { if (id === 'vocal') return 'Backing vocal'; var f = L.FUNCTIONS.find(function (x) { return x[0] === id; }); return f ? f[1] : id; };
   L.fnIcon = function (id) {
     return ({ ministro: 'Crown', vocal: 'Mic', backing_vocal: 'UsersRound', violao: 'Guitar', guitarra: 'Guitar', baixo: 'Guitar',
       bateria: 'Drum', percussao: 'Drum', teclado: 'Piano', sopro: 'Music2', cordas: 'Music4', tecnico_som: 'SlidersVertical', projecao: 'Monitor' })[id] || 'Music2';
