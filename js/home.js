@@ -45,7 +45,7 @@
     // Celular: uma coluna, na ordem. Computador: passe e tarefas à esquerda, conversa e mural à direita.
     return h('div', { class: 'screen' }, head,
       h('div', { class: 'home-grid' },
-        h('div', { class: 'home-a' }, nextBlock, h('h2', { class: 'gtitle' }, 'Para você'), todoBlock),
+        h('div', { class: 'home-a' }, nextBlock, h('h2', { class: 'gtitle' }, 'Para você'), todoBlock, L.social.section()),
         h('div', { class: 'home-b' }, msgBlock,
           h('div', { class: 'row', style: { alignItems: 'baseline' } }, h('h2', { class: 'gtitle grow' }, 'Mural da banda'),
             h('button', { class: 'textbtn', style: { fontSize: '15px', padding: '6px 4px' }, onclick: function () { L.go({ name: 'news' }); } }, 'Ver tudo')),
@@ -73,7 +73,8 @@
         field('Hora', L.hhmm(s.start_time) || '—', true),
         mine.length ? field('Você', mine.map(function (p) { return L.fnLabel(p.function); }).join(', ')) : field('Equipe', L.plural(uniq(s.people).length, 'pessoa', 'pessoas'))),
       names.length ? h('div', { class: 'pass-songs' }, names.slice(0, 2).map(function (n) { return h('span', null, n); }),
-        names.length > 2 ? h('em', null, '+' + (names.length - 2)) : null) : null);
+        names.length > 2 ? h('em', null, '+' + (names.length - 2)) : null) : null,
+      L.social.faces(s));
     var stub = h('div', { class: 'pass-stub', onclick: function (e) { e.stopPropagation(); } },
       pending ? h('div', { class: 'pass-actions' },
         h('button', { class: 'pbtn soft', onclick: function () { D.scheduleAction('O líder vai saber que você não pode.', function () { return D.respond(s.id, { status: 'recusado' }); }); } }, ic('X', 18), 'Não posso'),
@@ -119,6 +120,9 @@
         out.push({ icon: 'UsersRound', title: 'Escalar a equipe', sub: s.title + ' · ' + L.serviceWhen(s.starts_on) + ' ainda está sem ninguém.', go: function () { L.go({ name: 'escala', id: s.id }); } });
       });
     }
+    // Sem foto: um convite gentil (some quando a pessoa põe a foto)
+    var mine = L.me();
+    if (mine && !mine.avatar_path) out.push({ icon: 'Camera', title: 'Coloque sua foto', sub: 'Para a banda te reconhecer nas escalas e na conversa', go: function () { L.go({ name: 'profile' }); } });
     return out;
   }
 })();

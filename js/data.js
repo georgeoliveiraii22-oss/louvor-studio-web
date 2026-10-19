@@ -57,7 +57,8 @@
       var p = byId[m.user_id] || {};
       return {
         user_id: m.user_id, role: m.role, can_edit_audio: !!m.can_edit_audio, can_schedule: !!m.can_schedule, can_manage_songs: !!m.can_manage_songs,
-        functions: m.functions || [], name: p.display_name || 'Integrante', avatar_path: p.avatar_path || null, voice_type: p.voice_type || null, bio: p.bio || null
+        functions: m.functions || [], name: p.display_name || 'Integrante', avatar_path: p.avatar_path || null, voice_type: p.voice_type || null, bio: p.bio || null,
+        birth_day: p.birth_day || null, birth_month: p.birth_month || null, joined_at: m.joined_at || null
       };
     }).sort(function (a, b) { return (a.role === 'leader' ? 0 : 1) - (b.role === 'leader' ? 0 : 1) || a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
     // A pessoa atual (as permissões podem ter mudado).

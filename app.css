@@ -1079,3 +1079,44 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
   .semana .no, .semana .linhas.viva { transition: none; }
   .semana .no.culto.on::after { animation: none; }
 }
+
+/* ---------------------------------------------------------------- O lado "gente" do Início (js/social.js) */
+.festa { color: #FFB547; }
+.soc-bday { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 22px;
+  background: radial-gradient(70% 90% at 100% 0%, rgba(255, 181, 71, 0.30), transparent 70%), linear-gradient(135deg, #0B3A5C, #0A2A42);
+  box-shadow: inset 0 0 0 1px rgba(255, 181, 71, 0.35); }
+.soc-bday .ring { display: inline-flex; padding: 3px; border-radius: 50%; box-shadow: inset 0 0 0 2px #FFB547; flex: none; }
+.soc-bday .tag { display: flex; align-items: center; gap: 6px; color: #FFB547; font-size: 13px; font-weight: 600; }
+.soc-bday .nm { color: var(--hi); font-size: 20px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; margin-top: 2px; }
+.soc-bday .row, .soc-bday .btn, .soc-bday .soc-done, .soc-bday p { position: relative; }
+/* Confete parado no canto, sem animação: o clima de festa sem distrair */
+.soc-bday .confete i { position: absolute; display: block; opacity: 0.75; }
+.soc-bday .confete .c0 { right: 24%; top: 10%; width: 7px; height: 7px; border-radius: 50%; background: #FFB547; }
+.soc-bday .confete .c1 { right: 14%; top: 24%; width: 10px; height: 4px; border-radius: 2px; background: #63D4FF; }
+.soc-bday .confete .c2 { right: 6%; top: 8%; width: 7px; height: 7px; border-radius: 50%; background: #34D399; }
+.soc-bday .confete .c3 { right: 20%; top: 36%; width: 10px; height: 4px; border-radius: 2px; background: #A78BFA; }
+.soc-bday .confete .c4 { right: 5%; top: 34%; width: 7px; height: 7px; border-radius: 50%; background: #5B8CFF; }
+.soc-bday .confete .c5 { right: 30%; top: 5%; width: 10px; height: 4px; border-radius: 2px; background: #FFB547; }
+.soc-bday .confete .c6 { right: 10%; top: 44%; width: 6px; height: 6px; border-radius: 50%; background: #63D4FF; }
+.soc-done { display: flex; align-items: center; gap: 8px; min-height: 48px; color: var(--ok); font-size: 14px; font-weight: 500; }
+.soc-soon { gap: 10px; }
+.soc-chip { display: flex; align-items: center; gap: 10px; flex: none; padding: 4px 14px 4px 4px; border-radius: 9999px; background: var(--control); font-size: 14px; }
+.soc-new { gap: 12px; }
+.soc-new .newav { position: relative; display: inline-flex; flex: none; }
+.soc-new .newav i { position: absolute; right: -2px; bottom: -2px; width: 20px; height: 20px; border-radius: 50%; background: var(--ok); color: var(--on-accent);
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--panel); }
+/* Rostos na próxima escala */
+.pass-faces { display: flex; align-items: center; gap: 10px; font-size: 12px; min-width: 0; }
+.pass-faces b { font-weight: 700; white-space: nowrap; }
+.pass-faces .stack { display: flex; }
+.pass-faces .stack .avatar { box-shadow: 0 0 0 2px #7FD4FB; }
+.pass-faces .stack .avatar + .avatar { margin-left: -9px; }
+.pass-faces em { font-style: normal; font-weight: 700; font-size: 13px; }
+.pass-faces .who { opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* Aniversário no perfil: dia e mês lado a lado */
+.bday-row { display: grid; grid-template-columns: 0.34fr 0.66fr; gap: 10px; }
+.selectfield { position: relative; display: block; }
+.selectfield select { appearance: none; -webkit-appearance: none; width: 100%; min-height: 56px; padding: 0 44px 0 14px; border-radius: 14px; background: var(--field);
+  border: 1px solid var(--line); color: var(--hi); font-size: 16px; outline: none; transition: border-color 160ms ease; }
+.selectfield select:focus { border-color: var(--accent); }
+.selectfield svg { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; }

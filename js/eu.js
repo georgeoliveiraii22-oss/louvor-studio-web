@@ -115,7 +115,8 @@
   var P = null;
   L.screen('profile', function () {
     var me = L.me();
-    if (!P) P = { name: me ? me.name : '', bio: me && me.bio || '', voice: me && me.voice_type || '', functions: (S.current.functions || (me && me.functions) || []).slice(), pass: '', busy: false };
+    if (!P) P = { name: me ? me.name : '', bio: me && me.bio || '', voice: me && me.voice_type || '', functions: (S.current.functions || (me && me.functions) || []).slice(), pass: '', busy: false,
+      bday: me && me.birth_day ? String(me.birth_day) : '', bmonth: me && me.birth_month || '' };
     var root = h('div', { class: 'screen' },
       U.topRow('Meu perfil', null, null, function () { P = null; L.back(); }),
       h('div', { class: 'row', style: { gap: '16px' } }, U.avatar(me, 84), h('div', { class: 'col' },
@@ -140,6 +141,13 @@
       U.field(P.bio, 'Sobre você', function (v) { P.bio = v.slice(0, 280); }, { multiline: true, rows: 2, max: 280 }),
       U.label('Tipo de voz'),
       h('div', { class: 'row wrap' }, L.VOICES.map(function (v) { return U.toggle(v[0] ? v[1] : '—', P.voice === v[0], null, function () { P.voice = v[0]; L.render(); }); }))));
+    root.appendChild(U.panel('Aniversário', 'Cake',
+      U.body('Só o dia e o mês. No dia, a banda vê no Início e pode te dar parabéns.', 'var(--muted)', 12),
+      h('div', { class: 'bday-row' },
+        U.field(P.bday, 'Dia', function (v) { P.bday = v.replace(/\D/g, '').slice(0, 2); }, { inputmode: 'numeric', max: 2 }),
+        h('label', { class: 'selectfield' }, h('select', { 'aria-label': 'Mês do aniversário', onchange: function (e) { P.bmonth = e.target.value ? Number(e.target.value) : ''; } },
+          [h('option', { value: '' }, 'Mês')].concat(L.social.MESES.map(function (n, i) { return h('option', { value: String(i + 1), selected: P.bmonth === i + 1 }, L.cap(n)); }))),
+          ic('ChevronDown', 18, 'muted')))));
     root.appendChild(U.panel('Funções na banda', 'Music2',
       U.body('Marque o que você faz. Aparece para a banda toda.', 'var(--muted)', 12),
       h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' } }, L.FUNCTIONS.map(function (f) {
@@ -151,10 +159,18 @@
       }))));
     root.appendChild(U.btn(P.busy ? 'Salvando…' : 'Salvar perfil', 'Check', function () {
       if (!P.name.trim()) { L.toast('Escreva o seu nome.'); return; }
+      var day = P.bday ? Number(P.bday) : null, month = P.bmonth || null;
+      if ((day === null) !== (month === null)) { L.toast('Coloque o dia e o mês do aniversário (ou deixe os dois vazios).'); return; }
+      if (day && (day < 1 || day > new Date(2024, month, 0).getDate())) { L.toast('Esse dia não existe nesse mês.'); return; }
       P.busy = true; L.render();
       L.run(async function () {
         try {
           L.must(await sb.from('profiles').update({ display_name: P.name.trim(), bio: P.bio.trim() || null, voice_type: P.voice || null }).eq('id', S.user.id));
+          // Aniversário à parte: sem a migração 0020 no banco, o resto do perfil salva do mesmo jeito.
+          if (day !== (me && me.birth_day || null) || month !== (me && me.birth_month || null)) {
+            var bd = await sb.from('profiles').update({ birth_day: day, birth_month: month }).eq('id', S.user.id);
+            if (bd.error) L.toast('O aniversário ainda não pôde ser salvo. Tente de novo mais tarde.');
+          }
           L.must(await sb.from('memberships').update({ functions: P.functions }).eq('org_id', S.current.org.id).eq('user_id', S.user.id));
           await D.refresh(); L.toast('Perfil salvo.');
         } finally { P.busy = false; L.render(); }

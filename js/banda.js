@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.6.0', [
+      'Aniversários: coloque o seu em Eu › Meu perfil. No dia, a banda vê no Início e pode te dar parabéns com um toque.',
+      'Quem acabou de chegar na banda aparece no Início, com um botão para dar boas-vindas. E o cartão da próxima escala mostra os rostos de quem toca com você.'
+    ]],
     ['1.5.1', [
       'Página de entrada: a semana de uma banda como uma multitrack. Cada pessoa é uma faixa, o cursor anda com a rolagem e tudo se junta no culto. E o ícone azul novo na aba do navegador.'
     ]],
