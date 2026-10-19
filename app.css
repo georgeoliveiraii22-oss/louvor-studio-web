@@ -911,9 +911,30 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 @media (hover: hover) and (pointer: fine) {
   .plano a.btn.pcta:hover svg { transform: translateX(3px); }
 }
-/* O recomendado: contorno no degradê da marca e um brilho azul embaixo */
-.plano.destaque { background: radial-gradient(120% 70% at 50% 0%, rgba(8, 169, 245, 0.16), transparent 70%), var(--panel);
-  box-shadow: 0 18px 50px -18px rgba(8, 169, 245, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3); }
+/* Hierarquia de preço: o recomendado acende, os de baixo ficam apagados, o Igreja no meio-termo.
+   Apagado = sem fundo cheio, textos e ícones no tom secundário, botão só com contorno. */
+.plano.quieto { background: rgba(10, 38, 58, 0.38); box-shadow: inset 0 0 0 1px rgba(220, 232, 242, 0.07); }
+.plano.quieto h3, .plano.quieto .preco .v { color: var(--text); }
+.plano.quieto .preco .v { font-size: 32px; }
+.plano.quieto .specs li, .plano.quieto .specs b { color: var(--muted); }
+.plano.quieto .specs svg { color: var(--outline); }
+.plano.quieto .meter i { background: var(--outline); }
+.plano.quieto .pcta:not(.is-current) { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px rgba(220, 232, 242, 0.16); }
+@media (hover: hover) and (pointer: fine) {
+  .plano.quieto .pcta:not(.is-current):hover { background: rgba(220, 232, 242, 0.05); }
+}
+/* O recomendado: fundo azul que acende do alto, contorno no degradê da marca, brilho embaixo e o único botão cheio */
+.plano.destaque { background: radial-gradient(130% 80% at 50% 0%, rgba(8, 169, 245, 0.42), transparent 62%), linear-gradient(180deg, #0B3A5C 0%, #0A2A42 100%);
+  box-shadow: 0 30px 70px -24px rgba(8, 169, 245, 0.6), 0 4px 14px rgba(0, 0, 0, 0.4); padding-top: 28px; }
+.plano.destaque h3 { font-size: 24px; }
+.plano.destaque .para { color: var(--glass-label); }
+.plano.destaque .preco .v { font-size: 46px; }
+.plano.destaque .pnota { color: var(--glass-label); }
+.plano.destaque .specs { box-shadow: inset 0 1px 0 rgba(99, 212, 255, 0.22); }
+.plano.destaque .specs li { color: var(--hi); }
+.plano.destaque .chip { box-shadow: 0 4px 14px rgba(8, 169, 245, 0.45); }
+.plano.destaque .pcta { min-height: 54px; font-size: 16px; box-shadow: 0 10px 28px -8px rgba(8, 169, 245, 0.75); }
+.plano .ancora { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(99, 212, 255, 0.12); color: var(--accent-light); font-size: 13.5px; font-weight: 500; line-height: 1.4; }
 .plano.destaque::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: var(--gradient); pointer-events: none;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
 .plano.atual { box-shadow: inset 0 0 0 1.5px rgba(52, 211, 153, 0.55); }
@@ -946,9 +967,13 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
   .ptudo ul { grid-template-columns: 1fr 1fr; }
   .pextra { grid-template-columns: auto 1fr auto auto; gap: 20px; }
 }
+/* Celular e tablet: o recomendado vem primeiro (no tablet, ocupa a linha inteira) */
+@media (max-width: 1099px) {
+  .plano.destaque { order: -1; grid-column: 1 / -1; }
+}
 @media (min-width: 1100px) {
-  .pgrid { grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: stretch; }
-  .plano.destaque { transform: translateY(-10px); }
+  .pgrid { grid-template-columns: 1fr 1fr 1.18fr 1fr; gap: 16px; align-items: stretch; padding-top: 18px; }
+  .plano.destaque { padding: 32px 26px 26px; margin: -18px 0; }
   .ptudo { grid-template-columns: 0.8fr 2.2fr; gap: 64px; align-items: start; }
   .ptudo ul { grid-template-columns: 1fr 1fr 1fr; }
 }

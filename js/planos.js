@@ -40,9 +40,18 @@
     return { valor: reais(p.mensal), nota: 'Cobrado todo mês.' };
   }
   function pessoas(p) { return p.pessoas ? 'Até ' + p.pessoas + ' pessoas' : 'Pessoas sem limite'; }
+  // O Louvor Studio não vende multitrack: o espaço é para a banda subir as que já tem.
   function musicas(p) {
-    var n = p.gb * MUSICAS_POR_GB;
-    return 'Cerca de ' + n.toLocaleString('pt-BR') + ' músicas com multitrack';
+    return 'Cabem cerca de ' + (p.gb * MUSICAS_POR_GB).toLocaleString('pt-BR') + ' músicas';
+  }
+  /** Ministério comparado ao Banda (o plano de baixo): ajuda a ver quanto se ganha por pouco a mais. */
+  function ancora(p, ciclo) {
+    var i = PLANOS.indexOf(p), base = PLANOS[i - 1];
+    if (!base || !base.mensal) return '';
+    var meses = ciclo === 'anual' ? MESES_PAGOS_NO_ANO / 12 : 1;
+    var dif = Math.round((p.mensal - base.mensal) * meses * 100) / 100;
+    var vezes = function (a, b) { var r = a / b; return r === 2 ? 'o dobro' : r === 3 ? 'o triplo' : r + ' vezes'; };
+    return vezes(p.pessoas, base.pessoas).replace(/^o/, 'O') + ' de pessoas e ' + vezes(p.gb, base.gb) + ' de espaço do ' + base.nome + ', por ' + reais(dif) + ' a mais por mês.';
   }
   function link(p, ciclo) {
     var url = CHECKOUT[p.id] && CHECKOUT[p.id][ciclo];
@@ -91,7 +100,7 @@
 
     var head = el('div', 'phead');
     head.appendChild(el('h2', null, 'Planos que crescem com a banda'));
-    head.appendChild(el('p', null, 'Todos os recursos estão em todos os planos. O que muda é quanta gente cabe na banda e o espaço para as músicas. Tem plano grátis.'));
+    head.appendChild(el('p', null, 'Todos os recursos estão em todos os planos. O que muda é quanta gente cabe na banda e o espaço para subir as multitracks que vocês já usam. Tem plano grátis.'));
     wrap.appendChild(head);
 
     // Mensal ou anual
@@ -116,7 +125,9 @@
     var vivos = [];
     var maxGb = PLANOS[PLANOS.length - 1].gb;
     PLANOS.forEach(function (p) {
-      var card = el('article', 'plano' + (p.destaque ? ' destaque' : '') + (o.atual === p.id ? ' atual' : ''));
+      // Hierarquia: o recomendado acende; os de baixo ficam mais apagados; o Igreja fica no meio-termo.
+      var nivel = p.destaque ? ' destaque' : PLANOS.indexOf(p) < PLANOS.indexOf(PLANOS.filter(function (x) { return x.destaque; })[0]) ? ' quieto' : '';
+      var card = el('article', 'plano' + nivel + (o.atual === p.id ? ' atual' : ''));
       var topo = el('div', 'ptop');
       topo.appendChild(el('h3', null, esc(p.nome)));
       if (o.atual === p.id) topo.appendChild(el('span', 'chip seu', 'Seu plano'));
@@ -131,10 +142,12 @@
       card.appendChild(pr);
       var nota = el('p', 'pnota');
       card.appendChild(nota);
+      var anc = null;
+      if (p.destaque) { anc = el('p', 'ancora'); card.appendChild(anc); }
 
       var specs = el('ul', 'specs');
       specs.appendChild(el('li', null, svg('users') + '<span>' + pessoas(p) + '</span>'));
-      specs.appendChild(el('li', null, svg('cloud') + '<span><b>' + p.gb + ' GB</b> na nuvem</span>'));
+      specs.appendChild(el('li', null, svg('cloud') + '<span><b>' + p.gb + ' GB</b> para subir as multitracks da banda</span>'));
       specs.appendChild(el('li', null, svg('music') + '<span>' + musicas(p) + '</span>'));
       card.appendChild(specs);
 
@@ -154,12 +167,12 @@
         if (typeof o.comecar === 'function') { cta.type = 'button'; cta.onclick = o.comecar; }
         else cta.href = o.comecar || '/';
       } else {
-        cta = el('a', 'btn full pcta', 'Assinar' + svg('arrow', 18));
+        cta = el('a', (p.destaque ? 'btn' : 'btn2') + ' full pcta', (p.destaque ? 'Assinar o ' + esc(p.nome) : 'Assinar') + svg('arrow', 18));
         cta.setAttribute('aria-label', 'Assinar o plano ' + p.nome);
       }
       card.appendChild(cta);
       grid.appendChild(card);
-      vivos.push({ p: p, valor: valor, nota: nota, cta: cta, unid: unid });
+      vivos.push({ p: p, valor: valor, nota: nota, cta: cta, unid: unid, anc: anc });
     });
     wrap.appendChild(grid);
 
@@ -168,7 +181,7 @@
     extra.appendChild(el('span', 'xi', svg('plus', 22)));
     var xt = el('div', 'xt');
     xt.appendChild(el('h3', null, 'Espaço extra'));
-    xt.appendChild(el('p', null, 'Mais 50 GB na nuvem (cerca de 500 músicas), em qualquer plano pago. Some quantos precisar.'));
+    xt.appendChild(el('p', null, 'Mais 50 GB para subir multitracks (cabem cerca de 500 músicas a mais), em qualquer plano pago. Some quantos precisar.'));
     extra.appendChild(xt);
     var xp = el('div', 'xp');
     var xValor = el('span', 'v');
@@ -194,7 +207,7 @@
 
     var fino = el('div', 'pfino');
     fino.appendChild(el('p', null, 'Se um pagamento atrasar, a banda continua usando por mais 7 dias. Depois disso, fica só para ouvir e consultar até acertar. Nada é apagado.'));
-    fino.appendChild(el('p', null, 'A quantidade de músicas é uma estimativa: uma multitrack completa ocupa, em média, uns 100 MB.'));
+    fino.appendChild(el('p', null, 'O Louvor Studio não vende multitracks: o espaço é para a banda subir as que já tem. A quantidade de músicas é uma estimativa, porque uma multitrack completa ocupa, em média, uns 100 MB.'));
     fino.appendChild(el('p', null, 'Dúvidas sobre os planos: <a href="mailto:' + CONTATO + '">' + CONTATO + '</a>'));
     wrap.appendChild(fino);
 
@@ -203,6 +216,7 @@
         var pc = preco(x.p, ciclo);
         x.valor.textContent = pc.valor;
         x.nota.textContent = pc.nota;
+        if (x.anc) x.anc.textContent = ancora(x.p, ciclo);
         if (x.p.mensal && x.cta.tagName === 'A') x.cta.href = link(x.p, ciclo);
         if (animar && x.p.mensal && !reduce) {
           x.valor.animate([{ opacity: 0.35, filter: 'blur(3px)', transform: 'translateY(4px)' }, { opacity: 1, filter: 'blur(0)', transform: 'none' }],

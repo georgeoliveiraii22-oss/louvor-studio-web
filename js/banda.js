@@ -82,7 +82,7 @@
         else window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
       }, { full: true })));
 
-    var limit = Math.max(1, m.org.storage_limit_bytes || 5368709120);
+    var limit = Math.max(1, m.org.storage_limit_bytes || 1073741824);
     var f = S.storageUsed / limit;
     root.appendChild(U.panel('Espaço da banda na nuvem', 'Cloud', U.keyValue('Usado', L.bytes(S.storageUsed) + ' de ' + L.bytes(limit)),
       U.bar(f, f > 0.9 ? 'var(--bad)' : f > 0.75 ? 'var(--warn)' : null)));
