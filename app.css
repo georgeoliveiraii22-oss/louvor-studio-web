@@ -1199,3 +1199,6 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 .chooser .logo.big { width: 52px; height: 52px; border-radius: 15px; }
 .bandpick { min-height: 72px; gap: 14px; cursor: pointer; }
 .bandpick .bico { width: 48px; height: 48px; border-radius: 14px; flex: none; display: flex; align-items: center; justify-content: center; color: var(--on-accent); font-weight: 700; font-size: 18px; }
+.invitecode { display: flex; align-items: center; gap: 8px; padding: 6px 4px 6px 16px; border-radius: 14px; background: var(--field); box-shadow: inset 0 0 0 1px var(--line); }
+.invitecode .c { color: var(--hi); font-family: var(--mono); font-size: 22px; font-weight: 600; letter-spacing: 0.06em; }
+.invitecode .iconbtn { color: var(--accent); }

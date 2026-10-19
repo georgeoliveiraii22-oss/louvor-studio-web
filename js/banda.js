@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.7.3', [
+      'Convidar ficou à vista: botão no alto da aba Banda e o código de convite logo no começo de Pessoas.'
+    ]],
     ['1.7.2', [
       'Ao entrar na conta, o site mostra "Escolha a banda": toque na sua banda, ou crie uma nova, ou entre com código. A tela de criar banda não pisca mais.'
     ]],
@@ -67,7 +70,7 @@
     var m = S.current;
     var unread = L.unreadTotal();
     var root = h('div', { class: 'screen' },
-      U.tabHead('Banda', U.iconBtn('RefreshCw', 'Atualizar', L.reload)),
+      U.tabHead('Banda', [(function (b) { b.style.color = 'var(--accent)'; return b; })(U.iconBtn('UserPlus', 'Convidar pessoas', L.openInvite)), U.iconBtn('RefreshCw', 'Atualizar', L.reload)]),
       h('div', { class: 'row' },
         U.toggle('Conversas' + (unread ? ' (' + unread + ')' : ''), B.view === 'conversas', 'MessagesSquare', function () { B.view = 'conversas'; L.render(); }),
         U.toggle('Pessoas (' + S.members.length + ')', B.view === 'pessoas', 'UsersRound', function () { B.view = 'pessoas'; L.render(); })));
@@ -80,6 +83,9 @@
       return root;
     }
 
+    // Convidar: primeiro, à vista (antes ficava no fim da lista e ninguém achava)
+    root.appendChild(U.panel('Convidar pessoas', 'UserPlus', L.inviteContent()));
+
     root.appendChild(h('div', { class: 'list' }, S.members.map(function (mb) {
       return h('div', { class: 'li', onclick: function () { memberSheet(mb); } }, U.avatar(mb, 42),
         h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, mb.name + (mb.user_id === L.uid() ? ' (você)' : '')),
@@ -89,24 +95,34 @@
 
     if (m.role === 'leader') root.appendChild(L.igreja.panel());
 
-    var code = m.org.invite_code;
-    root.appendChild(U.panel('Convidar', 'Share2',
-      U.body('Quem tiver este código entra na banda como integrante.', 'var(--muted)', 12),
-      h('div', { class: 'row' }, h('span', { class: 'hi mono grow', style: { fontSize: '18px' } }, code),
-        U.iconBtn('Copy', 'Copiar código', function () { copy(code); L.toast('Código copiado.'); })),
-      U.btn('Convidar pelo WhatsApp (ou outro app)', 'Share2', function () {
-        var link = location.origin + location.pathname;
-        var text = ['Entre na banda ' + m.org.name + ' no Louvor Studio! 🎶', '', '1. Abra ' + link + ' no celular e crie sua conta.', '2. Toque em "Entrar com código" e digite o código abaixo.', '', 'Código de convite: ' + code].join('\n');
-        if (navigator.share) navigator.share({ text: text }).catch(function () { /* cancelou */ });
-        else window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
-      }, { full: true })));
-
     var limit = Math.max(1, m.org.storage_limit_bytes || 1073741824);
     var f = S.storageUsed / limit;
     root.appendChild(U.panel('Espaço da banda na nuvem', 'Cloud', U.keyValue('Usado', L.bytes(S.storageUsed) + ' de ' + L.bytes(limit)),
       U.bar(f, f > 0.9 ? 'var(--bad)' : f > 0.75 ? 'var(--warn)' : null)));
     return root;
   });
+
+  /** O código de convite com copiar e mandar pelo WhatsApp (aba Banda e a janela de convite). */
+  L.inviteContent = function () {
+    var m = S.current, code = m.org.invite_code;
+    return [
+      U.body('Quem tiver este código entra na banda como integrante. Mande pelo WhatsApp ou copie.', 'var(--muted)', 13),
+      h('div', { class: 'invitecode' }, h('div', { class: 'grow' }, h('div', { class: 'muted small' }, 'Código de convite'), h('div', { class: 'c' }, code)),
+        U.iconBtn('Copy', 'Copiar código', function () { copy(code); L.toast('Código copiado.'); })),
+      U.btn('Convidar pelo WhatsApp', 'Share2', function () {
+        var text = ['Entre na banda ' + m.org.name + ' no Louvor Studio! 🎶', '', '1. Abra https://louvorstudio.app.br no celular e crie sua conta. Tem plano grátis.',
+          '2. Toque em "Entrar com código de convite" e digite o código abaixo.', '', 'Código de convite: ' + code].join('\n');
+        if (navigator.share) navigator.share({ text: text }).catch(function () { /* cancelou */ });
+        else window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
+      }, { full: true })];
+  };
+  L.openInvite = function () {
+    L.dialog({
+      title: 'Convidar para a banda',
+      body: function () { return L.inviteContent(); },
+      actions: function (close) { return [h('button', { class: 'textbtn muted', onclick: close }, 'Fechar')]; }
+    });
+  };
 
   function copy(t) {
     if (navigator.clipboard) navigator.clipboard.writeText(t).catch(function () { /* sem permissão */ });

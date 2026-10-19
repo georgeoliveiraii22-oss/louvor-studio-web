@@ -135,6 +135,8 @@
         out.push({ icon: 'UsersRound', title: 'Escalar a equipe', sub: s.title + ' · ' + L.serviceWhen(s.starts_on) + ' ainda está sem ninguém.', go: function () { L.go({ name: 'escala', id: s.id }); } });
       });
     }
+    // Banda com pouca gente: convidar o pessoal (só o líder)
+    if (L.perm.leader() && S.members.length <= 2) out.push({ icon: 'UserPlus', title: 'Convide o pessoal da banda', sub: 'Mande o código de convite pelo WhatsApp: cada um cria a conta e entra.', go: function () { L.openInvite(); } });
     // Sem foto: um convite gentil (some quando a pessoa põe a foto)
     var mine = L.me();
     if (mine && !mine.avatar_path) out.push({ icon: 'Camera', title: 'Coloque sua foto', sub: 'Para a banda te reconhecer nas escalas e na conversa', go: function () { L.go({ name: 'profile' }); } });
