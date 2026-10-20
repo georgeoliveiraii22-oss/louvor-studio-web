@@ -61,14 +61,66 @@
     var f = S.storageUsed / limit;
     var people = S.members.length;
     var leader = S.current.role === 'leader';
+    var bill = billingLine(org);
     return U.panel('Plano da banda', 'BadgeCheck',
       U.keyValue('Plano', p.nome),
+      bill,
       U.keyValue('Pessoas', p.pessoas ? people + ' de ' + p.pessoas : String(people)),
       U.keyValue('Espaço usado', L.bytes(S.storageUsed) + ' de ' + L.bytes(limit)),
       U.bar(f, f > 0.9 ? 'var(--bad)' : f > 0.75 ? 'var(--warn)' : null),
       leader ? null : U.body('Quem escolhe o plano da banda é o líder.', 'var(--muted)', 12),
+      leader && ['em_dia', 'atrasado', 'aguardando'].indexOf(org.billing_status) >= 0
+        ? U.btn2('Cancelar assinatura', 'X', function () { cancelSubscription(org); }, { full: true, danger: true }) : null,
       h('a', { class: 'btn2 full', href: 'planos/?atual=' + encodeURIComponent(org.plan || 'free'), target: '_blank', rel: 'noopener', style: { textDecoration: 'none' } },
         ic('Sparkles', 18), leader ? 'Ver planos e assinar' : 'Ver os planos'));
+  }
+
+  // A situação do pagamento (assinatura pelo Asaas, migração 0026), em palavras simples.
+  function fmtDate(d) { return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+  function billingLine(org) {
+    var until = org.plan_paid_until ? new Date(org.plan_paid_until) : null;
+    // plan_paid_until já tem os 7 dias de tolerância; "pago até" é o fim do período de verdade.
+    var paidEnd = until ? fmtDate(new Date(until.getTime() - 7 * 864e5)) : null;
+    var s = {
+      em_dia: ['Em dia', 'var(--ok)', paidEnd ? 'Pago até ' + paidEnd + '. A próxima cobrança chega perto dessa data.' : null],
+      aguardando: ['Aguardando o pagamento', 'var(--warn)', 'Assim que o pagamento for confirmado, o plano novo vale na hora.'],
+      atrasado: ['Pagamento atrasado', 'var(--bad)', 'O plano continua' + (until ? ' até ' + fmtDate(until) : '') + '. Depois disso a banda volta ao Grátis (nada é apagado).'],
+      cancelado: ['Assinatura cancelada', 'var(--warn)', 'Não há mais cobranças. O plano vale' + (until ? ' até ' + fmtDate(until) : ' até o fim do que foi pago') + ' e depois a banda volta ao Grátis.'],
+      vencido: ['Pagamento vencido', 'var(--bad)', 'A banda voltou ao Grátis. Nada foi apagado: assine de novo para voltar a subir músicas.']
+    }[org.billing_status];
+    if (!s) return null;
+    return [h('div', { class: 'row', style: { justifyContent: 'space-between' } }, h('span', { class: 'muted grow', style: { fontSize: '13px' } }, 'Situação'),
+      h('span', { class: 'row', style: { gap: '6px', color: s[1], fontSize: '13px', fontWeight: '600' } }, h('i', { style: { width: '8px', height: '8px', borderRadius: '50%', background: s[1], display: 'inline-block' } }), s[0])),
+      s[2] ? U.body(s[2], 'var(--muted)', 12) : null];
+  }
+  function cancelSubscription(org) {
+    var until = org.plan_paid_until ? fmtDate(new Date(org.plan_paid_until)) : null;
+    L.dialog({
+      title: 'Cancelar a assinatura?',
+      body: function () {
+        return U.body('As cobranças param. O plano continua valendo' + (until ? ' até ' + until : ' até o fim do que já foi pago') +
+          '; depois a banda volta ao Grátis (até 8 pessoas e 1 GB). Nada é apagado, e dá para assinar de novo quando quiser.', null, 14);
+      },
+      actions: function (close) {
+        return [h('button', { class: 'textbtn muted', onclick: close }, 'Manter'), h('button', { class: 'textbtn', style: { color: 'var(--bad)' }, onclick: function (e) {
+          e.target.disabled = true; e.target.textContent = 'Cancelando…';
+          L.run(async function () {
+            try {
+              var r = await sb.functions.invoke((window.LSPlanos && LSPlanos.FN_ASSINAR) || 'smart-processor', { body: { action: 'cancel', org_id: org.id } });
+              if (r.error) {
+                var msg = r.error.message;
+                try { var j = await r.error.context.json(); if (j && j.error) msg = j.error; } catch (x) { /* sem corpo */ }
+                throw new Error(msg);
+              }
+              close();
+              await D.refresh();
+              L.toast('Assinatura cancelada. Não haverá novas cobranças.');
+              L.render();
+            } finally { e.target.disabled = false; e.target.textContent = 'Cancelar assinatura'; }
+          });
+        } }, 'Cancelar assinatura')];
+      }
+    });
   }
 
   function installHelp() {

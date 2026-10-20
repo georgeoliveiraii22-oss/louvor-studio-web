@@ -24,7 +24,7 @@
     if (!S.user) return;
     S.loading = true;
     try {
-      var ms = must(await sb.from('memberships').select('*,org:organizations(id,name,invite_code,storage_limit_bytes,plan)').eq('user_id', S.user.id));
+      var ms = must(await sb.from('memberships').select('*,org:organizations(id,name,invite_code,storage_limit_bytes,plan,billing_status,plan_paid_until)').eq('user_id', S.user.id));
       S.memberships = ms.filter(function (m) { return m.org; });
       // Quantas pessoas em cada banda: sem escolha salva, abre a banda com mais gente (não uma vazia criada por engano).
       if (S.memberships.length > 1) {

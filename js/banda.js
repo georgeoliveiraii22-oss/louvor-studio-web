@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.11.1', [
+      'Em Eu › Plano da banda: a situação do pagamento e até quando o plano vale. O líder pode cancelar a assinatura ali mesmo.'
+    ]],
     ['1.11.0', [
       'Sair da banda: em Banda, no fim da tela. Você sai das próximas escalas e as suas gravações continuam na banda.',
       'Planos: o botão Assinar abre a cobrança (Pix, boleto ou cartão) e o plano da banda muda sozinho quando o pagamento é confirmado.'
