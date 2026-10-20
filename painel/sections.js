@@ -157,10 +157,77 @@
     return 'Nova seção';
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // Edição das partes como lista de marcadores ({ id, at_ms, end_ms, name }), sem banco: cada ação
+  // devolve a lista nova (ou null se não dá) e `diff` diz o que salvar. Assim o desfazer é só voltar à
+  // lista de antes, e a sugestão do "Detectar partes" é editada do mesmo jeito antes de ir para o banco.
+  function copyMarkers(markers) {
+    return (markers || []).map(function (m) { return { id: m.id, at_ms: m.at_ms, end_ms: m.end_ms === undefined ? null : m.end_ms, name: m.name }; });
+  }
+  function sortMarkers(list) { return list.sort(function (a, b) { return a.at_ms - b.at_ms; }); }
+
+  // Marcadores antigos sem fim ganham o fim que valia (até a próxima ou o fim da música).
+  function withEnds(markers, endSec) {
+    var list = sortMarkers(copyMarkers(markers));
+    var secs = build(list, endSec);
+    list.forEach(function (m, i) { m.end_ms = Math.round(secs[i].end * 1000); });
+    return list;
+  }
+
+  // Divide a parte `id` em t (segundos): a primeira fica até t; a nova (newId, newName) vai de t ao fim dela.
+  function splitMarker(markers, id, t, endSec, newId, newName) {
+    var list = withEnds(markers, endSec);
+    var m = list.find(function (x) { return x.id === id; });
+    var ms = Math.round(t * 1000);
+    if (!m || ms - m.at_ms < MIN_LEN * 1000 || m.end_ms - ms < MIN_LEN * 1000) return null;
+    list.push({ id: newId, at_ms: ms, end_ms: m.end_ms, name: newName || m.name });
+    m.end_ms = ms;
+    return sortMarkers(list);
+  }
+
+  // Junta a parte `id` com a seguinte: fica o nome da primeira, até o fim da seguinte.
+  function mergeNext(markers, id, endSec) {
+    var list = withEnds(markers, endSec);
+    var i = list.findIndex(function (x) { return x.id === id; });
+    if (i < 0 || i + 1 >= list.length) return null;
+    list[i].end_ms = list[i + 1].end_ms;
+    list.splice(i + 1, 1);
+    return list;
+  }
+
+  // Parte nova em t: dentro de uma parte, divide ali; num espaço vazio, vai até o fim sugerido
+  // (8 compassos ou 15 s, sem invadir a próxima). null se não couber.
+  function addAt(markers, t, endSec, name, newId, beats, downbeats) {
+    var secs = build(markers, endSec);
+    var i = containing(secs, t);
+    if (i >= 0) return splitMarker(markers, secs[i].id, t, endSec, newId, name);
+    var room = freeAround(secs, t, endSec, null);
+    if (room.hi - t < MIN_LEN) return null;
+    var end = defaultEnd(secs, t, endSec, beats, downbeats);
+    var list = withEnds(markers, endSec);
+    list.push({ id: newId, at_ms: Math.round(t * 1000), end_ms: Math.round(end * 1000), name: name });
+    return sortMarkers(list);
+  }
+
+  // O que mudou de `before` para `after`: apagar (ids), inserir (linhas) e atualizar (linhas).
+  function diff(before, after) {
+    var b = {}, a = {}, out = { del: [], ins: [], upd: [] };
+    (before || []).forEach(function (m) { b[m.id] = m; });
+    (after || []).forEach(function (m) { a[m.id] = m; });
+    (before || []).forEach(function (m) { if (!a[m.id]) out.del.push(m.id); });
+    (after || []).forEach(function (m) {
+      var o = b[m.id];
+      if (!o) out.ins.push(m);
+      else if (o.at_ms !== m.at_ms || (o.end_ms === undefined ? null : o.end_ms) !== (m.end_ms === undefined ? null : m.end_ms) || o.name !== m.name) out.upd.push(m);
+    });
+    return out;
+  }
+
   var api = {
     QUICK_NAMES: QUICK_NAMES, MIN_LEN: MIN_LEN, colorFor: colorFor, build: build, indexAt: indexAt, containing: containing,
     prevStart: prevStart, nextStart: nextStart, snapEdge: snapEdge, snapToBar: snapToBar, freeAround: freeAround,
-    defaultEnd: defaultEnd, clampRange: clampRange, suggestName: suggestName
+    defaultEnd: defaultEnd, clampRange: clampRange, suggestName: suggestName,
+    copyMarkers: copyMarkers, withEnds: withEnds, splitMarker: splitMarker, mergeNext: mergeNext, addAt: addAt, diff: diff
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Sections = api;

@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.14.0', [
+      'Partes refeitas: toque numa parte para dar qualquer nome ("Verso 2", "Tag"…), dividir no cursor, juntar com a seguinte, repetir ou apagar. Marcar dentro de uma parte divide ela. Desfazer volta qualquer mudança nas partes.',
+      'Detectar partes: a sugestão pode ser corrigida antes de usar (renomear, dividir, juntar, ajustar as pontas).'
+    ]],
     ['1.13.2', [
       'Estúdio: o tempo agora fica em cima e as partes embaixo, coladas nas faixas. Com a ferramenta Partes, o líder arrasta as pontas de uma parte para mudar o tamanho, arrasta o meio para mover e toca nela para renomear ou apagar.'
     ]],

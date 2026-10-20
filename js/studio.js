@@ -433,9 +433,9 @@
     var g = f.g, w = f.w, hh = f.h, p = pps();
     var SY = hh - PART_H - 1, top = SY - 3;   // faixa das partes (embaixo) e o fim da área do tempo
     // Partes. A sugestão de "Detectar partes" em revisão aparece no lugar delas, listrada (ainda não marcada).
-    var auto = st.auto && st.auto.sections;
-    var shown = auto ? st.auto.sections.map(function (sc) { return { name: sc.name, start: sc.start, end: sc.end, color: SEC.colorFor(sc.name) }; }) : sections();
-    var editing = !auto && st.tool === 'partes' && L.perm.leader();
+    var auto = reviewing();
+    var shown = viewParts();
+    var editing = st.tool === 'partes' && L.perm.leader();
     shown.forEach(function (sc) {
       var a = xOf(sc.start), b = xOf(sc.end);
       if (b < 0 || a > w) return;
@@ -640,11 +640,15 @@
   }
   function undoEdit() {
     var x = st.undo.pop(); if (!x) return;
-    st.redo.push(x); previewEdit(x.key, x.before); queueSave(x.key); restartIfPlaying(); L.render();
+    st.redo.push(x);
+    if (x.parts) { restoreParts(x, x.before); return; }
+    previewEdit(x.key, x.before); queueSave(x.key); restartIfPlaying(); L.render();
   }
   function redoEdit() {
     var x = st.redo.pop(); if (!x) return;
-    st.undo.push(x); previewEdit(x.key, x.after); queueSave(x.key); restartIfPlaying(); L.render();
+    st.undo.push(x);
+    if (x.parts) { restoreParts(x, x.after); return; }
+    previewEdit(x.key, x.after); queueSave(x.key); restartIfPlaying(); L.render();
   }
   var saveTimers = {};
   function queueSave(key) {
@@ -761,36 +765,228 @@
           hint('Vale para a banda inteira.')];
         break;
       case 'partes':
-        var list = sections();
-        if (st.auto && st.auto.sections) { kids = autoPanel(b, hint); break; }
-        var sel = st.selPart && list.find(function (x) { return x.id === st.selPart; });
-        if (sel) {
-          kids = [h('span', { class: 'partchip', style: { borderColor: sel.color } }, h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: sel.color } }), sel.name,
-              h('span', { class: 'muted mono', style: { fontWeight: 500 } }, L.clock(sel.start) + ' – ' + L.clock(sel.end))),
-            hint('Arraste as pontas da parte na régua para mudar o tamanho, ou o meio para mover. Gruda no click.'),
-            h('div', { class: 'row wrap', style: { gap: '6px', width: '100%' } }, PART_NAMES.map(function (n) {
-              return h('button', { class: 'chiptog tbtn2' + (n === sel.name ? ' on' : ''), onclick: function () { renamePart(sel.id, n); } }, n);
-            })),
-            b('Início no cursor', function () { setPartEdge(sel.id, 'start'); }, 'ArrowRightToLine'),
-            b('Fim no cursor', function () { setPartEdge(sel.id, 'end'); }, 'ArrowLeftToLine'),
-            b('Ouvir', function () { goTo(sel.start); }, 'Play'),
-            b('Apagar', function () { st.selPart = null; delPart(sel.id); }, 'Trash2', 'danger'),
-            b('Fechar', function () { st.selPart = null; L.render(); }, 'X')];
-          break;
-        }
-        kids = [h('button', { class: 'chiptog tbtn2 autobtn', disabled: !!(st.auto && st.auto.busy), onclick: detectParts },
-            ic('WandSparkles', 15), st.auto && st.auto.busy ? 'Analisando a música…' : 'Detectar partes automaticamente'),
-          hint('Ou escolha o nome para marcar uma parte onde o cursor está (' + L.clock(st.pos) + '). Para mudar uma parte, toque nela ou arraste as pontas na régua.')]
-          .concat(PART_NAMES.map(function (n) { return b(n, function () { addPart(n); }, 'Plus'); }))
-          .concat(list.map(function (sc) {
-            return h('span', { class: 'partchip', style: { borderColor: sc.color } }, h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: sc.color } }), sc.name,
-              h('button', { class: 'xbtn', 'aria-label': 'Apagar a parte ' + sc.name, onclick: function () { delPart(sc.id); } }, ic('X', 13)));
-          }));
+        kids = partsPanel(b, hint);
         break;
       default:
         kids = [hint('Toque para escolher de onde tocar. Arraste para andar na música; pinça com dois dedos muda o zoom. Dois toques e arraste: trecho para repetir.')];
     }
     return h('div', { class: 'toolpanel' }, kids);
+  }
+
+  // ---------- Partes (só o líder edita). Uma lista só para editar: as partes marcadas ou, enquanto o líder
+  // revisa o "Detectar partes", a sugestão. Toda mudança passa por setParts: entra no Desfazer e, fora da
+  // revisão, é salva para a banda. As regras de dividir, juntar e marcar no cursor estão em lib/sections.js.
+  function reviewing() { return !!(st.auto && st.auto.parts); }
+  function partList() { return reviewing() ? st.auto.parts : st.markers; }
+  function viewParts() { return SEC.build(partList(), sessionEnd()); }
+  function marker(id) { return partList().find(function (m) { return m.id === id; }) || null; }
+  var sugSeq = 0;
+  function newPartId() {
+    if (reviewing()) return 'sug-' + (++sugSeq);
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+  }
+  function replaceParts(list) { if (reviewing()) st.auto.parts = list; else st.markers = list; }
+
+  function setParts(after, opts) {
+    opts = opts || {};
+    var before = opts.before || SEC.copyMarkers(partList());
+    after = SEC.copyMarkers(after).sort(function (a, b) { return a.at_ms - b.at_ms; });
+    var d = SEC.diff(before, after);
+    replaceParts(after);
+    if (st.selPart && !after.some(function (m) { return m.id === st.selPart; })) st.selPart = null;
+    if (!d.del.length && !d.ins.length && !d.upd.length) { L.render(); return; }
+    if (opts.record !== false) {
+      st.undo.push({ parts: true, review: reviewing(), before: before, after: after });
+      if (st.undo.length > 100) st.undo.shift();
+      st.redo = [];
+    }
+    if (!reviewing()) persistParts(d);
+    L.render();
+  }
+
+  // Salva em ordem (uma mudança de cada vez). Se algo falhar, mostra o que ficou salvo de verdade.
+  var partsQueue = Promise.resolve();
+  function persistParts(d) {
+    var pid = st.pid, mine = st;
+    partsQueue = partsQueue.then(async function () {
+      if (d.del.length) L.must(await sb.from('song_markers').delete().in('id', d.del));
+      if (d.ins.length) L.must(await sb.from('song_markers').insert(d.ins.map(function (m) {
+        return { id: m.id, project_id: pid, at_ms: m.at_ms, end_ms: m.end_ms, name: m.name };
+      })));
+      for (var i = 0; i < d.upd.length; i++) {
+        var m = d.upd[i];
+        L.must(await sb.from('song_markers').update({ at_ms: m.at_ms, end_ms: m.end_ms, name: m.name }).eq('id', m.id));
+      }
+    }).catch(async function (e) {
+      L.toast('Não deu para salvar as partes: ' + L.errorText(e));
+      var r = await sb.from('song_markers').select('*').eq('project_id', pid).order('at_ms');
+      if (st !== mine || r.error || !r.data) return;
+      st.markers = r.data;
+      st.undo = st.undo.filter(function (x) { return !x.parts; });
+      st.redo = st.redo.filter(function (x) { return !x.parts; });
+      L.render();
+    });
+  }
+
+  // Desfazer/refazer de partes (chamado pelo Desfazer da barra de ferramentas).
+  function restoreParts(x, target) {
+    if (x.review !== reviewing()) { L.toast('Essa mudança era da sugestão, que já foi fechada.'); L.render(); return; }
+    setParts(target, { record: false });
+  }
+
+  // Fecha a revisão: o que foi feito nela sai do Desfazer (a sugestão não existe mais).
+  function endReview() {
+    st.auto = null;
+    st.selPart = null;
+    st.undo = st.undo.filter(function (x) { return !(x.parts && x.review); });
+    st.redo = st.redo.filter(function (x) { return !(x.parts && x.review); });
+  }
+
+  // Ações sobre uma parte (marcada ou da sugestão).
+  function addPart(name) {
+    var t = snapEdge(st.pos), id = newPartId();
+    var list = viewParts(), ci = SEC.containing(list, t), cur = ci >= 0 ? list[ci] : null;
+    // Cursor no começo de uma parte: ela passa a ter esse nome. Colado no fim: a nova começa logo depois.
+    if (cur && t - cur.start < SEC.MIN_LEN) {
+      renamePart(cur.id, name);
+      st.selPart = cur.id;
+      L.toast('Esta parte agora se chama ' + name + '.');
+      L.render();
+      return;
+    }
+    if (cur && cur.end - t < SEC.MIN_LEN) t = cur.end;
+    var after = SEC.addAt(partList(), t, sessionEnd(), name, id, gridBeats(), st.grid && st.grid.downbeats);
+    if (!after) { L.toast('Não cabe uma parte nova aqui. Leve o cursor um pouco para o lado ou diminua a parte vizinha.'); return; }
+    setParts(after);
+    st.selPart = id;
+    L.toast(name + ' marcado em ' + L.clock(t) + '. Arraste as pontas na régua para ajustar.');
+    L.render();
+  }
+  function renamePart(id, name) {
+    name = String(name || '').trim().slice(0, 40);
+    if (!name) return;
+    setParts(partList().map(function (m) { return m.id === id ? Object.assign({}, m, { name: name }) : m; }));
+  }
+  function delPart(id) {
+    var m = marker(id);
+    setParts(partList().filter(function (x) { return x.id !== id; }));
+    if (m) L.toast(m.name + ' apagado. Se foi sem querer, toque em Desfazer.');
+  }
+  function setPartEdge(id, edge) {
+    var list = viewParts(), sc = list.find(function (x) { return x.id === id; });
+    if (!sc) return;
+    var t = snapEdge(st.pos);
+    if ((edge === 'start' && t >= sc.end - SEC.MIN_LEN) || (edge === 'end' && t <= sc.start + SEC.MIN_LEN)) {
+      L.toast(edge === 'start' ? 'Leve o cursor para antes do fim da parte.' : 'Leve o cursor para depois do começo da parte.');
+      return;
+    }
+    var rr = SEC.clampRange(list, id, edge === 'start' ? t : sc.start, edge === 'end' ? t : sc.end, sessionEnd(), edge);
+    setParts(SEC.withEnds(partList(), sessionEnd()).map(function (m) {
+      return m.id === id ? Object.assign({}, m, { at_ms: Math.round(rr.start * 1000), end_ms: Math.round(rr.end * 1000) }) : m;
+    }));
+  }
+  function splitPart(id) {
+    var nid = newPartId(), sc = viewParts().find(function (x) { return x.id === id; });
+    var after = sc && SEC.splitMarker(partList(), id, snapEdge(st.pos), sessionEnd(), nid, sc.name);
+    if (!after) { L.toast('Leve o cursor para dentro da parte, onde ela deve ser dividida.'); return; }
+    setParts(after);
+    st.selPart = nid;
+    L.toast('Dividida em ' + L.clock(snapEdge(st.pos)) + '. A parte nova está escolhida: dê o nome dela.');
+    L.render();
+  }
+  function mergePart(id) {
+    var after = SEC.mergeNext(partList(), id, sessionEnd());
+    if (!after) { L.toast('Esta é a última parte: não há uma seguinte para juntar.'); return; }
+    setParts(after);
+  }
+  function loopPart(sc) {
+    st.loop = { a: sc.start, b: sc.end, name: sc.name };
+    seek(sc.start);
+    L.toast('Repetindo ' + sc.name + '.' + (st.playing ? '' : ' Toque em Tocar.'));
+    restartIfPlaying();
+    L.render();
+  }
+  function choosePart(id, seekTo) {
+    st.selPart = id;
+    var sc = viewParts().find(function (x) { return x.id === id; });
+    if (sc && seekTo) seek(sc.start);
+    L.render();
+  }
+
+  // Painel da ferramenta Partes.
+  function partsPanel(b, hint) {
+    var leader = L.perm.leader(), review = reviewing(), list = viewParts();
+    var sel = st.selPart && list.find(function (x) { return x.id === st.selPart; });
+    var out = [];
+    if (st.auto && st.auto.busy) {
+      out.push(h('button', { class: 'chiptog tbtn2 autobtn', disabled: true }, ic('WandSparkles', 15), 'Analisando a música…'));
+      return out;
+    }
+    if (review) out.push(reviewBox(b));
+    else out.push(h('button', { class: 'chiptog tbtn2 autobtn', onclick: detectParts }, ic('WandSparkles', 15), 'Detectar partes automaticamente'));
+
+    if (sel) {
+      var nameIn = h('input', { class: 'partname', type: 'text', maxlength: '40', value: sel.name, 'aria-label': 'Nome da parte', placeholder: 'Nome da parte',
+        onkeydown: function (ev) { if (ev.key === 'Enter') ev.target.blur(); if (ev.key === 'Escape') { ev.target.value = sel.name; ev.target.blur(); } },
+        onchange: function (ev) { renamePart(sel.id, ev.target.value); } });
+      var idx = list.indexOf(sel);
+      out.push(h('div', { class: 'partedit' },
+        h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+          h('span', { style: { width: '10px', height: '10px', borderRadius: '3px', background: sel.color, flex: 'none' } }),
+          nameIn,
+          h('span', { class: 'muted mono small' }, L.clock(sel.start) + ' – ' + L.clock(sel.end))),
+        h('div', { class: 'row wrap', style: { gap: '6px' } }, PART_NAMES.map(function (n) {
+          return h('button', { class: 'chiptog tbtn2' + (n === sel.name ? ' on' : ''), onclick: function () { renamePart(sel.id, n); } }, n);
+        })),
+        h('div', { class: 'row wrap', style: { gap: '6px' } },
+          b('Ouvir', function () { seek(sel.start); if (!st.playing) togglePlay(); else L.render(); }, 'Play'),
+          b('Repetir', function () { loopPart(sel); }, 'Repeat'),
+          b('Início no cursor', function () { setPartEdge(sel.id, 'start'); }, 'ArrowRightToLine'),
+          b('Fim no cursor', function () { setPartEdge(sel.id, 'end'); }, 'ArrowLeftToLine'),
+          b('Dividir no cursor', function () { splitPart(sel.id); }, 'Scissors'),
+          idx < list.length - 1 ? b('Juntar com a seguinte', function () { mergePart(sel.id); }, 'Merge') : null,
+          b('Apagar', function () { delPart(sel.id); }, 'Trash2', 'danger'),
+          b('Pronto', function () { st.selPart = null; L.render(); }, 'Check')),
+        hint('Arraste as pontas da parte na régua para mudar o tamanho, ou o meio para mover (gruda no click).')));
+    }
+
+    // Marcar uma parte nova no cursor: sempre à mão, mesmo com uma parte escolhida.
+    var custom = h('input', { class: 'partname', type: 'text', maxlength: '40', placeholder: 'Outro nome', 'aria-label': 'Nome de uma parte nova',
+      onkeydown: function (ev) { if (ev.key === 'Enter' && ev.target.value.trim()) addPart(ev.target.value.trim()); } });
+    out.push(h('div', { class: 'partadd' },
+      h('span', { class: 'thint' }, 'Marcar parte nova no cursor (' + L.clock(st.pos) + '). Dentro de uma parte, ela é dividida ali.'),
+      h('div', { class: 'row wrap', style: { gap: '6px' } },
+        PART_NAMES.map(function (n) { return b(n, function () { addPart(n); }, 'Plus'); }),
+        h('span', { class: 'row', style: { gap: '6px' } }, custom, b('Marcar', function () { if (custom.value.trim()) addPart(custom.value.trim()); }, 'Plus')))));
+
+    // Todas as partes: toque para escolher.
+    if (list.length) {
+      out.push(h('div', { class: 'hscroll autolist', style: { width: '100%' } }, list.map(function (sc) {
+        return h('button', { class: 'partchip' + (sel && sel.id === sc.id ? ' on' : ''), style: { borderColor: sc.color, cursor: 'pointer' }, onclick: function () { choosePart(sc.id, true); } },
+          h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: sc.color } }), sc.name,
+          h('span', { class: 'muted mono', style: { fontWeight: 500 } }, L.clock(sc.start)));
+      })));
+    }
+    if (!leader) return [hint('Só o líder marca as partes.')];
+    return out;
+  }
+
+  // Caixa da revisão: o que foi detectado e como aplicar.
+  function reviewBox(b) {
+    var au = st.auto, info = au.info || {}, mine = sections(), sug = viewParts();
+    var free = AutoParts.gaps(sug, mine);
+    var note = (sug.length === 1 ? '1 parte sugerida' : sug.length + ' partes sugeridas') +
+      (info.gridded ? (info.barsInferred ? ', nos tempos do click (o 1 do compasso deduzido pela música)' : ', nos compassos do click') : ', sem grade do click (bordas aproximadas)') +
+      (info.lyrics ? ', nomes pela letra' : '') + (info.vocalStem ? '' : '. Sem faixa de voz, os nomes são palpites') +
+      '. Elas aparecem listradas na régua. Antes de usar, corrija o que precisar: toque numa parte para renomear, dividir, juntar ou apagar, e arraste as pontas para ajustar.' +
+      (au.cmp ? ' Bate com as suas: ' + au.cmp.bordersHit + ' de ' + au.cmp.bordersManual + ' bordas, ' + au.cmp.namesHit + ' de ' + au.cmp.namesChecked + ' nomes.' : '');
+    var acts = mine.length
+      ? [b('Preencher só onde não há parte', function () { applyAuto('fill'); }, 'Check', free.length ? 'on' : ''),
+         b('Substituir as atuais', function () { applyAuto('replace'); }, 'Replace', 'danger')]
+      : [b('Usar estas partes', function () { applyAuto('fill'); }, 'Check', 'on')];
+    acts.push(b('Descartar', function () { endReview(); L.render(); }, 'X'));
+    return h('div', { class: 'reviewbox' }, h('span', { class: 'thint' }, note), h('div', { class: 'row wrap', style: { gap: '8px' } }, acts));
   }
 
   // ---------- Detectar partes (lib/autoparts.js, o mesmo do painel): sugestão que o líder revisa antes de aplicar
@@ -801,6 +997,7 @@
       L.toast('Espere todas as faixas carregarem para detectar as partes.');
       return;
     }
+    endReview();
     st.auto = { busy: true };
     L.render();
     // Deixa a tela mostrar "Analisando…" antes da conta (alguns segundos numa música longa).
@@ -819,9 +1016,14 @@
         var p = L.project(st.pid);
         var res = AutoParts.analyze({ stems: stems, duration: sessionEnd(), grid: grid, lyrics: p && p.lyrics });
         var mine = sections();
-        st.auto = res.sections.length ? { busy: false, sections: res.sections, info: res.info,
-          cmp: mine.length ? AutoParts.compare(res.sections, mine, grid ? 1.0 : 2.0) : null } : null;
-        if (!st.auto) L.toast('Não deu para achar as partes desta música (curta demais ou sem som).');
+        if (!res.sections.length) {
+          st.auto = null;
+          L.toast('Não deu para achar as partes desta música (curta demais ou sem som).');
+        } else {
+          st.auto = { busy: false, info: res.info, cmp: mine.length ? AutoParts.compare(res.sections, mine, grid ? 1.0 : 2.0) : null,
+            parts: res.sections.map(function (s) { return { id: 'sug-' + (++sugSeq), at_ms: Math.round(s.start * 1000), end_ms: Math.round(s.end * 1000), name: s.name }; }) };
+          st.tool = 'partes';
+        }
       } catch (e) {
         st.auto = null;
         L.toast('Não foi possível analisar a música: ' + ((e && e.message) || e));
@@ -830,59 +1032,25 @@
     }, 40);
   }
 
-  // A sugestão: mapa da música com as partes (toque para ouvir dali) e os botões para aplicar.
-  function autoPanel(b, hint) {
-    var au = st.auto, info = au.info || {}, mine = sections();
-    var free = AutoParts.gaps(au.sections, mine);
-    var note = (au.sections.length === 1 ? '1 parte sugerida' : au.sections.length + ' partes sugeridas') + (info.gridded ? (info.barsInferred ? ', nos tempos do click (o 1 do compasso deduzido pela música)' : ', nos compassos do click') : ', sem grade do click (bordas aproximadas)') +
-      (info.lyrics ? ', nomes pela letra' : '') + (info.vocalStem ? '' : '. Sem faixa de voz, os nomes são palpites') + '. Ela aparece listrada na linha do tempo, logo acima dos tempos; toque numa parte aqui embaixo para ouvir dali.' +
-      (au.cmp ? ' Bate com as suas: ' + au.cmp.bordersHit + ' de ' + au.cmp.bordersManual + ' bordas, ' + au.cmp.namesHit + ' de ' + au.cmp.namesChecked + ' nomes.' : '');
-    var chips = h('div', { class: 'hscroll autolist' }, au.sections.map(function (sc) {
-      return h('button', { class: 'partchip', style: { borderColor: Sections.colorFor(sc.name), background: 'none', cursor: 'pointer' }, onclick: function () { goTo(sc.start); } },
-        h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: Sections.colorFor(sc.name) } }), sc.name,
-        h('span', { class: 'muted mono', style: { fontWeight: 500 } }, L.clock(sc.start)));
-    }));
-    var acts = mine.length
-      ? [b('Preencher só onde não há parte', function () { applyAuto('fill'); }, 'Check', free.length ? 'on' : ''),
-         b('Substituir as atuais', function () { applyAuto('replace'); }, 'Replace', 'danger')]
-      : [b('Usar estas partes', function () { applyAuto('fill'); }, 'Check', 'on')];
-    acts.push(b('Descartar', function () { st.auto = null; L.render(); }, 'X'));
-    return [h('div', { class: 'col', style: { gap: '8px', width: '100%' } }, h('span', { class: 'thint', style: { flex: 'none' } }, note), chips, h('div', { class: 'row wrap', style: { gap: '8px' } }, acts))];
-  }
-
-  // mode 'fill': só onde não há parte; 'replace': apaga as atuais (depois de confirmar) e usa a sugestão.
+  // mode 'fill': só onde não há parte; 'replace': troca as atuais (depois de confirmar). Dá para desfazer.
   function applyAuto(mode) {
-    var au = st.auto;
-    if (!L.perm.leader() || !au || !au.sections || au.busy) return;
+    if (!L.perm.leader() || !reviewing()) return;
+    var sug = viewParts().map(function (s) { return { name: s.name, start: s.start, end: s.end }; });
     var mine = sections();
-    var list = mode === 'replace' ? au.sections : AutoParts.gaps(au.sections, mine);
+    var list = mode === 'replace' ? sug : AutoParts.gaps(sug, mine);
     if (!list.length) { L.toast('Todas as partes da música já estão marcadas. Use "Substituir as atuais" se quiser trocar.'); return; }
-    var run = async function () {
-      au.busy = true;
-      try {
-        if (mode === 'replace' && mine.length) {
-          L.must(await sb.from('song_markers').delete().eq('project_id', st.pid));
-          st.markers = [];
-        }
-        var rows = L.must(await sb.from('song_markers').insert(list.map(function (sc) {
-          return { project_id: st.pid, at_ms: Math.round(sc.start * 1000), end_ms: Math.round(sc.end * 1000), name: sc.name };
-        })).select());
-        st.markers = st.markers.concat(rows || []).sort(function (x, y) { return x.at_ms - y.at_ms; });
-        st.auto = null;
-        L.toast(list.length === 1 ? '1 parte marcada.' : list.length + ' partes marcadas. Dá para apagar ou marcar de novo qualquer uma.');
-      } catch (e) {
-        au.busy = false;
-        // Mostra o que ficou salvo de verdade.
-        var r = await sb.from('song_markers').select('*').eq('project_id', st.pid).order('at_ms');
-        if (!r.error && r.data) st.markers = r.data;
-        L.toast(L.errorText(e));
-      }
-      L.render();
+    var run = function () {
+      endReview();
+      var keep = mode === 'replace' ? [] : SEC.withEnds(st.markers, sessionEnd());
+      setParts(keep.concat(list.map(function (s) {
+        return { id: newPartId(), at_ms: Math.round(s.start * 1000), end_ms: Math.round(s.end * 1000), name: s.name };
+      })));
+      L.toast((list.length === 1 ? '1 parte marcada.' : list.length + ' partes marcadas.') + ' Toque numa parte para ajustar; Desfazer volta como estava.');
     };
     if (mode !== 'replace' || !mine.length) { run(); return; }
     L.dialog({
       title: 'Substituir as partes?',
-      body: function () { return U.body('As ' + mine.length + ' partes marcadas agora saem e entram as ' + list.length + ' sugeridas. Depois dá para apagar ou marcar de novo qualquer uma.', null, 14); },
+      body: function () { return U.body('As ' + mine.length + ' partes marcadas agora saem e entram as ' + list.length + ' sugeridas. Se não gostar, Desfazer volta como estava.', null, 14); },
       actions: function (close) {
         return [h('button', { class: 'textbtn muted', onclick: close }, 'Manter as atuais'),
           h('button', { class: 'textbtn', style: { color: 'var(--bad)' }, onclick: function () { close(); run(); } }, 'Substituir')];
@@ -890,39 +1058,22 @@
     });
   }
 
-  async function addPart(name) {
-    try {
-      var row = L.must(await sb.from('song_markers').insert({ project_id: st.pid, at_ms: Math.round(st.pos * 1000), end_ms: null, name: name }).select().single());
-      st.markers = st.markers.concat([row]).sort(function (a, b) { return a.at_ms - b.at_ms; });
-      L.toast(name + ' marcado em ' + L.clock(st.pos) + '.');
-      L.render();
-    } catch (e) { L.toast(L.errorText(e)); }
-  }
-  async function delPart(id) {
-    try {
-      L.must(await sb.from('song_markers').delete().eq('id', id));
-      st.markers = st.markers.filter(function (m) { return m.id !== id; });
-      L.render();
-    } catch (e) { L.toast(L.errorText(e)); }
-  }
-
   /** Linha (faixa) embaixo do dedo; null = régua. */
   function laneAt(clientY) {
     return (st.ui.lanes || []).find(function (l) { var r = l.canvas.parentNode.parentNode.getBoundingClientRect(); return clientY >= r.top && clientY < r.bottom; }) || null;
   }
-  /** Faixa colorida das partes, no alto da régua (com folga para o dedo). */
+  /** Faixa colorida das partes, embaixo da régua (com folga para o dedo). */
   function inPartStrip(clientY) {
     var c = st.ui.ruler;
     if (!c) return false;
     var r = c.getBoundingClientRect();
     return clientY >= r.bottom - PART_H - 10 && clientY < r.bottom + 4;
   }
-  /** Parte embaixo do dedo (só o líder, fora da revisão de "Detectar partes"): ponta ou meio. */
+  /** Parte embaixo do dedo (só o líder): ponta ou meio. Vale também para a sugestão em revisão. */
   function partAt(x) {
-    if (!L.perm.leader() || (st.auto && st.auto.sections)) return null;
+    if (!L.perm.leader()) return null;
     var best = null;
-    sections().forEach(function (sc) {
-      if (!marker(sc.id)) return;
+    viewParts().forEach(function (sc) {
       var xa = xOf(sc.start), xb = xOf(sc.end), inside = x > xa && x < xb;
       // Parte estreita: as pontas pegam menos, para sobrar o meio.
       var reach = Math.min(HANDLE_PX / 2, Math.max(6, (xb - xa) / 3));
@@ -934,40 +1085,6 @@
       if (!best && inside) best = { id: sc.id, mode: 'move', start: sc.start, end: sc.end, score: 1e9 };
     });
     return best;
-  }
-  function marker(id) { return st.markers.find(function (m) { return m.id === id; }) || null; }
-  /** Salva início e fim de uma parte; se falhar, volta como estava. */
-  async function savePart(id, old) {
-    var m = marker(id);
-    if (!m) return;
-    L.render();
-    if (m.at_ms === old.at_ms && m.end_ms === old.end_ms) return;
-    try {
-      L.must(await sb.from('song_markers').update({ at_ms: m.at_ms, end_ms: m.end_ms }).eq('id', id));
-      st.markers.sort(function (a, b) { return a.at_ms - b.at_ms; });
-    } catch (e) {
-      m.at_ms = old.at_ms; m.end_ms = old.end_ms;
-      L.toast(L.errorText(e));
-      L.render();
-    }
-  }
-  /** Botões da parte escolhida: início ou fim no cursor. */
-  function setPartEdge(id, edge) {
-    var sc = sections().find(function (x) { return x.id === id; }), m = marker(id);
-    if (!sc || !m) return;
-    var t = snapEdge(st.pos);
-    var rr = SEC.clampRange(sections(), id, edge === 'start' ? t : sc.start, edge === 'end' ? t : sc.end, sessionEnd(), edge);
-    var old = { at_ms: m.at_ms, end_ms: m.end_ms };
-    m.at_ms = Math.round(rr.start * 1000); m.end_ms = Math.round(rr.end * 1000);
-    savePart(id, old);
-  }
-  async function renamePart(id, name) {
-    var m = marker(id);
-    if (!m || m.name === name) return;
-    var old = m.name;
-    m.name = name; L.render();
-    try { L.must(await sb.from('song_markers').update({ name: name }).eq('id', id)); }
-    catch (e) { m.name = old; L.toast(L.errorText(e)); L.render(); }
   }
   function inRuler(clientY) {
     var r = st.ui.ruler && st.ui.ruler.parentNode.parentNode.getBoundingClientRect();
@@ -1029,9 +1146,8 @@
       // e o meio move a parte. Um toque parado escolhe a parte.
       var hitPart = tool === 'partes' && ruler && inPartStrip(ev.clientY) ? partAt(x) : null;
       if (hitPart) {
-        var hm = marker(hitPart.id);
         kind = 'part';
-        extra = { id: hitPart.id, mode: hitPart.mode, s0: hitPart.start, e0: hitPart.end, old: { at_ms: hm.at_ms, end_ms: hm.end_ms } };
+        extra = { id: hitPart.id, mode: hitPart.mode, s0: hitPart.start, e0: hitPart.end, before: SEC.copyMarkers(partList()) };
       }
       // Pontas do trecho de repetir: prioridade (menos quando a ferramenta edita a gravação).
       if (!kind && !editsClips && st.loop) {
@@ -1081,9 +1197,9 @@
         if (!pm) return;
         if (pe.mode === 'move') {
           var ns = snapEdge(pe.s0 + (t - g.t0));
-          rr = SEC.clampRange(sections(), pe.id, ns, ns + (pe.e0 - pe.s0), total, 'move');
-        } else if (pe.mode === 'start') rr = SEC.clampRange(sections(), pe.id, snapEdge(t), pe.e0, total, 'start');
-        else rr = SEC.clampRange(sections(), pe.id, pe.s0, snapEdge(t), total, 'end');
+          rr = SEC.clampRange(viewParts(), pe.id, ns, ns + (pe.e0 - pe.s0), total, 'move');
+        } else if (pe.mode === 'start') rr = SEC.clampRange(viewParts(), pe.id, snapEdge(t), pe.e0, total, 'start');
+        else rr = SEC.clampRange(viewParts(), pe.id, pe.s0, snapEdge(t), total, 'end');
         pm.at_ms = Math.round(rr.start * 1000); pm.end_ms = Math.round(rr.end * 1000);
         st.dragLabel = pe.mode === 'end' ? rr.end : rr.start;
         requestDraw();
@@ -1117,14 +1233,10 @@
       if (!g) return;
       var d = g; g = null; st.dragLabel = null;
       if (d.kind === 'part') {
-        var dm = marker(d.extra.id);
-        if (cancel || d.pending) {
-          if (dm) { dm.at_ms = d.extra.old.at_ms; dm.end_ms = d.extra.old.end_ms; }
-          if (!cancel) { st.selPart = d.extra.id; L.render(); } else requestDraw();
-          return;
-        }
+        if (cancel) { replaceParts(d.extra.before); requestDraw(); return; }
         st.selPart = d.extra.id;
-        savePart(d.extra.id, d.extra.old);
+        if (d.pending) { L.render(); return; }   // toque parado: escolhe a parte
+        setParts(SEC.copyMarkers(partList()), { before: d.extra.before });
         return;
       }
       if (cancel) { if (d.before && d.key) previewEdit(d.key, d.before); requestDraw(); return; }
@@ -1210,7 +1322,8 @@
 
     // Partes: atalhos para pular.
     var list = sections();
-    if (list.length) {
+    if (st.tool === 'partes') u.parts = [];   // a lista das partes já está no painel da ferramenta
+    else if (list.length) {
       u.parts = list.map(function (sc) {
         var b = h('button', { class: 'chiptog' + (s && s.id === sc.id ? ' on' : ''), 'data-id': sc.id, onclick: function () { goTo(sc.start); } },
           h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: sc.color, flex: 'none' } }), sc.name);

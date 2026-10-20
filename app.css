@@ -422,6 +422,15 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 .toolpanel .autobtn svg { color: var(--accent-light); }
 .toolpanel .autobtn:disabled { opacity: 0.7; cursor: progress; }
 .autolist { gap: 6px; }
+/* Partes: a parte escolhida (nome livre, nomes rápidos, ações), marcar nova no cursor e a revisão da sugestão */
+.toolpanel .partedit, .toolpanel .partadd, .toolpanel .reviewbox { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.toolpanel .partedit { padding: 10px; border-radius: 12px; background: rgba(5, 11, 18, 0.45); box-shadow: inset 0 0 0 1px var(--line); }
+.toolpanel .reviewbox { padding: 10px; border-radius: 12px; background: var(--accent-soft); box-shadow: inset 0 0 0 1px rgba(8, 169, 245, 0.35); }
+.toolpanel .partedit .thint, .toolpanel .partadd .thint, .toolpanel .reviewbox .thint { flex: none; }
+.partname { flex: 1 1 140px; min-width: 0; height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--outline); background: var(--field); color: var(--hi); font: 600 14px var(--fb, inherit); }
+.partname:focus { outline: none; border-color: var(--accent); }
+.partchip.on { box-shadow: inset 0 0 0 1.5px #FFFFFF; }
+button.partchip { background: none; font-family: inherit; }
 .toolpanel .xbtn { border: 0; background: none; color: var(--muted); padding: 0 0 0 2px; display: inline-flex; }
 .lane.sel .lhead { box-shadow: inset 3px 0 0 var(--accent), inset -1px 0 0 var(--line); }
 .dawarea[data-tool="mover"] { cursor: ew-resize; }
