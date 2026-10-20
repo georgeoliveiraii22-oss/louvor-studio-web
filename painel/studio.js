@@ -1031,29 +1031,19 @@
     var show = !!(au && au.sections && marksEditable());
     bar.style.display = show ? 'flex' : 'none';
     if (!show) return;
-    var total = Math.max(1, sessionEnd());
     var mine = sections();
     var free = window.AutoParts.gaps(au.sections, mine);
     var info = au.info || {};
     var head = h('div', { class: 'lv-auto-head' },
       h('span', { class: 'lv-auto-title' }, Icons.icon('autoParts', 14), 'Partes sugeridas'),
       h('span', { class: 'lv-auto-note' }, (au.sections.length === 1 ? '1 parte' : au.sections.length + ' partes') +
-        (info.gridded ? ', nos compassos do click' : ', sem grade do click (bordas aproximadas)') +
+        (info.gridded ? (info.barsInferred ? ', nos tempos do click (o 1 do compasso deduzido pela música)' : ', nos compassos do click') : ', sem grade do click (bordas aproximadas)') +
+        '. Elas aparecem listradas na faixa de seções da régua; clique numa para ouvir dali' +
         (info.lyrics ? ', nomes pela letra' : '') +
         (info.guideCues ? ', com os avisos da guia' : '') +
         (info.vocalStem ? '' : '. Sem faixa de voz, os nomes são palpites') + '.'),
       au.cmp ? h('span', { class: 'lv-auto-note', 'data-hint': 'Comparação com as seções que você já marcou: quantas bordas e quantos nomes coincidem.' },
         'Bate com as suas: ' + au.cmp.bordersHit + ' de ' + au.cmp.bordersManual + ' bordas, ' + au.cmp.namesHit + ' de ' + au.cmp.namesChecked + ' nomes.') : null);
-    var map = h('div', { class: 'lv-auto-map' }, au.sections.map(function (s) {
-      var when = fmtClock(s.start) + ' – ' + fmtClock(s.end);
-      return h('button', {
-        class: 'lv-auto-part' + (s.conf < 0.6 ? ' unsure' : ''),
-        style: 'left:' + (s.start / total * 100).toFixed(3) + '%;width:' + ((s.end - s.start) / total * 100).toFixed(3) + '%;--sec:' + SEC.colorFor(s.name),
-        title: s.name + ' · ' + when,
-        'data-hint': s.name + ' (' + when + '): clique para ouvir daqui.' + (s.conf < 0.6 ? ' Borda menos certa: confira.' : ''),
-        onclick: function () { st.pos = s.start; play(); }
-      }, h('span', null, s.name));
-    }));
     var acts = h('div', { class: 'lv-auto-acts' });
     if (!mine.length) {
       acts.appendChild(btn([Icons.icon('check', 13), 'Usar estas partes'], 'Cria as seções sugeridas. Depois dá para mover, renomear e apagar cada uma.',
@@ -1065,9 +1055,8 @@
       acts.appendChild(btn('Substituir as atuais', 'Apaga as ' + mine.length + ' seções marcadas e usa a sugestão (pede confirmação).',
         function () { applyAuto('replace'); }, { disabled: !!au.busy }));
     }
-    acts.appendChild(btn('Descartar', 'Fecha a sugestão sem mudar nada.', function () { st.auto = null; renderAutoBar(); }, { disabled: !!au.busy }));
+    acts.appendChild(btn('Descartar', 'Fecha a sugestão sem mudar nada.', function () { st.auto = null; refreshSections(false); }, { disabled: !!au.busy }));
     bar.appendChild(head);
-    bar.appendChild(map);
     bar.appendChild(acts);
   }
 
@@ -1162,6 +1151,22 @@
     var canEdit = marksEditable();
     r.sections.innerHTML = '';
     r.sections.classList.toggle('editable', canEdit);
+    // Sugestão de "Detectar partes" em revisão: aparece aqui, listrada, no lugar das seções (até aplicar ou descartar).
+    if (st.auto && st.auto.sections) {
+      r.sections.classList.remove('editable');
+      st.auto.sections.forEach(function (s) {
+        var when = fmtClock(s.start) + ' – ' + fmtClock(s.end);
+        r.sections.appendChild(h('div', {
+          class: 'lv-sec suggest' + (s.conf < 0.6 ? ' unsure' : ''),
+          style: 'left:' + (s.start * p).toFixed(1) + 'px;width:' + Math.max(3, (s.end - s.start) * p).toFixed(1) + 'px;--sec:' + SEC.colorFor(s.name),
+          title: 'Sugestão: ' + s.name + ' · ' + when,
+          'data-hint': 'Sugestão: ' + s.name + ' (' + when + '). Clique para ouvir daqui.' + (s.conf < 0.6 ? ' Borda menos certa: confira.' : ''),
+          onclick: function () { st.pos = s.start; play(); }
+        }, h('span', { class: 'lv-sec-name' }, s.name)));
+      });
+      if (r.gotoSel) r.gotoSel.disabled = true;
+      return;
+    }
     list.forEach(function (s) {
       var block = h('div', {
         class: 'lv-sec' + (s.id === st.selMarker ? ' sel' : '') + (canEdit ? ' editable' : ''),

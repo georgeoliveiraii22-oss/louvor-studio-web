@@ -430,12 +430,23 @@
     var f = c && fitCanvas(c);
     if (!f) return;
     var g = f.g, w = f.w, hh = f.h, p = pps();
-    sections().forEach(function (sc) {
+    // Sugestão de "Detectar partes" em revisão: aparece no lugar das partes, listrada (ainda não marcada).
+    var auto = st.auto && st.auto.sections;
+    var shown = auto ? st.auto.sections.map(function (sc) { return { name: sc.name, start: sc.start, end: sc.end, color: SEC.colorFor(sc.name) }; }) : sections();
+    shown.forEach(function (sc) {
       var a = xOf(sc.start), b = xOf(sc.end);
       if (b < 0 || a > w) return;
       g.fillStyle = sc.color; g.globalAlpha = 0.9;
       g.fillRect(a + 0.5, 2, Math.max(1, b - a - 1), 16);
       g.globalAlpha = 1;
+      if (auto) {
+        g.save();
+        g.beginPath(); g.rect(a + 0.5, 2, Math.max(1, b - a - 1), 16); g.clip();
+        g.strokeStyle = 'rgba(5,11,18,0.28)'; g.lineWidth = 3;
+        for (var sx = a - 16; sx < b; sx += 9) { g.beginPath(); g.moveTo(sx, 18); g.lineTo(sx + 16, 2); g.stroke(); }
+        g.restore();
+        g.fillStyle = '#050B12'; g.fillRect(Math.round(a), 2, 1.5, 16);
+      }
       if (b - a > 28) { g.fillStyle = '#050B12'; g.font = '600 10px Geist, system-ui, sans-serif'; g.fillText(sc.name, Math.max(a, 0) + 4, 14, b - Math.max(a, 0) - 6); }
     });
     g.font = '600 10px "Geist Mono", ui-monospace, monospace';
@@ -778,7 +789,8 @@
           return { name: tg.label, data: data, sr: sr, start: rg.start };
         });
         var beats = gridBeats();
-        var grid = beats && st.grid.downbeats && st.grid.downbeats.length ? { beats: beats, downbeats: st.grid.downbeats } : null;
+        // Click sem acento (sem o 1 do compasso): vão só os tempos e o detector acha o 1 pela música.
+        var grid = beats && beats.length ? { beats: beats, downbeats: st.grid.downbeats || [] } : null;
         var p = L.project(st.pid);
         var res = AutoParts.analyze({ stems: stems, duration: sessionEnd(), grid: grid, lyrics: p && p.lyrics });
         var mine = sections();
@@ -795,16 +807,11 @@
 
   // A sugestão: mapa da música com as partes (toque para ouvir dali) e os botões para aplicar.
   function autoPanel(b, hint) {
-    var au = st.auto, info = au.info || {}, total = sessionEnd(), mine = sections();
+    var au = st.auto, info = au.info || {}, mine = sections();
     var free = AutoParts.gaps(au.sections, mine);
-    var note = (au.sections.length === 1 ? '1 parte sugerida' : au.sections.length + ' partes sugeridas') + (info.gridded ? ', nos compassos do click' : ', sem grade do click (bordas aproximadas)') +
-      (info.lyrics ? ', nomes pela letra' : '') + (info.vocalStem ? '' : '. Sem faixa de voz, os nomes são palpites') + '. Toque numa parte para ouvir dali.' +
+    var note = (au.sections.length === 1 ? '1 parte sugerida' : au.sections.length + ' partes sugeridas') + (info.gridded ? (info.barsInferred ? ', nos tempos do click (o 1 do compasso deduzido pela música)' : ', nos compassos do click') : ', sem grade do click (bordas aproximadas)') +
+      (info.lyrics ? ', nomes pela letra' : '') + (info.vocalStem ? '' : '. Sem faixa de voz, os nomes são palpites') + '. Ela aparece listrada na linha do tempo, logo acima dos tempos; toque numa parte aqui embaixo para ouvir dali.' +
       (au.cmp ? ' Bate com as suas: ' + au.cmp.bordersHit + ' de ' + au.cmp.bordersManual + ' bordas, ' + au.cmp.namesHit + ' de ' + au.cmp.namesChecked + ' nomes.' : '');
-    var map = h('div', { class: 'automap' }, au.sections.map(function (sc) {
-      return h('button', { class: 'autopart' + (sc.conf < 0.6 ? ' unsure' : ''), title: sc.name + ' · ' + L.clock(sc.start),
-        style: { left: (sc.start / total * 100) + '%', width: ((sc.end - sc.start) / total * 100) + '%', '--sec': Sections.colorFor(sc.name) },
-        'aria-label': sc.name + ', ' + L.clock(sc.start), onclick: function () { goTo(sc.start); } }, h('span', null, sc.name));
-    }));
     var chips = h('div', { class: 'hscroll autolist' }, au.sections.map(function (sc) {
       return h('button', { class: 'partchip', style: { borderColor: Sections.colorFor(sc.name), background: 'none', cursor: 'pointer' }, onclick: function () { goTo(sc.start); } },
         h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: Sections.colorFor(sc.name) } }), sc.name,
@@ -815,7 +822,7 @@
          b('Substituir as atuais', function () { applyAuto('replace'); }, 'Replace', 'danger')]
       : [b('Usar estas partes', function () { applyAuto('fill'); }, 'Check', 'on')];
     acts.push(b('Descartar', function () { st.auto = null; L.render(); }, 'X'));
-    return [h('div', { class: 'col', style: { gap: '8px', width: '100%' } }, h('span', { class: 'thint', style: { flex: 'none' } }, note), map, chips, h('div', { class: 'row wrap', style: { gap: '8px' } }, acts))];
+    return [h('div', { class: 'col', style: { gap: '8px', width: '100%' } }, h('span', { class: 'thint', style: { flex: 'none' } }, note), chips, h('div', { class: 'row wrap', style: { gap: '8px' } }, acts))];
   }
 
   // mode 'fill': só onde não há parte; 'replace': apaga as atuais (depois de confirmar) e usa a sugestão.

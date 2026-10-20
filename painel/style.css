@@ -336,14 +336,8 @@ select{padding-right:24px}
 .lv-auto-title{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--fb);color:var(--tx-hi)}
 .lv-auto-title svg{color:var(--lv-act)}
 .lv-auto-note{font:500 11px var(--fb);color:var(--lv-mu)}
-.lv-auto-map{position:relative;height:26px;background:#0C0C0C;border:1px solid var(--lv-edge);border-radius:2px;overflow:hidden}
-.lv-auto-part{position:absolute;top:2px;bottom:2px;padding:0;border:0;border-radius:2px;background:var(--sec);box-shadow:inset 0 0 0 1px rgba(0,0,0,.5);cursor:pointer;overflow:hidden;
-  transition:filter 120ms ease,transform 120ms ease-out}
-.lv-auto-part span{display:block;padding:0 6px;font:700 10px/22px var(--fb);color:#111;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lv-auto-part:hover{filter:brightness(1.1)}
-.lv-auto-part:active{transform:scale(.98)}
-.lv-auto-part:focus-visible{outline:2px solid #fff;outline-offset:1px}
-.lv-auto-part.unsure{background:repeating-linear-gradient(135deg,var(--sec) 0 6px,color-mix(in srgb,var(--sec) 70%,#000) 6px 9px)}
+.lv-sec.suggest{background:repeating-linear-gradient(135deg,var(--sec) 0 7px,color-mix(in srgb,var(--sec) 72%,#000) 7px 10px);box-shadow:inset 0 0 0 1px rgba(0,0,0,.55),inset 2px 0 0 #000}
+.lv-sec.suggest.unsure{opacity:.75}
 .lv-auto-acts{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .lv-sec-dot{display:block;width:10px;height:10px;border-radius:2px;flex:none}
 .lv-sec-title{font:600 12px var(--fb);color:var(--lv-tx)}

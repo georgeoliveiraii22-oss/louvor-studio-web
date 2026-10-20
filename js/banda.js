@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.13.1', [
+      'Detectar partes: a sugestão aparece listrada na própria linha do tempo, logo acima dos tempos. E agora funciona também com click sem acento (todos os tics iguais).'
+    ]],
     ['1.13.0', [
       'Estúdio › Partes: o líder pode tocar em "Detectar partes automaticamente". O site ouve as faixas e sugere Intro, Verso, Refrão, Ponte…; nada muda até você aplicar, e dá para ajustar à mão depois.'
     ]],
