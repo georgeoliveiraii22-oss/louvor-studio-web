@@ -19,14 +19,11 @@
   var EXTRA = { id: 'extra', nome: 'Espaço extra', gb: 50, mensal: 14.90 };
   var MESES_PAGOS_NO_ANO = 10; // no anual, paga 10 meses e usa 12
 
-  // Links de pagamento do Asaas: quando existirem, é só colar aqui (mensal e anual de cada plano).
-  // Enquanto estiver vazio, o botão Assinar abre um e-mail pronto para o contato@.
-  var CHECKOUT = {
-    banda: { mensal: '', anual: '' },
-    ministerio: { mensal: '', anual: '' },
-    igreja: { mensal: '', anual: '' },
-    extra: { mensal: '', anual: '' }
-  };
+  // Assinar: a Edge Function `assinar` cria a assinatura no Asaas e devolve o link da cobrança.
+  // Sem a biblioteca do Supabase na página, o botão cai no e-mail pronto para o contato@.
+  var CHECKOUT = {};
+  // Endereço da função `assinar` no Supabase (o painel escolheu o nome do endereço ao criar).
+  var FN_ASSINAR = 'smart-processor';
 
   function reais(v) {
     return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d),)/g, '.');
@@ -169,6 +166,9 @@
       } else {
         cta = el('a', (p.destaque ? 'btn' : 'btn2') + ' full pcta', (p.destaque ? 'Assinar o ' + esc(p.nome) : 'Assinar') + svg('arrow', 18));
         cta.setAttribute('aria-label', 'Assinar o plano ' + p.nome);
+        (function (plano) {
+          cta.addEventListener('click', function (ev) { if (cliente()) { ev.preventDefault(); assinar(plano.id, ciclo, 0); } });
+        })(p);
       }
       card.appendChild(cta);
       grid.appendChild(card);
@@ -192,6 +192,7 @@
     xpw.appendChild(xp); xpw.appendChild(xNota);
     extra.appendChild(xpw);
     var xCta = el('a', 'btn2 pcta', 'Pedir espaço extra');
+    xCta.addEventListener('click', function (ev) { if (cliente()) { ev.preventDefault(); assinar(null, ciclo, 1); } });
     extra.appendChild(xCta);
     wrap.appendChild(extra);
 
@@ -242,9 +243,130 @@
     return sec;
   }
 
+  // ------------------------------------------------------------------ Assinar (Asaas)
+  function cliente() {
+    if (window.L && window.L.sb) return window.L.sb;
+    if (!window.supabase || !window.LOUVOR_CONFIG) return null;
+    if (!window.__lsPlanosSb) {
+      var cfg = window.LOUVOR_CONFIG;
+      window.__lsPlanosSb = window.supabase.createClient(cfg.url, cfg.key, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'louvor-web-auth' } });
+    }
+    return window.__lsPlanosSb;
+  }
+
+  /** Janela de assinatura. planoId null = manter o plano pago da banda (Espaço extra). */
+  async function assinar(planoId, ciclo, extrasIni) {
+    var sb = cliente();
+    var scrim = el('div', 'scrim');
+    var box = el('div', 'dialog assinar');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    scrim.appendChild(box);
+    function fechar() { scrim.remove(); document.removeEventListener('keydown', tecla); }
+    function tecla(e) { if (e.key === 'Escape') fechar(); }
+    scrim.addEventListener('click', function (e) { if (e.target === scrim) fechar(); });
+    document.addEventListener('keydown', tecla);
+    document.body.appendChild(scrim);
+    function tela(titulo, corpo, acoes) {
+      box.innerHTML = '';
+      box.appendChild(el('div', 'dt', esc(titulo)));
+      var db = el('div', 'db');
+      corpo.forEach(function (n) { db.appendChild(typeof n === 'string' ? el('p', 'muted', esc(n)) : n); });
+      box.appendChild(db);
+      var da = el('div', 'da');
+      (acoes || []).forEach(function (a) { da.appendChild(a); });
+      var fx = el('button', 'btn2', 'Fechar'); fx.type = 'button'; fx.onclick = fechar;
+      da.appendChild(fx);
+      box.appendChild(da);
+    }
+    tela('Assinar', ['Carregando…']);
+
+    var sess = (await sb.auth.getSession()).data.session;
+    if (!sess) {
+      var entrar = el('a', 'btn', 'Entrar no Louvor Studio'); entrar.href = '/';
+      tela('Entre na sua conta', ['Para assinar, entre no Louvor Studio com a conta do líder da banda. Depois volte aqui pelo Eu › Plano da banda.'], [entrar]);
+      return;
+    }
+    var r = await sb.from('memberships').select('org_id, role, org:organizations(id,name,plan)').eq('user_id', sess.user.id).eq('role', 'leader');
+    var bandas = (r.data || []).filter(function (m) { return m.org; }).map(function (m) { return m.org; });
+    if (!bandas.length) {
+      tela('Só o líder assina', ['Quem assina o plano é o líder da banda. Peça para ele entrar aqui e escolher o plano.']);
+      return;
+    }
+
+    var form = el('form');
+    form.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+    function campo(rotulo, input) { var f = el('label', 'field'); f.appendChild(input); f.appendChild(el('span', null, esc(rotulo))); return f; }
+    function opcao(sel, valor, texto) { var o = document.createElement('option'); o.value = valor; o.textContent = texto; sel.appendChild(o); }
+    var selBanda = document.createElement('select');
+    bandas.forEach(function (b) { opcao(selBanda, b.id, b.name); });
+    var selPlano = document.createElement('select');
+    PLANOS.filter(function (p) { return p.mensal; }).forEach(function (p) { opcao(selPlano, p.id, p.nome + ' (' + reais(p.mensal) + '/mês)'); });
+    var selCiclo = document.createElement('select');
+    opcao(selCiclo, 'mensal', 'Por mês');
+    opcao(selCiclo, 'anual', 'Por ano (paga 10 meses, usa 12)');
+    selCiclo.value = ciclo;
+    var inExtras = document.createElement('input'); inExtras.type = 'number'; inExtras.min = '0'; inExtras.max = '20'; inExtras.value = String(extrasIni || 0); inExtras.inputMode = 'numeric';
+    var inNome = document.createElement('input'); inNome.placeholder = ' '; inNome.autocomplete = 'name'; inNome.maxLength = 100; inNome.required = true;
+    var inDoc = document.createElement('input'); inDoc.placeholder = ' '; inDoc.inputMode = 'numeric'; inDoc.maxLength = 18; inDoc.required = true;
+    var total = el('p', 'hi semi');
+    var erro = el('p', null); erro.style.color = 'var(--bad)'; erro.setAttribute('role', 'alert');
+
+    function bandaAtual() { return bandas.filter(function (b) { return b.id === selBanda.value; })[0]; }
+    function ajustarPlano() {
+      var b = bandaAtual();
+      selPlano.value = planoId || (b && b.plan !== 'free' ? b.plan : 'banda');
+    }
+    function conta() {
+      var p = achar(selPlano.value), ex = Math.max(0, Math.min(20, parseInt(inExtras.value, 10) || 0));
+      var mes = p.mensal + EXTRA.mensal * ex;
+      total.textContent = selCiclo.value === 'anual'
+        ? 'Total: ' + reais(Math.round(mes * MESES_PAGOS_NO_ANO * 100) / 100) + ' por ano'
+        : 'Total: ' + reais(Math.round(mes * 100) / 100) + ' por mês';
+    }
+    ajustarPlano(); conta();
+    selBanda.onchange = function () { ajustarPlano(); conta(); };
+    selPlano.onchange = conta; selCiclo.onchange = conta; inExtras.oninput = conta;
+
+    if (bandas.length > 1) form.appendChild(campo('Banda', selBanda));
+    form.appendChild(campo('Plano', selPlano));
+    form.appendChild(campo('Como pagar', selCiclo));
+    form.appendChild(campo('Espaço extra (+50 GB cada, ' + reais(EXTRA.mensal) + '/mês)', inExtras));
+    form.appendChild(campo('Nome de quem paga', inNome));
+    form.appendChild(campo('CPF ou CNPJ de quem paga', inDoc));
+    form.appendChild(total);
+    form.appendChild(el('p', 'muted small', 'Na próxima tela, no ambiente seguro do Asaas, você escolhe Pix, boleto ou cartão. O plano da banda muda sozinho quando o pagamento for confirmado. Dá para cancelar quando quiser.'));
+    form.appendChild(erro);
+    var ir = el('button', 'btn full', 'Ir para o pagamento'); ir.type = 'submit';
+    form.appendChild(ir);
+    form.onsubmit = async function (ev) {
+      ev.preventDefault();
+      erro.textContent = '';
+      ir.disabled = true; ir.textContent = 'Abrindo a cobrança…';
+      try {
+        var res = await sb.functions.invoke(FN_ASSINAR, { body: {
+          org_id: selBanda.value, plan: selPlano.value, cycle: selCiclo.value,
+          extras: parseInt(inExtras.value, 10) || 0, name: inNome.value, cpf_cnpj: inDoc.value
+        } });
+        var msg = null;
+        if (res.error) {
+          msg = res.error.message;
+          try { var j = await res.error.context.json(); if (j && j.error) msg = j.error; } catch (e) { /* sem corpo */ }
+        }
+        if (msg || !res.data || !/^https:\/\//.test(res.data.url || '')) throw new Error(msg || 'Não foi possível abrir a cobrança.');
+        location.href = res.data.url;
+      } catch (e) {
+        erro.textContent = e.message;
+        ir.disabled = false; ir.textContent = 'Ir para o pagamento';
+      }
+    };
+    tela(planoId ? 'Assinar o ' + achar(planoId).nome : 'Espaço extra', [form]);
+    setTimeout(function () { inNome.focus(); }, 50);
+  }
+
   function achar(id) {
     return PLANOS.filter(function (p) { return p.id === id; })[0] || PLANOS[0];
   }
 
-  window.LSPlanos = { PLANOS: PLANOS, EXTRA: EXTRA, CHECKOUT: CHECKOUT, GB: GB, secao: secao, achar: achar, reais: reais };
+  window.LSPlanos = { FN_ASSINAR: FN_ASSINAR, PLANOS: PLANOS, EXTRA: EXTRA, CHECKOUT: CHECKOUT, GB: GB, secao: secao, achar: achar, reais: reais, assinar: assinar };
 })();

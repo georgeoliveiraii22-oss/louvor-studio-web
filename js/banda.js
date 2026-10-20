@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.11.0', [
+      'Sair da banda: em Banda, no fim da tela. Você sai das próximas escalas e as suas gravações continuam na banda.',
+      'Planos: o botão Assinar abre a cobrança (Pix, boleto ou cartão) e o plano da banda muda sozinho quando o pagamento é confirmado.'
+    ]],
     ['1.10.0', [
       'O líder pode remover uma pessoa da banda (Banda › toque na pessoa) e trocar o código de convite.',
       'Funções: "Vocal" saiu; ficaram Ministro(a) de louvor e Backing vocal.'
@@ -104,9 +108,45 @@
     var f = S.storageUsed / limit;
     root.appendChild(U.panel('Espaço da banda na nuvem', 'Cloud', U.keyValue('Usado', L.bytes(S.storageUsed) + ' de ' + L.bytes(limit)),
       U.bar(f, f > 0.9 ? 'var(--bad)' : f > 0.75 ? 'var(--warn)' : null)));
+    root.appendChild(U.panel('Sair da banda', 'LogOut',
+      U.body('Você deixa de ver as músicas, escalas e conversas desta banda e sai das próximas escalas. As suas gravações continuam na banda.', 'var(--muted)', 12),
+      U.btn2('Sair desta banda', 'LogOut', leaveBand, { full: true, danger: true })));
     if (deletePanel) root.appendChild(deletePanel);
     return root;
   });
+
+  /** Sair da banda (migração 0026). O único líder recebe a explicação do banco: passar a liderança antes. */
+  function leaveBand() {
+    var m = S.current, st = { busy: false };
+    var next = S.services.filter(function (sv) {
+      return sv.starts_on >= L.today() && (sv.people || []).some(function (p) { return p.user_id === L.uid(); });
+    }).length;
+    return L.dialog({
+      title: 'Sair de ' + m.org.name + '?',
+      body: function () {
+        return [U.body('Você perde o acesso à banda' + (next === 0 ? '' : next === 1 ? ' e sai da próxima escala' : ' e sai das ' + next + ' próximas escalas') +
+          '. As suas gravações continuam na banda. Para voltar, peça um código de convite ao líder.', null, 14)];
+      },
+      actions: function (close) {
+        return [h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar'),
+          h('button', { class: 'textbtn', style: { color: 'var(--bad)' }, onclick: function (e) {
+            if (st.busy) return;
+            st.busy = true; e.target.disabled = true; e.target.textContent = 'Saindo…';
+            L.run(async function () {
+              try {
+                L.must(await sb.rpc('leave_organization', { _org: m.org.id }));
+                L.store.set('banda', null);
+                close();
+                S.current = null; S.choosingBand = true; S.stack = [{ name: 'main' }]; S.tab = 'inicio';
+                await D.refresh();
+                L.toast('Você saiu da banda ' + m.org.name + '.');
+                L.render();
+              } finally { st.busy = false; e.target.disabled = false; e.target.textContent = 'Sair da banda'; }
+            });
+          } }, 'Sair da banda')];
+      }
+    });
+  }
 
   /** Excluir a banda (só o líder): diz o que some e pede para digitar o nome da banda. Migração 0022. */
   function deleteBand() {
@@ -119,7 +159,7 @@
         return [
           U.body('Some para sempre: ' + L.plural(S.projects.length, 'música', 'músicas') + ' com as multitracks e gravações, ' + L.plural(S.services.length, 'escala', 'escalas') +
             ', as conversas e o mural.' + (others ? ' ' + L.plural(others, 'pessoa perde', 'pessoas perdem') + ' o acesso à banda.' : ''), null, 14),
-          m.org.plan && m.org.plan !== 'free' ? U.body('A banda está num plano pago: para parar a cobrança, escreva para contato@louvorstudio.app.br.', 'var(--warn)', 13) : null,
+          m.org.plan && m.org.plan !== 'free' ? U.body('A banda está num plano pago: a assinatura é cancelada junto e não há novas cobranças.', 'var(--warn)', 13) : null,
           U.body('Para confirmar, digite o nome da banda: ' + m.org.name, 'var(--muted)', 13),
           U.field('', 'Nome da banda', function (v) { st.typed = v; var b = document.getElementById('excluir-ok'); if (b) b.disabled = !match(); }, { max: 80 })
         ];
@@ -135,6 +175,9 @@
                 if (covers.length) await sb.storage.from('covers').remove(covers);
                 var imgs = [S.church.logoPath, S.church.wallPath].filter(Boolean);
                 if (imgs.length) await sb.storage.from('igreja').remove(imgs);
+                if (m.org.plan && m.org.plan !== 'free') {
+                  try { await sb.functions.invoke((window.LSPlanos && LSPlanos.FN_ASSINAR) || 'smart-processor', { body: { action: 'cancel', org_id: m.org.id } }); } catch (x) { /* segue a exclusão */ }
+                }
                 L.must(await sb.rpc('delete_organization', { _org: m.org.id, _name: st.typed.trim() }));
                 try { await sb.functions.invoke('r2', { body: { action: 'empty_trash' } }); } catch (x) { /* a lixeira espera a função ser atualizada */ }
                 L.store.set('banda', null);
