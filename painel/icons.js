@@ -14,7 +14,7 @@
     edit: 'Pencil', trash: 'Trash2', upload: 'Upload', download: 'Download', publish: 'Send', discard: 'X', reset: 'RotateCcw',
     add: 'Plus', comment: 'MessageSquare', camera: 'Camera', voices: 'Users', rehearse: 'Headphones', listen: 'Ear',
     move: 'Move', trim: 'Scissors', fade: 'Spline', snap: 'Magnet', menuOpen: 'PanelLeftOpen', menuClose: 'PanelLeftClose',
-    grid: 'Grid3x3', redetect: 'RefreshCw', flag: 'Flag', secPrev: 'ChevronLeft', secNext: 'ChevronRight',
+    grid: 'Grid3x3', redetect: 'RefreshCw', flag: 'Flag', autoParts: 'WandSparkles', secPrev: 'ChevronLeft', secNext: 'ChevronRight',
     // Estados
     check: 'Check', ok: 'CircleCheckBig', approved: 'BadgeCheck', redo2: 'RotateCcw', pending: 'Clock', verified: 'ShieldCheck',
     warn: 'TriangleAlert', error: 'CircleX', lock: 'Lock', unlock: 'LockOpen', released: 'Headphones', leader: 'Crown',

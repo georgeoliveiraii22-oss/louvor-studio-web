@@ -50,6 +50,7 @@
     gridBusy: false,
     markers: [],       // marcadores de seção (song_markers)
     selMarker: null,   // seção escolhida (id do marcador)
+    auto: null,        // sugestão de "Detectar partes": { busy, sections, info, cmp } (só na tela, até o líder aplicar)
     muted: {},
     solo: {},
     zoom: 0,
@@ -469,6 +470,7 @@
     st.gridCache = null;
     st.markers = [];
     st.selMarker = null;
+    st.auto = null;
     st.drafts = {};
     st.muted = {};
     st.solo = {};
@@ -786,6 +788,7 @@
   function refreshSections(focusName) {
     layoutSections();
     renderSecBar(focusName);
+    renderAutoBar();
   }
 
   function selectSection(id, seekTo) {
@@ -923,6 +926,167 @@
     A().client().from('song_markers').delete().eq('id', id).then(function (res) {
       if (res.error) throw res.error;
     }).catch(function (e) { st.markers = keep; refreshSections(false); markerFail(e); });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Detectar partes (autoparts.js): sugestão que o líder revisa antes de aplicar
+  // ---------------------------------------------------------------------------
+  // As faixas da base (sem as tomadas dos cantores) já no tempo da linha do tempo, só o trecho que toca.
+  function autoStems() {
+    return allTargets().filter(function (tg) { return tg.kind === 'track' && st.buffers[tg.key]; }).map(function (tg) {
+      var buf = st.buffers[tg.key];
+      var rg = region(tg, draft(tg.key));
+      var len = buf.getChannelData(0).length;
+      var sr = buf.sampleRate || len / buf.duration;
+      var a = Math.max(0, Math.round((rg.a + rg.lead) * sr)), b = Math.min(len, Math.round((rg.b + rg.lead) * sr));
+      var data = new Float32Array(Math.max(0, b - a));
+      var chans = Math.max(1, Math.min(2, buf.numberOfChannels || 1));
+      for (var c = 0; c < chans; c++) {
+        var ch = buf.getChannelData(c);
+        for (var i = 0; i < data.length; i++) data[i] += ch[a + i] / chans;
+      }
+      return { name: tg.label, data: data, sr: sr, start: rg.start };
+    }).filter(function (s) { return s.data.length > 0; });
+  }
+
+  function detectParts() {
+    if (!marksEditable() || (st.auto && st.auto.busy)) return;
+    var stems = autoStems();
+    if (!stems.length) {
+      A().flash('info', 'Espere as faixas carregarem para detectar as partes.');
+      A().rerender();
+      return;
+    }
+    st.auto = { busy: true };
+    A().rerender();
+    // Deixa a tela mostrar "Analisando…" antes da conta (leva alguns segundos numa música longa).
+    setTimeout(function () {
+      try {
+        var beats = gridBeats();
+        var grid = beats ? { beats: beats, downbeats: st.grid.downbeats } : null;
+        var p = project();
+        var res = window.AutoParts.analyze({ stems: stems, duration: sessionEnd(), grid: grid, lyrics: p && p.lyrics });
+        var mine = sections();
+        st.auto = { busy: false, sections: res.sections, info: res.info,
+          cmp: mine.length ? window.AutoParts.compare(res.sections, mine, grid ? 1.0 : 2.0) : null };
+        if (!res.sections.length) {
+          st.auto = null;
+          A().flash('info', 'Não deu para achar as partes desta música (curta demais ou sem som).');
+        }
+      } catch (e) {
+        st.auto = null;
+        A().flash('err', 'Não foi possível analisar a música: ' + ((e && e.message) || e));
+      }
+      A().rerender();
+    }, 30);
+  }
+
+  // Os pedaços da sugestão que caem onde ainda não há seção (as seções atuais não mudam).
+  function autoGaps(list, mine) {
+    var out = [];
+    list.forEach(function (s) {
+      var pieces = [{ start: s.start, end: s.end }];
+      mine.forEach(function (m) {
+        pieces = pieces.reduce(function (acc, pc) {
+          if (m.end <= pc.start || m.start >= pc.end) { acc.push(pc); return acc; }
+          if (m.start > pc.start) acc.push({ start: pc.start, end: m.start });
+          if (m.end < pc.end) acc.push({ start: m.end, end: pc.end });
+          return acc;
+        }, []);
+      });
+      pieces.forEach(function (pc) { if (pc.end - pc.start >= Math.max(SEC.MIN_LEN, 1)) out.push({ name: s.name, start: pc.start, end: pc.end }); });
+    });
+    return out;
+  }
+
+  // mode 'fill': só onde não há seção; 'replace': apaga as atuais (depois de confirmar) e usa a sugestão.
+  function applyAuto(mode) {
+    if (!marksEditable() || !st.auto || !st.auto.sections) return;
+    var mine = sections();
+    var list = mode === 'replace' ? st.auto.sections : autoGaps(st.auto.sections, mine);
+    if (!list.length) {
+      A().flash('info', 'Não sobrou espaço livre: todas as partes da música já estão marcadas. Use "Substituir as atuais" se quiser trocar.');
+      A().rerender();
+      return;
+    }
+    if (mode === 'replace' && mine.length &&
+        !window.confirm('Apagar as ' + mine.length + ' seções marcadas agora e usar as ' + list.length + ' sugeridas?\nDepois dá para ajustar cada uma à mão.')) return;
+    var sb = A().client();
+    var rows = list.map(function (s) {
+      return { project_id: st.projectId, at_ms: Math.round(s.start * 1000), end_ms: Math.round(s.end * 1000), name: s.name };
+    });
+    var del = mode === 'replace' && mine.length
+      ? sb.from('song_markers').delete().eq('project_id', st.projectId).then(function (res) { if (res.error) throw res.error; })
+      : Promise.resolve();
+    st.auto.busy = true;
+    renderAutoBar();
+    del.then(function () {
+      if (mode === 'replace') st.markers = [];
+      return sb.from('song_markers').insert(rows).select();
+    }).then(function (res) {
+      if (res.error) throw res.error;
+      st.markers = st.markers.concat(res.data || []);
+      st.auto = null;
+      st.selMarker = null;
+      A().flash('ok', rows.length === 1 ? '1 seção adicionada.' : rows.length + ' seções adicionadas. Ajuste o que precisar na faixa de seções.');
+      A().rerender();
+    }).catch(function (e) {
+      if (st.auto) st.auto.busy = false;
+      // Recarrega para mostrar o que ficou salvo de verdade.
+      sb.from('song_markers').select('*').eq('project_id', st.projectId).order('at_ms').then(function (res) {
+        if (!res.error && res.data) st.markers = res.data.slice();
+        markerFail(e);
+      });
+    });
+  }
+
+  // Barra da sugestão: um mapa da música com as partes sugeridas e os botões para aplicar.
+  function renderAutoBar() {
+    var bar = st.refs && st.refs.autoBar;
+    if (!bar) return;
+    bar.innerHTML = '';
+    var au = st.auto;
+    var show = !!(au && au.sections && marksEditable());
+    bar.style.display = show ? 'flex' : 'none';
+    if (!show) return;
+    var total = Math.max(1, sessionEnd());
+    var mine = sections();
+    var free = autoGaps(au.sections, mine);
+    var info = au.info || {};
+    var head = h('div', { class: 'lv-auto-head' },
+      h('span', { class: 'lv-auto-title' }, Icons.icon('autoParts', 14), 'Partes sugeridas'),
+      h('span', { class: 'lv-auto-note' }, au.sections.length + ' partes' +
+        (info.gridded ? ', nos compassos do click' : ', sem grade do click (bordas aproximadas)') +
+        (info.lyrics ? ', nomes pela letra' : '') +
+        (info.guideCues ? ', com os avisos da guia' : '') +
+        (info.vocalStem ? '' : '. Sem faixa de voz, os nomes são palpites') + '.'),
+      au.cmp ? h('span', { class: 'lv-auto-note', 'data-hint': 'Comparação com as seções que você já marcou: quantas bordas e quantos nomes coincidem.' },
+        'Bate com as suas: ' + au.cmp.bordersHit + ' de ' + au.cmp.bordersManual + ' bordas, ' + au.cmp.namesHit + ' de ' + au.cmp.namesChecked + ' nomes.') : null);
+    var map = h('div', { class: 'lv-auto-map' }, au.sections.map(function (s) {
+      var when = fmtClock(s.start) + ' – ' + fmtClock(s.end);
+      return h('button', {
+        class: 'lv-auto-part' + (s.conf < 0.6 ? ' unsure' : ''),
+        style: 'left:' + (s.start / total * 100).toFixed(3) + '%;width:' + ((s.end - s.start) / total * 100).toFixed(3) + '%;--sec:' + SEC.colorFor(s.name),
+        title: s.name + ' · ' + when,
+        'data-hint': s.name + ' (' + when + '): clique para ouvir daqui.' + (s.conf < 0.6 ? ' Borda menos certa: confira.' : ''),
+        onclick: function () { st.pos = s.start; play(); }
+      }, h('span', null, s.name));
+    }));
+    var acts = h('div', { class: 'lv-auto-acts' });
+    if (!mine.length) {
+      acts.appendChild(btn([Icons.icon('check', 13), 'Usar estas partes'], 'Cria as seções sugeridas. Depois dá para mover, renomear e apagar cada uma.',
+        function () { applyAuto('fill'); }, { class: 'lv-btn on', disabled: !!au.busy }));
+    } else {
+      acts.appendChild(btn([Icons.icon('check', 13), 'Preencher só onde não há parte'],
+        free.length ? 'Cria ' + free.length + ' seções só nos espaços vazios. As que você marcou ficam como estão.' : 'Todas as partes já estão marcadas: não há espaço vazio.',
+        function () { applyAuto('fill'); }, { class: 'lv-btn on', disabled: !!au.busy || !free.length }));
+      acts.appendChild(btn('Substituir as atuais', 'Apaga as ' + mine.length + ' seções marcadas e usa a sugestão (pede confirmação).',
+        function () { applyAuto('replace'); }, { disabled: !!au.busy }));
+    }
+    acts.appendChild(btn('Descartar', 'Fecha a sugestão sem mudar nada.', function () { st.auto = null; renderAutoBar(); }, { disabled: !!au.busy }));
+    bar.appendChild(head);
+    bar.appendChild(map);
+    bar.appendChild(acts);
   }
 
   // Arrastar uma seção: pelo meio move (mantém o tamanho); pelas pontas muda o início ou o fim.
@@ -1392,6 +1556,9 @@
     if (marksEditable()) {
       secGroup.appendChild(btn([Icons.icon('add', 13), 'Seção'], 'Nova seção a partir do cursor (M). Também dá para arrastar no espaço vazio da faixa de seções. Gruda no click.', addMarker,
         { 'aria-label': 'Adicionar seção' }));
+      secGroup.appendChild(btn([Icons.icon('autoParts', 13), st.auto && st.auto.busy ? 'Analisando…' : 'Detectar partes'],
+        'Ouve as faixas e sugere as partes (Intro, Verso, Refrão…). Nada muda até você aplicar, e tudo continua editável à mão.', detectParts,
+        { 'aria-label': 'Detectar partes automaticamente', disabled: !!(st.auto && st.auto.busy) }));
     }
     groups.push(secGroup);
 
@@ -1641,6 +1808,8 @@
     if (st.showVoices) lv.appendChild(voicesPanel());
     st.refs.secBar = h('div', { class: 'lv-secbar' });
     lv.appendChild(st.refs.secBar);
+    st.refs.autoBar = h('div', { class: 'lv-autobar', role: 'region', 'aria-label': 'Partes sugeridas' });
+    lv.appendChild(st.refs.autoBar);
 
     var width = laneWidth();
     var arr = h('div', { class: 'lv-arr' });
