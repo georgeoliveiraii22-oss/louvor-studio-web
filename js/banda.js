@@ -5,6 +5,11 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.16.0', [
+      'Mensagem lida não volta mais a aparecer como nova, e o que você lê aqui também conta como lido no app (e o contrário).',
+      'O número da aba Escalas some depois que você abre a escala. Boas-vindas e parabéns vão uma vez só, de qualquer aparelho.',
+      'Repertório: ao adicionar uma música que já existe, aparece o aviso. E dá para escolher várias músicas e apagar de uma vez.'
+    ]],
     ['1.15.1', [
       'O painel do líder separado saiu do ar: tudo o que ele fazia está aqui no site e no app.'
     ]],
@@ -375,9 +380,10 @@
       setTimeout(function () { list.scrollTop = list.scrollHeight; }, 0);
     }
 
+    function lastAt() { return c.msgs && c.msgs.length ? c.msgs[c.msgs.length - 1].created_at : null; }
     async function load() {
       try { c.msgs = await D.messages(serviceId); } catch (e) { c.msgs = []; L.toast(L.errorText(e)); }
-      D.markRead(ch);
+      D.markRead(ch, lastAt());
       if (C === c) c.paint();
       c.timer = setInterval(async function () {
         var here = asTab ? (L.route().name === 'main' && S.tab === 'conversa') : L.route().name === 'chat';
@@ -387,7 +393,7 @@
         try {
           var news = await D.messages(serviceId, last);
           var fresh = news.filter(function (n) { return !c.msgs.some(function (x) { return x.id === n.id; }); });
-          if (fresh.length) { c.msgs = c.msgs.concat(fresh); D.markRead(ch); c.paint(); }
+          if (fresh.length) { c.msgs = c.msgs.concat(fresh); D.markRead(ch, lastAt()); c.paint(); }
         } catch (e) { /* sem internet: tenta de novo */ }
       }, 3000);
     }
@@ -401,7 +407,7 @@
         var last = c.msgs.length ? c.msgs[c.msgs.length - 1].created_at : null;
         var news = await D.messages(serviceId, last);
         c.msgs = c.msgs.concat(news.filter(function (n) { return !c.msgs.some(function (x) { return x.id === n.id; }); }));
-        D.markRead(ch);
+        D.markRead(ch, lastAt());
         c.paint();
       } catch (e) { L.toast(L.errorText(e)); } finally { c.sending = false; }
     }
@@ -417,7 +423,7 @@
       asTab ? h('div', { style: { padding: '16px 16px 4px' } }, U.tabHead('Conversa', (function (b) { b.style.color = 'var(--accent)'; return b; })(U.iconBtn('UserPlus', 'Convidar pessoas', L.openInvite))))
         : h('div', { style: { padding: '8px 8px 0' } }, U.topRow(service ? service.title : 'Conversa da banda', service ? L.scheduleLine(service) : 'Todo mundo da banda lê',
           service ? U.iconBtn('CalendarDays', 'Abrir a escala', function () { L.go({ name: 'escala', id: service.id }); }) : null,
-          function () { D.markRead(ch); L.back(); })),
+          function () { D.markRead(ch, lastAt()); L.back(); })),
       list,
       h('div', { class: 'composer' }, ta, sendBtn));
   }
@@ -432,7 +438,7 @@
   // ------------------------------------------------------------------ Avisos e novidades
   var N = { tab: 0 };
   L.screen('news', function () {
-    if (!N.seen) { N.seen = true; D.markNewsSeen(); D.reloadAnnouncements().then(function () { if (L.route().name === 'news') L.render(); }); }
+    if (!N.seen) { N.seen = true; D.markNewsSeen(); D.reloadAnnouncements().then(function () { D.markNewsSeen(); if (L.route().name === 'news') L.render(); }); }
     var leader = L.perm.leader();
     var root = h('div', { class: 'screen' },
       U.topRow('Avisos e novidades', null, leader && N.tab === 0 ? U.iconBtn('Plus', 'Escrever aviso', noticeDialog) : null, function () { N.seen = false; L.back(); }),

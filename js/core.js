@@ -9,7 +9,7 @@
   L.S = {
     user: null, loggedIn: false, loading: false, booted: false,
     memberships: [], current: null, members: [], projects: [], tracksIdx: {}, services: [],
-    unavailable: {}, announcements: [], lastMessages: [], unread: {}, teams: [], templates: [],
+    unavailable: {}, announcements: [], lastMessages: [], unread: {}, seen: {}, teams: [], templates: [],
     readiness: {}, storageUsed: 0, avatarUrls: {}, coverUrls: {}, myParts: {},
     tab: 'inicio', stack: [{ name: 'main' }], viewAsMember: false, entry: null
   };
@@ -152,6 +152,13 @@
     var me = L.uid();
     return L.myUpcoming().filter(function (s) { return L.peopleOf(s, me).some(function (p) { return p.status === 'pendente' && !p.swap_requested; }); }).length;
   };
+  /** Escalas em que a pessoa ainda precisa responder e que ela ainda não abriu (o número na aba Escalas). */
+  L.pendingUnseen = function () {
+    var me = L.uid();
+    return L.myUpcoming().filter(function (s) {
+      return !L.data.seenAt('escala:' + s.id) && L.peopleOf(s, me).some(function (p) { return p.status === 'pendente' && !p.swap_requested; });
+    }).length;
+  };
 
   // ------------------------------------------------------------------ Navegação (o botão voltar do celular também funciona)
   var overlays = [];   // janelas abertas: { close: fn }
@@ -233,7 +240,7 @@
 
   L.bottomNav = function (inner) {
     var items = [
-      ['inicio', 'House', 'Início', 0], ['escalas', 'CalendarDays', 'Escalas', L.pendingMine() + L.unreadTotal() - (S.unread[''] || 0)],
+      ['inicio', 'House', 'Início', 0], ['escalas', 'CalendarDays', 'Escalas', L.pendingUnseen() + L.unreadTotal() - (S.unread[''] || 0)],
       ['musicas', 'Library', 'Repertório', 0], ['conversa', 'MessagesSquare', 'Conversa', S.unread[''] || 0], ['membros', 'UsersRound', 'Banda', 0], ['eu', 'CircleUserRound', 'Eu', 0]
     ];
     var onMain = L.route().name === 'main';

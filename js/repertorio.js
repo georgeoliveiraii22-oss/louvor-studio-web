@@ -2,13 +2,84 @@
 (function () {
   'use strict';
   var L = window.L, S = L.S, h = L.h, ic = L.ic, U = L.ui, D = L.data, sb = L.sb;
-  var R = { query: '', filter: 'todas', showFilters: false };
+  var R = { query: '', filter: 'todas', showFilters: false, sel: null };   // sel: músicas escolhidas para apagar (null = sem seleção)
   var FILTERS = [['todas', 'Todas'], ['escala', 'Das próximas escalas'], ['multi', 'Com multitrack']];
 
   function soonSet() {
     var out = {};
     L.myUpcoming().filter(function (s) { return L.daysBetween(L.today(), s.starts_on) <= 21; }).forEach(function (s) { s.songIds.forEach(function (id) { out[id] = true; }); });
     return out;
+  }
+
+  // ------------------------------------------------------------------ Música repetida
+  // Mesmo título (sem acento, maiúscula nem pontuação) e mesmo artista; sem artista num dos dois, só o título.
+  function songKey(s) { return L.norm(s).replace(/[^a-z0-9]+/g, ' ').trim(); }
+  L.findSongDup = function (title, artist, exceptId) {
+    var t = songKey(title), a = songKey(artist);
+    if (!t) return null;
+    return S.projects.find(function (p) {
+      if (p.id === exceptId || songKey(p.song_title) !== t) return false;
+      var pa = songKey(p.artist);
+      return !a || !pa || a === pa;
+    }) || null;
+  };
+  function dupDialog(p) {
+    L.dialog({
+      title: 'Essa música já existe',
+      body: function () {
+        return U.body('“' + p.song_title + '”' + (p.artist ? ' (' + p.artist + ')' : '') + ' já está no repertório da banda. Para mudar alguma coisa nela, abra a que já existe e toque em Editar música.', null, 14);
+      },
+      actions: function (close) {
+        return [h('button', { class: 'textbtn muted', onclick: close }, 'Voltar'),
+          h('button', { class: 'textbtn', onclick: function () { close(); Ed = null; L.back(); setTimeout(function () { L.songSheet(p.id); }, 200); } }, 'Abrir a que já existe')];
+      }
+    });
+  }
+
+  // ------------------------------------------------------------------ Apagar várias músicas
+  function deleteChosen(list) {
+    var ids = list.map(function (p) { return p.id; });
+    var today = L.today();
+    var inSchedules = S.services.filter(function (sv) { return sv.starts_on >= today && sv.songIds.some(function (id) { return ids.indexOf(id) >= 0; }); });
+    var names = list.slice(0, 6).map(function (p) { return p.song_title; }).join(', ') + (list.length > 6 ? ' e mais ' + (list.length - 6) : '');
+    L.dialog({
+      title: list.length === 1 ? 'Apagar 1 música?' : 'Apagar ' + list.length + ' músicas?',
+      body: function () {
+        return [U.body(names + '.', 'var(--hi)', 14),
+          U.body('Vão junto a multitrack, as gravações e as partes marcadas. Isso não dá para desfazer.', null, 14),
+          inSchedules.length ? U.body('Atenção: ' + L.plural(inSchedules.length, 'escala que ainda vai acontecer usa', 'escalas que ainda vão acontecer usam') + ' essas músicas; elas saem dessas escalas.', 'var(--warn)', 13) : null];
+      },
+      actions: function (close) {
+        return [h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar'),
+          h('button', { class: 'textbtn', style: { color: 'var(--bad)' }, onclick: function (ev) {
+            var btn = ev.target;
+            btn.disabled = true;
+            L.run(async function () {
+              try {
+                L.must(await sb.from('projects').delete().in('id', ids));
+                close();
+                R.sel = null;
+                await D.reloadSongs(); await D.reloadServices();
+                if (Nuvem.emptyTrash) Nuvem.emptyTrash(sb);   // os áudios saem do R2 (migração 0027)
+                L.toast(list.length === 1 ? list[0].song_title + ' apagada.' : list.length + ' músicas apagadas.');
+                L.render();
+              } finally { btn.disabled = false; }
+            });
+          } }, 'Apagar')];
+      }
+    });
+  }
+
+  function pickRow(p) {
+    var on = !!R.sel[p.id];
+    return h('div', { class: 'bulkrow' + (on ? ' on' : ''), role: 'checkbox', 'aria-checked': String(on), tabindex: '0',
+      onclick: function () { if (on) delete R.sel[p.id]; else R.sel[p.id] = true; L.render(); },
+      onkeydown: function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); this.click(); } } },
+      h('span', { class: 'chk' }, on ? ic('Check', 15) : null),
+      U.cover(p, 44, 6, 20),
+      h('div', { class: 'grow col', style: { gap: '2px', minWidth: 0 } },
+        h('div', { class: 'hi semi ell', style: { fontSize: '15px' } }, p.song_title),
+        h('div', { class: 'muted small ell' }, [p.artist, L.hasMulti(p) ? 'com multitrack' : null].filter(Boolean).join(' · ') || ' ')));
   }
 
   // ------------------------------------------------------------------ Aba
@@ -28,12 +99,24 @@
       if (list.length) listBox.appendChild(h('div', { class: 'songrow songhead', 'aria-hidden': 'true', style: { display: 'none', cursor: 'default', gridTemplateColumns: '1fr auto', background: 'none' } },
         h('span', { class: 'label', style: { paddingLeft: '70px' } }, 'Música'),
         h('span', { class: 'cols label' }, h('span', null, 'Tom'), h('span', null, 'BPM'), h('span', null, 'Multitrack'))));
+      if (R.sel) {
+        var allOn = list.length && list.every(function (p) { return R.sel[p.id]; });
+        if (list.length) listBox.appendChild(h('div', { class: 'row' }, h('span', { class: 'muted small grow' }, 'Toque nas músicas que vão sair do repertório.'),
+          h('button', { class: 'textbtn', style: { fontSize: '14px' }, onclick: function () { list.forEach(function (p) { if (allOn) delete R.sel[p.id]; else R.sel[p.id] = true; }); L.render(); } },
+            allOn ? 'Tirar todas' : 'Escolher todas (' + list.length + ')')));
+        list.forEach(function (p) { listBox.appendChild(pickRow(p)); });
+        return;
+      }
       list.forEach(function (p) { listBox.appendChild(songRow(p, soon[p.id])); });
     }
+    if (R.sel && !L.perm.songs()) R.sel = null;
     fill();
     var active = R.filter !== 'todas';
     var root = h('div', { class: 'screen', style: { paddingBottom: '96px', gap: '12px' } },
-      U.tabHead('Repertório'),
+      U.tabHead('Repertório', L.perm.songs() && S.projects.length
+        ? (R.sel ? U.textBtn('Cancelar', function () { R.sel = null; L.render(); })
+          : U.iconBtn('ListChecks', 'Escolher músicas para apagar', function () { R.sel = {}; L.render(); }))
+        : null),
       h('div', { class: 'row', style: { alignItems: 'flex-end' } },
         h('div', { class: 'grow' }, U.field(R.query, 'Buscar música, artista ou tom', function (v) { R.query = v; fill(); })),
         h('button', { class: 'filterbtn' + (R.showFilters || active ? ' on' : ''), 'aria-label': R.showFilters ? 'Esconder os filtros' : active ? 'Filtros (um filtro ligado)' : 'Mostrar os filtros',
@@ -42,7 +125,14 @@
       !R.showFilters && active ? h('button', { class: 'filterpill', onclick: function () { R.filter = 'todas'; L.render(); } },
         'Mostrando: ' + FILTERS.find(function (f) { return f[0] === R.filter; })[1], ic('X', 14, 'accent')) : null,
       listBox);
-    if (L.perm.songs()) root.appendChild(U.fab('Adicionar música', 'Plus', function () { L.go({ name: 'songedit' }); }));
+    if (R.sel) {
+      var chosen = S.projects.filter(function (p) { return R.sel[p.id]; });
+      root.appendChild(h('div', { class: 'bulkbar' },
+        h('div', { class: 'hi semi', style: { fontSize: '14px', padding: '0 4px' } }, chosen.length ? L.plural(chosen.length, 'música escolhida', 'músicas escolhidas') : 'Nenhuma música escolhida'),
+        h('div', { class: 'row', style: { gap: '8px' } },
+          U.btn2('Cancelar', 'X', function () { R.sel = null; L.render(); }, { full: true }),
+          U.btn2(chosen.length ? 'Apagar (' + chosen.length + ')' : 'Apagar', 'Trash2', function () { deleteChosen(chosen); }, { full: true, danger: true, disabled: !chosen.length }))));
+    } else if (L.perm.songs()) root.appendChild(U.fab('Adicionar música', 'Plus', function () { L.go({ name: 'songedit' }); }));
     return root;
   });
 
@@ -279,12 +369,14 @@
       saveBtn,
       p ? h('button', { class: 'textbtn', style: { color: 'var(--bad)', width: '100%' }, disabled: e.busy, onclick: function () {
         L.confirm('Apagar ' + p.song_title + '?', 'A música sai do repertório e das escalas, com as faixas e as gravações dela. Não dá para desfazer.', 'Apagar', function () {
-          L.run(async function () { L.must(await sb.from('projects').delete().eq('id', p.id)); await D.reloadSongs(); await D.reloadServices(); Ed = null; L.toast(p.song_title + ' apagada.'); L.back(); });
+          L.run(async function () { L.must(await sb.from('projects').delete().eq('id', p.id)); Nuvem.emptyTrash(sb); await D.reloadSongs(); await D.reloadServices(); Ed = null; L.toast(p.song_title + ' apagada.'); L.back(); });
         }, true);
       } }, 'Apagar música do repertório') : null);
 
     async function save() {
       if (e.busy) return;
+      var dup = L.findSongDup(e.title, e.artist, p ? p.id : null);
+      if (dup) { dupDialog(dup); return; }
       e.busy = true; L.render();
       try {
         var org = S.current.org.id;

@@ -233,20 +233,50 @@
   };
 
   // ------------------------------------------------------------------ Conversas e mural
-  function readKey(ch) { return 'lida.' + (S.current ? S.current.org.id : '') + '.' + ch; }
-  D.markRead = function (ch) { L.store.set(readKey(ch), new Date().toISOString()); S.unread[ch] = 0; };
+  // "Já li" e "já vi" ficam na conta (public.seen_marks, migração 0027): valem no site e no app, e usam a
+  // hora do servidor (a da última mensagem vista), não a do relógio do aparelho. Sem a migração, ficam só
+  // aqui no aparelho, ainda com a hora da mensagem.
+  // Chaves: 'chat:' (conversa geral), 'chat:<id da escala>', 'escala:<id>' (escala aberta).
+  function localKey(key) { return 'visto.' + (S.current ? S.current.org.id : '') + '.' + key; }
+  function later(a, b) { return !a ? b || null : !b ? a : (a > b ? a : b); }
+  D.seenAt = function (key) {
+    var legacy = key.indexOf('chat:') === 0 ? L.store.get('lida.' + (S.current ? S.current.org.id : '') + '.' + key.slice(5), null) : null;
+    return later(later(S.seen[key], L.store.get(localKey(key), null)), legacy);
+  };
+  D.loadSeen = async function () {
+    if (!S.current) return;
+    var r = await sb.from('seen_marks').select('key,seen_at').eq('org_id', S.current.org.id);
+    if (r.error) return;   // sem a migração 0027: só o que está no aparelho
+    S.seen = {};
+    (r.data || []).forEach(function (x) { S.seen[x.key] = x.seen_at; });
+  };
+  /** Marca como visto até `at` (hora do servidor de uma mensagem); sem `at`, até agora (pelo servidor). */
+  D.markSeen = function (key, at) {
+    if (!S.current) return;
+    if (at) { L.store.set(localKey(key), later(L.store.get(localKey(key), null), at)); S.seen[key] = later(S.seen[key], at); }
+    // Escala aberta: basta saber que foi vista (a hora não importa), já some o número da aba.
+    else if (key.indexOf('escala:') === 0 && !D.seenAt(key)) { var now = new Date().toISOString(); L.store.set(localKey(key), now); S.seen[key] = now; }
+    sb.rpc('mark_seen', { _org: S.current.org.id, _key: key, _at: at || null }).then(function () {}, function () {});
+  };
+  /** Conversa lida até a última mensagem mostrada (`last`, ou a mais nova que o app conhece do canal). */
+  D.markRead = function (ch, last) {
+    var newest = S.lastMessages.filter(function (m) { return (m.service_id || '') === ch; }).reduce(function (a, m) { return later(a, m.created_at); }, null);
+    D.markSeen('chat:' + ch, later(last, newest));
+    S.unread[ch] = 0;
+  };
 
   D.refreshMessages = async function () {
     if (!S.current) return;
     var res = await sb.from('messages').select('id,service_id,author,body,created_at').eq('org_id', S.current.org.id).order('created_at', { ascending: false }).limit(300);
     if (res.error) return;
+    await D.loadSeen().catch(function () { /* sem internet: usa o que já tem */ });
     S.lastMessages = res.data || [];
     var me = S.user.id;
     S.unread = {};
     var by = {};
     S.lastMessages.forEach(function (m) { (by[m.service_id || ''] = by[m.service_id || ''] || []).push(m); });
     Object.keys(by).forEach(function (ch) {
-      var read = L.store.get(readKey(ch), null);
+      var read = D.seenAt('chat:' + ch);
       S.unread[ch] = by[ch].filter(function (m) { return m.author !== me && (!read || m.created_at > read); }).length;
     });
   };
@@ -264,11 +294,16 @@
 
   // Avisos e novidades vistos
   D.unseenNews = function () {
-    var seen = L.store.get('avisos_vistos', null);
+    var seen = later(D.seenAt('avisos'), L.store.get('avisos_vistos', null));
     var n = S.announcements.filter(function (a) { return a.author !== L.uid() && (!seen || a.created_at > seen); }).length;
     return n + (L.store.get('novidades_vistas', null) !== L.VERSION ? 1 : 0);
   };
-  D.markNewsSeen = function () { L.store.set('avisos_vistos', new Date().toISOString()); L.store.set('novidades_vistas', L.VERSION); };
+  D.markNewsSeen = function () {
+    // Até o aviso mais novo (hora do servidor), não a do relógio do aparelho.
+    var newest = S.announcements.reduce(function (x, a) { return later(x, a.created_at); }, null);
+    if (newest) D.markSeen('avisos', newest);
+    L.store.set('novidades_vistas', L.VERSION);
+  };
 
   // ------------------------------------------------------------------ Repertório
   D.signed = async function (bucket, path, secs) {

@@ -154,6 +154,7 @@
   L.screen('escala', function (r) {
     var s = L.service(r.id);
     if (!s) return h('div', { class: 'screen' }, U.topRow('Escala'), U.empty('Esta escala não existe mais.'));
+    if (!L.data.seenAt('escala:' + s.id)) L.data.markSeen('escala:' + s.id);   // abriu: sai do número da aba Escalas
     var me = L.uid();
     var mine = L.peopleOf(s, me);
     var can = L.perm.schedule();

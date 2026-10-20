@@ -1,6 +1,6 @@
 // Louvor Studio (web para celular) — o lado "gente" do Início (ui/SocialCards.kt e data/Social.kt):
 // aniversário de hoje, aniversários da semana, quem acabou de chegar e os rostos da próxima escala.
-// Os botões mandam uma mensagem pronta na conversa da banda; o navegador lembra que já mandou.
+// Os botões mandam uma mensagem pronta na conversa da banda, uma vez só (confere na própria conversa).
 (function () {
   'use strict';
   var L = window.L, S = L.S, h = L.h, ic = L.ic, U = L.ui, sb = L.sb;
@@ -41,15 +41,29 @@
   };
   function first(m) { return (m.name || '').trim().split(' ')[0] || m.name; }
 
-  function sendOnce(key, text, btn) {
+  // "Já mandei?" vale em qualquer aparelho: confere na própria conversa da banda se eu já mandei esta
+  // mensagem (desde `since`), além do que este navegador lembra. Antes de enviar, confere no servidor.
+  function sentHere(prefix, since) {
+    var me = L.uid();
+    return S.lastMessages.some(function (m) { return !m.service_id && m.author === me && m.created_at >= since && m.body.indexOf(prefix) === 0; });
+  }
+  SC.alreadySent = function (key, prefix, since) { return !!L.store.get(key, false) || sentHere(prefix, since); };
+  var sending = {};
+  function sendOnce(key, prefix, text, since, btn) {
+    if (sending[key]) return;
+    sending[key] = true;
     btn.disabled = true;
     L.run(async function () {
       try {
+        var dup = await sb.from('messages').select('id').eq('org_id', S.current.org.id).eq('author', L.uid()).is('service_id', null)
+          .like('body', prefix.replace(/[%_]/g, '') + '%').gte('created_at', since).limit(1);
+        if (!dup.error && dup.data && dup.data.length) { L.store.set(key, true); L.toast('Você já tinha mandado essa mensagem.'); L.render(); return; }
         L.must(await sb.from('messages').insert({ org_id: S.current.org.id, service_id: null, body: text }));
         L.store.set(key, true);
         L.toast('Mensagem enviada na conversa da banda.');
+        L.data.refreshMessages().then(function () { L.render(); });
         L.render();
-      } finally { btn.disabled = false; }
+      } finally { sending[key] = false; btn.disabled = false; }
     });
   }
   function doneLine(text) { return h('div', { class: 'soc-done' }, ic('CircleCheckBig', 18), text); }
@@ -67,10 +81,10 @@
       var isMe = m.user_id === me;
       var key = 'parabens.' + org + '.' + m.user_id + '.' + year;
       var action = isMe ? U.body('A banda toda vê o seu aniversário no Início hoje. Que Deus abençoe o seu novo ano!', 'var(--text)', 13)
-        : L.store.get(key, false) ? doneLine('Você deu parabéns na conversa da banda')
+        : SC.alreadySent(key, 'Feliz aniversário, ' + first(m) + '!', midnight(now).toISOString()) ? doneLine('Você deu parabéns na conversa da banda')
         : (function () {
           var b = U.btn('Dar parabéns para ' + first(m), 'PartyPopper', function () {
-            sendOnce(key, 'Feliz aniversário, ' + first(m) + '! 🎉 Que Deus te abençoe muito. A banda tem alegria de ter você com a gente!', b);
+            sendOnce(key, 'Feliz aniversário, ' + first(m) + '!', 'Feliz aniversário, ' + first(m) + '! 🎉 Que Deus te abençoe muito. A banda tem alegria de ter você com a gente!', midnight(now).toISOString(), b);
           }, { full: true });
           return b;
         })();
@@ -100,8 +114,9 @@
       var days = Math.floor((midnight(now) - midnight(new Date(m.joined_at))) / DIA);
       var what = m.functions.slice(0, 2).map(L.fnLabel).join(', ');
       var b = null;
-      var action = L.store.get(key, false) ? doneLine('Boas-vindas enviadas')
-        : (b = U.btn2('Dar boas-vindas', 'HandHeart', function () { sendOnce(key, 'Boas-vindas à banda, ' + first(m) + '! 👋 Que alegria ter você com a gente.', b); }, { full: true }));
+      var hello = 'Boas-vindas à banda, ' + first(m) + '!';
+      var action = SC.alreadySent(key, hello, m.joined_at) ? doneLine('Boas-vindas enviadas')
+        : (b = U.btn2('Dar boas-vindas', 'HandHeart', function () { sendOnce(key, hello, hello + ' 👋 Que alegria ter você com a gente.', m.joined_at, b); }, { full: true }));
       out.push(h('section', { class: 'panel soc-new' },
         h('div', { class: 'row', style: { gap: '12px' } },
           h('span', { class: 'newav' }, U.avatar(m, 46), h('i', null, ic('Plus', 12))),
