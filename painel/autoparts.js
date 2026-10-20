@@ -409,7 +409,28 @@
     };
   }
 
-  var AutoParts = { analyze: analyze, compare: compare, roleOf: roleOf, lyricLabels: lyricLabels, canonical: canonical };
+  /**
+   * Os pedaços da sugestão que caem onde ainda não há parte marcada (as partes atuais não mudam).
+   * list e mine: [{ name, start, end }] em segundos. Pedaços com menos de 1 s ficam de fora.
+   */
+  function gaps(list, mine) {
+    var out = [];
+    list.forEach(function (s) {
+      var pieces = [{ start: s.start, end: s.end }];
+      mine.forEach(function (m) {
+        pieces = pieces.reduce(function (acc, pc) {
+          if (m.end <= pc.start || m.start >= pc.end) { acc.push(pc); return acc; }
+          if (m.start > pc.start) acc.push({ start: pc.start, end: m.start });
+          if (m.end < pc.end) acc.push({ start: m.end, end: pc.end });
+          return acc;
+        }, []);
+      });
+      pieces.forEach(function (pc) { if (pc.end - pc.start >= 1) out.push({ name: s.name, start: pc.start, end: pc.end }); });
+    });
+    return out;
+  }
+
+  var AutoParts = { analyze: analyze, compare: compare, gaps: gaps, roleOf: roleOf, lyricLabels: lyricLabels, canonical: canonical };
   if (typeof module !== 'undefined' && module.exports) module.exports = AutoParts;
   else root.AutoParts = AutoParts;
 })(this);

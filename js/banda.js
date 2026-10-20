@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.13.0', [
+      'Estúdio › Partes: o líder pode tocar em "Detectar partes automaticamente". O site ouve as faixas e sugere Intro, Verso, Refrão, Ponte…; nada muda até você aplicar, e dá para ajustar à mão depois.'
+    ]],
     ['1.12.0', [
       'Faixas em M4A, WAV ou FLAC (e MP3 de bitrate variável) agora são convertidas sozinhas para MP3 320 kbps no envio, sem perder o alinhamento.'
     ]],

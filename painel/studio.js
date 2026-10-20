@@ -981,29 +981,11 @@
     }, 30);
   }
 
-  // Os pedaços da sugestão que caem onde ainda não há seção (as seções atuais não mudam).
-  function autoGaps(list, mine) {
-    var out = [];
-    list.forEach(function (s) {
-      var pieces = [{ start: s.start, end: s.end }];
-      mine.forEach(function (m) {
-        pieces = pieces.reduce(function (acc, pc) {
-          if (m.end <= pc.start || m.start >= pc.end) { acc.push(pc); return acc; }
-          if (m.start > pc.start) acc.push({ start: pc.start, end: m.start });
-          if (m.end < pc.end) acc.push({ start: m.end, end: pc.end });
-          return acc;
-        }, []);
-      });
-      pieces.forEach(function (pc) { if (pc.end - pc.start >= Math.max(SEC.MIN_LEN, 1)) out.push({ name: s.name, start: pc.start, end: pc.end }); });
-    });
-    return out;
-  }
-
   // mode 'fill': só onde não há seção; 'replace': apaga as atuais (depois de confirmar) e usa a sugestão.
   function applyAuto(mode) {
     if (!marksEditable() || !st.auto || !st.auto.sections) return;
     var mine = sections();
-    var list = mode === 'replace' ? st.auto.sections : autoGaps(st.auto.sections, mine);
+    var list = mode === 'replace' ? st.auto.sections : window.AutoParts.gaps(st.auto.sections, mine);
     if (!list.length) {
       A().flash('info', 'Não sobrou espaço livre: todas as partes da música já estão marcadas. Use "Substituir as atuais" se quiser trocar.');
       A().rerender();
@@ -1051,11 +1033,11 @@
     if (!show) return;
     var total = Math.max(1, sessionEnd());
     var mine = sections();
-    var free = autoGaps(au.sections, mine);
+    var free = window.AutoParts.gaps(au.sections, mine);
     var info = au.info || {};
     var head = h('div', { class: 'lv-auto-head' },
       h('span', { class: 'lv-auto-title' }, Icons.icon('autoParts', 14), 'Partes sugeridas'),
-      h('span', { class: 'lv-auto-note' }, au.sections.length + ' partes' +
+      h('span', { class: 'lv-auto-note' }, (au.sections.length === 1 ? '1 parte' : au.sections.length + ' partes') +
         (info.gridded ? ', nos compassos do click' : ', sem grade do click (bordas aproximadas)') +
         (info.lyrics ? ', nomes pela letra' : '') +
         (info.guideCues ? ', com os avisos da guia' : '') +

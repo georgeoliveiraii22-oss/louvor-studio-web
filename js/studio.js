@@ -741,7 +741,10 @@
         break;
       case 'partes':
         var list = sections();
-        kids = [hint('Escolha o nome para marcar uma parte onde o cursor está (' + L.clock(st.pos) + ').')]
+        if (st.auto && st.auto.sections) { kids = autoPanel(b, hint); break; }
+        kids = [h('button', { class: 'chiptog tbtn2 autobtn', disabled: !!(st.auto && st.auto.busy), onclick: detectParts },
+            ic('WandSparkles', 15), st.auto && st.auto.busy ? 'Analisando a música…' : 'Detectar partes automaticamente'),
+          hint('Ou escolha o nome para marcar uma parte onde o cursor está (' + L.clock(st.pos) + ').')]
           .concat(PART_NAMES.map(function (n) { return b(n, function () { addPart(n); }, 'Plus'); }))
           .concat(list.map(function (sc) {
             return h('span', { class: 'partchip', style: { borderColor: sc.color } }, h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: sc.color } }), sc.name,
@@ -752,6 +755,107 @@
         kids = [hint('Toque para escolher de onde tocar. Arraste para andar na música; pinça com dois dedos muda o zoom. Dois toques e arraste: trecho para repetir.')];
     }
     return h('div', { class: 'toolpanel' }, kids);
+  }
+
+  // ---------- Detectar partes (lib/autoparts.js, o mesmo do painel): sugestão que o líder revisa antes de aplicar
+  function detectParts() {
+    if (!L.perm.leader() || (st.auto && st.auto.busy)) return;
+    var tracks = targets().filter(function (tg) { return tg.kind === 'track'; });
+    if (tracks.some(function (tg) { return tg.objectKey && !st.buffers[tg.key]; })) {
+      L.toast('Espere todas as faixas carregarem para detectar as partes.');
+      return;
+    }
+    st.auto = { busy: true };
+    L.render();
+    // Deixa a tela mostrar "Analisando…" antes da conta (alguns segundos numa música longa).
+    setTimeout(function () {
+      try {
+        var stems = tracks.filter(function (tg) { return st.buffers[tg.key]; }).map(function (tg) {
+          var buf = st.buffers[tg.key], rg = region(tg, editOf(tg.key)), sr = buf.sampleRate;
+          var a = Math.max(0, Math.round((rg.a + rg.lead) * sr)), z = Math.min(buf.length, Math.round((rg.b + rg.lead) * sr));
+          var data = new Float32Array(Math.max(0, z - a)), chans = Math.min(2, buf.numberOfChannels);
+          for (var c = 0; c < chans; c++) { var ch = buf.getChannelData(c); for (var i = 0; i < data.length; i++) data[i] += ch[a + i] / chans; }
+          return { name: tg.label, data: data, sr: sr, start: rg.start };
+        });
+        var beats = gridBeats();
+        var grid = beats && st.grid.downbeats && st.grid.downbeats.length ? { beats: beats, downbeats: st.grid.downbeats } : null;
+        var p = L.project(st.pid);
+        var res = AutoParts.analyze({ stems: stems, duration: sessionEnd(), grid: grid, lyrics: p && p.lyrics });
+        var mine = sections();
+        st.auto = res.sections.length ? { busy: false, sections: res.sections, info: res.info,
+          cmp: mine.length ? AutoParts.compare(res.sections, mine, grid ? 1.0 : 2.0) : null } : null;
+        if (!st.auto) L.toast('Não deu para achar as partes desta música (curta demais ou sem som).');
+      } catch (e) {
+        st.auto = null;
+        L.toast('Não foi possível analisar a música: ' + ((e && e.message) || e));
+      }
+      L.render();
+    }, 40);
+  }
+
+  // A sugestão: mapa da música com as partes (toque para ouvir dali) e os botões para aplicar.
+  function autoPanel(b, hint) {
+    var au = st.auto, info = au.info || {}, total = sessionEnd(), mine = sections();
+    var free = AutoParts.gaps(au.sections, mine);
+    var note = (au.sections.length === 1 ? '1 parte sugerida' : au.sections.length + ' partes sugeridas') + (info.gridded ? ', nos compassos do click' : ', sem grade do click (bordas aproximadas)') +
+      (info.lyrics ? ', nomes pela letra' : '') + (info.vocalStem ? '' : '. Sem faixa de voz, os nomes são palpites') + '. Toque numa parte para ouvir dali.' +
+      (au.cmp ? ' Bate com as suas: ' + au.cmp.bordersHit + ' de ' + au.cmp.bordersManual + ' bordas, ' + au.cmp.namesHit + ' de ' + au.cmp.namesChecked + ' nomes.' : '');
+    var map = h('div', { class: 'automap' }, au.sections.map(function (sc) {
+      return h('button', { class: 'autopart' + (sc.conf < 0.6 ? ' unsure' : ''), title: sc.name + ' · ' + L.clock(sc.start),
+        style: { left: (sc.start / total * 100) + '%', width: ((sc.end - sc.start) / total * 100) + '%', '--sec': Sections.colorFor(sc.name) },
+        'aria-label': sc.name + ', ' + L.clock(sc.start), onclick: function () { goTo(sc.start); } }, h('span', null, sc.name));
+    }));
+    var chips = h('div', { class: 'hscroll autolist' }, au.sections.map(function (sc) {
+      return h('button', { class: 'partchip', style: { borderColor: Sections.colorFor(sc.name), background: 'none', cursor: 'pointer' }, onclick: function () { goTo(sc.start); } },
+        h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: Sections.colorFor(sc.name) } }), sc.name,
+        h('span', { class: 'muted mono', style: { fontWeight: 500 } }, L.clock(sc.start)));
+    }));
+    var acts = mine.length
+      ? [b('Preencher só onde não há parte', function () { applyAuto('fill'); }, 'Check', free.length ? 'on' : ''),
+         b('Substituir as atuais', function () { applyAuto('replace'); }, 'Replace', 'danger')]
+      : [b('Usar estas partes', function () { applyAuto('fill'); }, 'Check', 'on')];
+    acts.push(b('Descartar', function () { st.auto = null; L.render(); }, 'X'));
+    return [h('div', { class: 'col', style: { gap: '8px', width: '100%' } }, h('span', { class: 'thint', style: { flex: 'none' } }, note), map, chips, h('div', { class: 'row wrap', style: { gap: '8px' } }, acts))];
+  }
+
+  // mode 'fill': só onde não há parte; 'replace': apaga as atuais (depois de confirmar) e usa a sugestão.
+  function applyAuto(mode) {
+    var au = st.auto;
+    if (!L.perm.leader() || !au || !au.sections || au.busy) return;
+    var mine = sections();
+    var list = mode === 'replace' ? au.sections : AutoParts.gaps(au.sections, mine);
+    if (!list.length) { L.toast('Todas as partes da música já estão marcadas. Use "Substituir as atuais" se quiser trocar.'); return; }
+    var run = async function () {
+      au.busy = true;
+      try {
+        if (mode === 'replace' && mine.length) {
+          L.must(await sb.from('song_markers').delete().eq('project_id', st.pid));
+          st.markers = [];
+        }
+        var rows = L.must(await sb.from('song_markers').insert(list.map(function (sc) {
+          return { project_id: st.pid, at_ms: Math.round(sc.start * 1000), end_ms: Math.round(sc.end * 1000), name: sc.name };
+        })).select());
+        st.markers = st.markers.concat(rows || []).sort(function (x, y) { return x.at_ms - y.at_ms; });
+        st.auto = null;
+        L.toast(list.length === 1 ? '1 parte marcada.' : list.length + ' partes marcadas. Dá para apagar ou marcar de novo qualquer uma.');
+      } catch (e) {
+        au.busy = false;
+        // Mostra o que ficou salvo de verdade.
+        var r = await sb.from('song_markers').select('*').eq('project_id', st.pid).order('at_ms');
+        if (!r.error && r.data) st.markers = r.data;
+        L.toast(L.errorText(e));
+      }
+      L.render();
+    };
+    if (mode !== 'replace' || !mine.length) { run(); return; }
+    L.dialog({
+      title: 'Substituir as partes?',
+      body: function () { return U.body('As ' + mine.length + ' partes marcadas agora saem e entram as ' + list.length + ' sugeridas. Depois dá para apagar ou marcar de novo qualquer uma.', null, 14); },
+      actions: function (close) {
+        return [h('button', { class: 'textbtn muted', onclick: close }, 'Manter as atuais'),
+          h('button', { class: 'textbtn', style: { color: 'var(--bad)' }, onclick: function () { close(); run(); } }, 'Substituir')];
+      }
+    });
   }
 
   async function addPart(name) {
