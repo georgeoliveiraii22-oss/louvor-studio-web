@@ -296,6 +296,7 @@
   // ------------------------------------------------------------------ Linha do tempo (as mesmas regras do app: ui/StudioTimeline.kt)
   // Zoom e rolagem como numa DAW: abre mostrando ~20 s; pinça muda o zoom; um dedo arrastando rola;
   // só o toque parado muda o cursor (com ímã na grade do click). Desenha só o que está na tela.
+  var PART_H = 18;   // altura da faixa das partes, embaixo da régua
   var OPEN_VISIBLE_SEC = 20, MIN_VISIBLE_SEC = 3, MAGNET_PX = 24, SLOP = 8, EDGE_PX = 22, HANDLE_PX = 34, AUTOSCROLL_PX = 36;
 
   function maxZoom() { return Math.max(8, sessionEnd() / MIN_VISIBLE_SEC); }
@@ -424,44 +425,53 @@
     g.fillRect(a - 1, 0, 2, hh); g.fillRect(b - 1, 0, 2, hh);
   }
 
-  /** Régua: partes coloridas em cima; embaixo os compassos numerados (com grade) ou o tempo. */
+  /** Régua: o tempo em cima (compassos numerados com grade, ou minutos); embaixo, colada nas faixas, as partes. */
   function drawRuler() {
     var c = st.ui.ruler;
     var f = c && fitCanvas(c);
     if (!f) return;
     var g = f.g, w = f.w, hh = f.h, p = pps();
-    // Sugestão de "Detectar partes" em revisão: aparece no lugar das partes, listrada (ainda não marcada).
+    var SY = hh - PART_H - 1, top = SY - 3;   // faixa das partes (embaixo) e o fim da área do tempo
+    // Partes. A sugestão de "Detectar partes" em revisão aparece no lugar delas, listrada (ainda não marcada).
     var auto = st.auto && st.auto.sections;
     var shown = auto ? st.auto.sections.map(function (sc) { return { name: sc.name, start: sc.start, end: sc.end, color: SEC.colorFor(sc.name) }; }) : sections();
+    var editing = !auto && st.tool === 'partes' && L.perm.leader();
     shown.forEach(function (sc) {
       var a = xOf(sc.start), b = xOf(sc.end);
       if (b < 0 || a > w) return;
       g.fillStyle = sc.color; g.globalAlpha = 0.9;
-      g.fillRect(a + 0.5, 2, Math.max(1, b - a - 1), 16);
+      g.fillRect(a + 0.5, SY, Math.max(1, b - a - 1), PART_H);
       g.globalAlpha = 1;
       if (auto) {
         g.save();
-        g.beginPath(); g.rect(a + 0.5, 2, Math.max(1, b - a - 1), 16); g.clip();
+        g.beginPath(); g.rect(a + 0.5, SY, Math.max(1, b - a - 1), PART_H); g.clip();
         g.strokeStyle = 'rgba(5,11,18,0.28)'; g.lineWidth = 3;
-        for (var sx = a - 16; sx < b; sx += 9) { g.beginPath(); g.moveTo(sx, 18); g.lineTo(sx + 16, 2); g.stroke(); }
+        for (var sx = a - 20; sx < b; sx += 9) { g.beginPath(); g.moveTo(sx, SY + PART_H); g.lineTo(sx + PART_H, SY); g.stroke(); }
         g.restore();
-        g.fillStyle = '#050B12'; g.fillRect(Math.round(a), 2, 1.5, 16);
+        g.fillStyle = '#050B12'; g.fillRect(Math.round(a), SY, 1.5, PART_H);
       }
-      if (b - a > 28) { g.fillStyle = '#050B12'; g.font = '600 10px Geist, system-ui, sans-serif'; g.fillText(sc.name, Math.max(a, 0) + 4, 14, b - Math.max(a, 0) - 6); }
+      if (editing) {
+        // Pegadores nas pontas: dá para arrastar.
+        g.fillStyle = 'rgba(5,11,18,0.45)';
+        g.fillRect(a + 0.5, SY, 5, PART_H); g.fillRect(b - 5.5, SY, 5, PART_H);
+        if (sc.id === st.selPart) { g.strokeStyle = '#FFFFFF'; g.lineWidth = 2; g.strokeRect(a + 1.5, SY + 1, Math.max(1, b - a - 3), PART_H - 2); }
+      }
+      if (b - a > 28) { g.fillStyle = '#050B12'; g.font = '600 10px Geist, system-ui, sans-serif'; g.fillText(sc.name, Math.max(a, 0) + (editing ? 8 : 4), SY + PART_H - 5, b - Math.max(a, 0) - (editing ? 14 : 6)); }
     });
+    // Tempo: números no alto; as marcas descem até a faixa das partes.
     g.font = '600 10px "Geist Mono", ui-monospace, monospace';
-    var bars = barTimes(), base = hh;
+    var bars = barTimes(), LY = 12;
     if (st.grid && st.grid.downbeats && st.grid.downbeats.length && bars.length > 1) {
       var beats = gridBeats();
-      if (meanSpacing(beats) * p >= 7) { g.fillStyle = '#2A4863'; beats.forEach(function (b) { var x = xOf(b); if (x >= 0 && x <= w) g.fillRect(Math.round(x), base - 5, 1, 5); }); }
+      if (meanSpacing(beats) * p >= 7) { g.fillStyle = '#2A4863'; beats.forEach(function (b) { var x = xOf(b); if (x >= 0 && x <= w) g.fillRect(Math.round(x), top - 5, 1, 5); }); }
       var labelStride = barStride(meanSpacing(bars) * p, 30), tickStride = barStride(meanSpacing(bars) * p, 7);
       for (var n = 0; n < bars.length; n += tickStride) {
         var x = xOf(bars[n]);
         if (x < -30 || x > w) continue;
         var label = n % labelStride === 0;
         g.fillStyle = label ? '#6A86A0' : '#34536C';
-        g.fillRect(Math.round(x), label ? 20 : base - 8, 1, label ? base - 20 : 8);
-        if (label) { g.fillStyle = '#CADAE7'; g.fillText(String(n + 1), x + 3, base - 3); }
+        g.fillRect(Math.round(x), label ? 2 : top - 8, 1, label ? top - 2 : 8);
+        if (label) { g.fillStyle = '#CADAE7'; g.fillText(String(n + 1), x + 3, LY); }
       }
     } else {
       var step = [1, 2, 5, 10, 15, 30, 60, 120].find(function (v) { return v * p >= 46; }) || 120;
@@ -469,8 +479,8 @@
       for (var t = Math.floor(st.view0 / step) * step; t <= st.view0 + visibleSec() + step; t += step) {
         var xx = xOf(t);
         if (xx < -40 || xx > w) continue;
-        g.fillRect(Math.round(xx), 20, 1, base - 20);
-        g.fillStyle = '#CADAE7'; g.fillText(L.clock(t), xx + 3, base - 3); g.fillStyle = '#385872';
+        g.fillRect(Math.round(xx), 2, 1, top - 2);
+        g.fillStyle = '#CADAE7'; g.fillText(L.clock(t), xx + 3, LY); g.fillStyle = '#385872';
       }
     }
     drawLoop(g, w, hh, true);
@@ -753,9 +763,24 @@
       case 'partes':
         var list = sections();
         if (st.auto && st.auto.sections) { kids = autoPanel(b, hint); break; }
+        var sel = st.selPart && list.find(function (x) { return x.id === st.selPart; });
+        if (sel) {
+          kids = [h('span', { class: 'partchip', style: { borderColor: sel.color } }, h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: sel.color } }), sel.name,
+              h('span', { class: 'muted mono', style: { fontWeight: 500 } }, L.clock(sel.start) + ' – ' + L.clock(sel.end))),
+            hint('Arraste as pontas da parte na régua para mudar o tamanho, ou o meio para mover. Gruda no click.'),
+            h('div', { class: 'row wrap', style: { gap: '6px', width: '100%' } }, PART_NAMES.map(function (n) {
+              return h('button', { class: 'chiptog tbtn2' + (n === sel.name ? ' on' : ''), onclick: function () { renamePart(sel.id, n); } }, n);
+            })),
+            b('Início no cursor', function () { setPartEdge(sel.id, 'start'); }, 'ArrowRightToLine'),
+            b('Fim no cursor', function () { setPartEdge(sel.id, 'end'); }, 'ArrowLeftToLine'),
+            b('Ouvir', function () { goTo(sel.start); }, 'Play'),
+            b('Apagar', function () { st.selPart = null; delPart(sel.id); }, 'Trash2', 'danger'),
+            b('Fechar', function () { st.selPart = null; L.render(); }, 'X')];
+          break;
+        }
         kids = [h('button', { class: 'chiptog tbtn2 autobtn', disabled: !!(st.auto && st.auto.busy), onclick: detectParts },
             ic('WandSparkles', 15), st.auto && st.auto.busy ? 'Analisando a música…' : 'Detectar partes automaticamente'),
-          hint('Ou escolha o nome para marcar uma parte onde o cursor está (' + L.clock(st.pos) + ').')]
+          hint('Ou escolha o nome para marcar uma parte onde o cursor está (' + L.clock(st.pos) + '). Para mudar uma parte, toque nela ou arraste as pontas na régua.')]
           .concat(PART_NAMES.map(function (n) { return b(n, function () { addPart(n); }, 'Plus'); }))
           .concat(list.map(function (sc) {
             return h('span', { class: 'partchip', style: { borderColor: sc.color } }, h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: sc.color } }), sc.name,
@@ -885,6 +910,65 @@
   function laneAt(clientY) {
     return (st.ui.lanes || []).find(function (l) { var r = l.canvas.parentNode.parentNode.getBoundingClientRect(); return clientY >= r.top && clientY < r.bottom; }) || null;
   }
+  /** Faixa colorida das partes, no alto da régua (com folga para o dedo). */
+  function inPartStrip(clientY) {
+    var c = st.ui.ruler;
+    if (!c) return false;
+    var r = c.getBoundingClientRect();
+    return clientY >= r.bottom - PART_H - 10 && clientY < r.bottom + 4;
+  }
+  /** Parte embaixo do dedo (só o líder, fora da revisão de "Detectar partes"): ponta ou meio. */
+  function partAt(x) {
+    if (!L.perm.leader() || (st.auto && st.auto.sections)) return null;
+    var best = null;
+    sections().forEach(function (sc) {
+      if (!marker(sc.id)) return;
+      var xa = xOf(sc.start), xb = xOf(sc.end), inside = x > xa && x < xb;
+      // Parte estreita: as pontas pegam menos, para sobrar o meio.
+      var reach = Math.min(HANDLE_PX / 2, Math.max(6, (xb - xa) / 3));
+      [['start', Math.abs(x - xa)], ['end', Math.abs(x - xb)]].forEach(function (c) {
+        if (c[1] > reach) return;
+        var score = c[1] - (inside ? 0.5 : 0); // na divisa entre duas partes, ganha a que está sob o dedo
+        if (!best || score < best.score) best = { id: sc.id, mode: c[0], start: sc.start, end: sc.end, score: score };
+      });
+      if (!best && inside) best = { id: sc.id, mode: 'move', start: sc.start, end: sc.end, score: 1e9 };
+    });
+    return best;
+  }
+  function marker(id) { return st.markers.find(function (m) { return m.id === id; }) || null; }
+  /** Salva início e fim de uma parte; se falhar, volta como estava. */
+  async function savePart(id, old) {
+    var m = marker(id);
+    if (!m) return;
+    L.render();
+    if (m.at_ms === old.at_ms && m.end_ms === old.end_ms) return;
+    try {
+      L.must(await sb.from('song_markers').update({ at_ms: m.at_ms, end_ms: m.end_ms }).eq('id', id));
+      st.markers.sort(function (a, b) { return a.at_ms - b.at_ms; });
+    } catch (e) {
+      m.at_ms = old.at_ms; m.end_ms = old.end_ms;
+      L.toast(L.errorText(e));
+      L.render();
+    }
+  }
+  /** Botões da parte escolhida: início ou fim no cursor. */
+  function setPartEdge(id, edge) {
+    var sc = sections().find(function (x) { return x.id === id; }), m = marker(id);
+    if (!sc || !m) return;
+    var t = snapEdge(st.pos);
+    var rr = SEC.clampRange(sections(), id, edge === 'start' ? t : sc.start, edge === 'end' ? t : sc.end, sessionEnd(), edge);
+    var old = { at_ms: m.at_ms, end_ms: m.end_ms };
+    m.at_ms = Math.round(rr.start * 1000); m.end_ms = Math.round(rr.end * 1000);
+    savePart(id, old);
+  }
+  async function renamePart(id, name) {
+    var m = marker(id);
+    if (!m || m.name === name) return;
+    var old = m.name;
+    m.name = name; L.render();
+    try { L.must(await sb.from('song_markers').update({ name: name }).eq('id', id)); }
+    catch (e) { m.name = old; L.toast(L.errorText(e)); L.render(); }
+  }
   function inRuler(clientY) {
     var r = st.ui.ruler && st.ui.ruler.parentNode.parentNode.getBoundingClientRect();
     return !!r && clientY >= r.top && clientY < r.bottom;
@@ -941,8 +1025,16 @@
       var editsClips = tool === 'mover' || tool === 'cortar' || tool === 'aparar';
       var second = ev.timeStamp - lastTap.t < 380 && Math.abs(x - lastTap.x) < 40;
       var kind = null, extra = {};
+      // Ferramenta Partes (líder): na faixa colorida da régua, as pontas de uma parte mudam o tamanho
+      // e o meio move a parte. Um toque parado escolhe a parte.
+      var hitPart = tool === 'partes' && ruler && inPartStrip(ev.clientY) ? partAt(x) : null;
+      if (hitPart) {
+        var hm = marker(hitPart.id);
+        kind = 'part';
+        extra = { id: hitPart.id, mode: hitPart.mode, s0: hitPart.start, e0: hitPart.end, old: { at_ms: hm.at_ms, end_ms: hm.end_ms } };
+      }
       // Pontas do trecho de repetir: prioridade (menos quando a ferramenta edita a gravação).
-      if (!editsClips && st.loop) {
+      if (!kind && !editsClips && st.loop) {
         var da = Math.abs(x - xOf(st.loop.a)), db = Math.abs(x - xOf(st.loop.b));
         if (Math.min(da, db) <= HANDLE_PX / 2) { kind = 'edge'; extra.fixed = da <= db ? st.loop.b : st.loop.a; }
       }
@@ -984,6 +1076,19 @@
         return;
       }
       autoScroll(x);
+      if (g.kind === 'part') {
+        var pe = g.extra, pm = marker(pe.id), total = sessionEnd(), rr;
+        if (!pm) return;
+        if (pe.mode === 'move') {
+          var ns = snapEdge(pe.s0 + (t - g.t0));
+          rr = SEC.clampRange(sections(), pe.id, ns, ns + (pe.e0 - pe.s0), total, 'move');
+        } else if (pe.mode === 'start') rr = SEC.clampRange(sections(), pe.id, snapEdge(t), pe.e0, total, 'start');
+        else rr = SEC.clampRange(sections(), pe.id, pe.s0, snapEdge(t), total, 'end');
+        pm.at_ms = Math.round(rr.start * 1000); pm.end_ms = Math.round(rr.end * 1000);
+        st.dragLabel = pe.mode === 'end' ? rr.end : rr.start;
+        requestDraw();
+        return;
+      }
       if (g.kind === 'edge') {
         var v = snapEdge(t); st.loop = { a: Math.min(g.extra.fixed, v), b: Math.max(g.extra.fixed, v), name: 'o trecho escolhido' }; st.dragLabel = v; requestDraw();
       } else if (g.kind === 'create') {
@@ -1011,6 +1116,17 @@
       if (pinch) { if (count() < 2) pinch = null; g = null; return; }
       if (!g) return;
       var d = g; g = null; st.dragLabel = null;
+      if (d.kind === 'part') {
+        var dm = marker(d.extra.id);
+        if (cancel || d.pending) {
+          if (dm) { dm.at_ms = d.extra.old.at_ms; dm.end_ms = d.extra.old.end_ms; }
+          if (!cancel) { st.selPart = d.extra.id; L.render(); } else requestDraw();
+          return;
+        }
+        st.selPart = d.extra.id;
+        savePart(d.extra.id, d.extra.old);
+        return;
+      }
       if (cancel) { if (d.before && d.key) previewEdit(d.key, d.before); requestDraw(); return; }
       var x = rel(ev), t = tAtX(x);
       if (d.pending) {

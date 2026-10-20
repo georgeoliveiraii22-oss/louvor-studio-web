@@ -440,7 +440,7 @@ input[type=range].vol::-moz-range-thumb { width: 20px; height: 20px; border-radi
 .lane .lwave canvas { position: absolute; inset: 6px 0; width: 100%; height: calc(100% - 12px); }
 .lane.voice .lwave { background: #0A2236; }
 .lane.off .lwave canvas, .lane.off .lhead .nm { opacity: 0.35; }
-.rulerlane { min-height: 44px; }
+.rulerlane { min-height: 52px; }
 .rulerlane .lhead { justify-content: flex-end; padding-bottom: 6px; }
 .rulerlane .lwave canvas { inset: 2px 0; height: calc(100% - 4px); }
 .dawarea { position: absolute; top: 0; bottom: 0; left: var(--hw); right: 0; z-index: 2; touch-action: pan-y; cursor: default; overflow: hidden; }

@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.13.2', [
+      'Estúdio: o tempo agora fica em cima e as partes embaixo, coladas nas faixas. Com a ferramenta Partes, o líder arrasta as pontas de uma parte para mudar o tamanho, arrasta o meio para mover e toca nela para renomear ou apagar.'
+    ]],
     ['1.13.1', [
       'Detectar partes: a sugestão aparece listrada na própria linha do tempo, logo acima dos tempos. E agora funciona também com click sem acento (todos os tics iguais).'
     ]],
