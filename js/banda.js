@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.12.0', [
+      'Faixas em M4A, WAV ou FLAC (e MP3 de bitrate variável) agora são convertidas sozinhas para MP3 320 kbps no envio, sem perder o alinhamento.'
+    ]],
     ['1.11.1', [
       'Em Eu › Plano da banda: a situação do pagamento e até quando o plano vale. O líder pode cancelar a assinatura ali mesmo.'
     ]],

@@ -267,10 +267,10 @@
       U.field(e.lyrics, 'Letra (opcional). Use [Verso], [Refrão]… para as partes', setVal('lyrics'), { multiline: true, rows: 6, max: 20000 }),
       U.panel('Multitrack (opcional)', 'AudioWaveform',
         e.tracks ? h('div', { class: 'row' }, U.neon('AudioWaveform', true, ''), h('span', { class: 'hi' }, e.tracks + ' faixas na nuvem')) : null,
-        U.body(e.tracks ? 'Dá para acrescentar mais faixas (mesma taxa e duração das que já estão).' : 'Sem multitrack a música fica só com link, tom e BPM. Para ensaiar, envie as faixas separadas em MP3 (bitrate constante, até 12).', 'var(--muted)', 12),
+        U.body(e.tracks ? 'Dá para acrescentar mais faixas (mesma taxa e duração das que já estão).' : 'Sem multitrack a música fica só com link, tom e BPM. Para ensaiar, envie as faixas separadas (até 12): MP3, M4A, WAV ou FLAC. O que não for MP3 de bitrate constante é convertido no aparelho.', 'var(--muted)', 12),
         stemsList,
-        U.btn2(e.stems.length ? 'Escolher mais faixas' : 'Escolher as faixas (MP3)', 'Upload', function () {
-          var inp = h('input', { type: 'file', accept: '.mp3,audio/mpeg', multiple: true, style: { display: 'none' } });
+        U.btn2(e.stems.length ? 'Escolher mais faixas' : 'Escolher as faixas', 'Upload', function () {
+          var inp = h('input', { type: 'file', accept: '.mp3,.m4a,.wav,.flac,.aif,.aiff,.ogg,audio/*', multiple: true, style: { display: 'none' } });
           inp.onchange = function () { Array.prototype.forEach.call(inp.files, function (f) { if (!e.stems.some(function (x) { return x.name === f.name && x.size === f.size; })) e.stems.push(f); }); inp.remove(); L.render(); };
           document.body.appendChild(inp); inp.click();
         }, { full: true, disabled: e.busy })),
@@ -321,18 +321,10 @@
   async function uploadStems(org, pid, files, existing, p, say) {
     if (existing + files.length > 12) throw new Error('O limite é de 12 faixas por música.');
     if (!window.crypto || !crypto.subtle) throw new Error('Este navegador não permite conferir os arquivos. Abra o site por https.');
-    say('Conferindo os arquivos…', 0);
-    var items = [];
-    for (var i = 0; i < files.length; i++) {
-      var f = files[i];
-      var buf = await f.arrayBuffer();
-      var scan;
-      try { scan = Mp3Scan.scanMp3(new Uint8Array(buf)); } catch (x) { throw new Error(f.name + ': não é um MP3 válido. Envie as faixas em MP3.'); }
-      if (!scan.isCBR) throw new Error(f.name + ': MP3 de bitrate variável (VBR). Exporte em bitrate constante (CBR), por exemplo 320 kbps.');
-      items.push({ file: f, buf: buf, scan: scan });
-    }
-    var sr = p && p.sample_rate && existing ? p.sample_rate : items[0].scan.sampleRate;
-    items.forEach(function (it) { if (it.scan.sampleRate !== sr) throw new Error(it.file.name + ': taxa de ' + it.scan.sampleRate + ' Hz, diferente das outras faixas (' + sr + ' Hz). Exporte todas iguais.'); });
+    // O que não é MP3 CBR (M4A, WAV, FLAC, MP3 de bitrate variável ou em outra taxa) é convertido aqui.
+    var prep = await Mp3Encode.prepareStems(files, { sampleRate: p && p.sample_rate && existing ? p.sample_rate : null, say: say });
+    var sr = prep.sampleRate;
+    var items = prep.items.map(function (it) { return { file: { name: it.name, size: it.size }, blob: it.blob, buf: it.buf, scan: it.scan }; });
     if (!p || !p.session_duration_ms || !existing) {
       var min = Math.min.apply(null, items.map(function (it) { return it.scan.expectedPcmFrames; }));
       L.must(await sb.from('projects').update({ session_duration_ms: Math.max(1, Math.round(min / sr * 1000)), sample_rate: sr }).eq('id', pid));
@@ -343,7 +335,7 @@
       var fileId = crypto.randomUUID();
       var key = org + '/' + pid + '/stems/' + fileId + '.mp3';
       var hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', it.buf))).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
-      await Nuvem.uploadAudio(sb, { id: fileId, org_id: org, project_id: pid, object_key: key, size_bytes: it.file.size, checksum_sha256: hash, mime: 'audio/mpeg', uploaded_by: S.user.id }, it.file);
+      await Nuvem.uploadAudio(sb, { id: fileId, org_id: org, project_id: pid, object_key: key, size_bytes: it.file.size, checksum_sha256: hash, mime: 'audio/mpeg', uploaded_by: S.user.id }, it.blob);
       L.must(await sb.from('tracks').insert({ project_id: pid, name: it.file.name.replace(/\.[^.]+$/, '').slice(0, 60), type: 'stem', source_file_id: fileId, sort_order: existing + j }));
     }
     say('Pronto!', 1);

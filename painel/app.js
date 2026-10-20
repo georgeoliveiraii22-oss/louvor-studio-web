@@ -500,7 +500,7 @@
     var artist = h('input', { type: 'text', maxlength: '120' });
     var key = h('input', { type: 'text', maxlength: '12', placeholder: 'Ex.: G, Bb, F#m' });
     var bpm = h('input', { type: 'number', min: '20', max: '300', step: '1' });
-    var files = h('input', { type: 'file', accept: '.mp3,audio/mpeg', multiple: true, required: true });
+    var files = h('input', { type: 'file', accept: '.mp3,.m4a,.wav,.flac,.aif,.aiff,.ogg,audio/*', multiple: true, required: true });
     var log = h('div', { class: 'list-log' });
     var go = h('button', { class: 'btn', type: 'submit' }, Icons.icon('upload', 15), 'Criar projeto e enviar stems');
 
@@ -531,8 +531,8 @@
           h('label', { class: 'f', style: 'flex:1' }, 'Tom', key),
           h('label', { class: 'f', style: 'flex:1' }, 'BPM', bpm))
       ),
-      h('label', { class: 'f' }, 'Stems em MP3 (CBR), de 1 a 12 arquivos', files),
-      h('p', { class: 'mu', style: 'margin:0;font-size:13px' }, 'Todos os stems precisam ter a mesma taxa de amostragem e a mesma duração. MP3 de bitrate variável é recusado.'),
+      h('label', { class: 'f' }, 'Stems (MP3, M4A, WAV ou FLAC), de 1 a 12 arquivos', files),
+      h('p', { class: 'mu', style: 'margin:0;font-size:13px' }, 'Todos os stems precisam ter a mesma duração. O que não for MP3 de bitrate constante é convertido aqui para MP3 320 kbps antes de enviar (leva alguns minutos).'),
       go, log
     );
   }
@@ -553,20 +553,17 @@
     if (fileList.length > 12) return Promise.reject(new Error('O limite é de 12 faixas por sessão.'));
     if (!window.crypto || !crypto.subtle) return Promise.reject(new Error('Este navegador não permite calcular o checksum. Abra o painel por https ou localhost.'));
 
-    say('Lendo os arquivos…');
-    return Promise.all(fileList.map(function (f) {
-      return f.arrayBuffer().then(function (buf) {
-        var bytes = new Uint8Array(buf);
-        var scan;
-        try { scan = Mp3Scan.scanMp3(bytes); } catch (e) { throw new Error(f.name + ': ' + e.message); }
-        if (!scan.isCBR) throw new Error(f.name + ': MP3 de bitrate variável. Só CBR é aceito.');
-        return { file: f, buf: buf, scan: scan };
-      });
-    })).then(function (items) {
-      var sr = items[0].scan.sampleRate;
-      items.forEach(function (it) {
-        if (it.scan.sampleRate !== sr) throw new Error(it.file.name + ': taxa de amostragem ' + it.scan.sampleRate + ' Hz difere dos demais (' + sr + ' Hz).');
-      });
+    // O que não é MP3 CBR (M4A, WAV, FLAC, MP3 de bitrate variável ou em outra taxa) é convertido aqui.
+    var lastPct = -1;
+    return Mp3Encode.prepareStems(fileList, { say: function (text, f) {
+      var pct = Math.floor(f * 10);
+      if (f > 0 && f < 1 && pct === lastPct) return; // no registro, só de 10 em 10%
+      lastPct = pct;
+      say(text);
+    } }).then(function (prep) {
+      var sr = prep.sampleRate;
+      var items = prep.items.map(function (it) { return { file: { name: it.name, size: it.size }, blob: it.blob, buf: it.buf, scan: it.scan, converted: it.converted }; });
+      items.forEach(function (it) { if (it.converted) say('✓ ' + it.file.name + ' convertido para MP3 320 kbps.'); });
       var frames = items.map(function (it) { return it.scan.expectedPcmFrames; });
       var min = Math.min.apply(null, frames);
       var tol = Math.round(sr * 0.05);
@@ -602,7 +599,7 @@
       return Nuvem.uploadAudio(sb, {
         id: fileId, org_id: S.org.id, project_id: project.id, object_key: key,
         size_bytes: it.file.size, checksum_sha256: sum, mime: 'audio/mpeg', uploaded_by: S.user.id
-      }, it.file).then(function () {
+      }, it.blob).then(function () {
         return sb.from('tracks').insert({
           project_id: project.id, name: it.file.name.replace(/\.[^.]+$/, ''), type: 'stem',
           source_file_id: fileId, sort_order: index
