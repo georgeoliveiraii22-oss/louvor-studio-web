@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.15.1', [
+      'O painel do líder separado saiu do ar: tudo o que ele fazia está aqui no site e no app.'
+    ]],
     ['1.15.0', [
       'Revisão das gravações no site: na ficha da música, "Revisar as gravações da banda" (líder ou quem edita o áudio). Dá para ouvir, aprovar, pedir para refazer, liberar para a banda estudar, marcar a voz e comentar.',
       'Estúdio: o botão Click (para quem edita o áudio) escolhe qual faixa é o click, quando o nome dela não diz "click".'

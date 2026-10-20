@@ -266,7 +266,6 @@
       h('span', { class: 'sp' }),
       h('a', { href: '#', onclick: function (e) { e.preventDefault(); goEntry('entrar'); } }, 'Entrar'),
       h('a', { href: '#', onclick: function (e) { e.preventDefault(); goEntry('convite'); } }, 'Entrar com convite'),
-      h('a', { href: 'painel/' }, 'Painel do líder'),
       h('span', null, '© 2026 Louvor Studio')));
 
     var page = h('div', { class: 'site' }, top, h('main', null, hero, videoBlock(), demo, feats, semana(), how, LSPlanos.secao({ comecar: function () { goEntry('criar'); } }), faq, close), foot);
