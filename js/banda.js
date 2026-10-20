@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.15.0', [
+      'Revisão das gravações no site: na ficha da música, "Revisar as gravações da banda" (líder ou quem edita o áudio). Dá para ouvir, aprovar, pedir para refazer, liberar para a banda estudar, marcar a voz e comentar.',
+      'Estúdio: o botão Click (para quem edita o áudio) escolhe qual faixa é o click, quando o nome dela não diz "click".'
+    ]],
     ['1.14.0', [
       'Partes refeitas: toque numa parte para dar qualquer nome ("Verso 2", "Tag"…), dividir no cursor, juntar com a seguinte, repetir ou apagar. Marcar dentro de uma parte divide ela. Desfazer volta qualquer mudança nas partes.',
       'Detectar partes: a sugestão pode ser corrigida antes de usar (renomear, dividir, juntar, ajustar as pontas).'

@@ -360,16 +360,43 @@
     st.grid = G.fromRow(row);
     if (st.grid) return;
     var tr = G.guessClickTrack(st.tracks);
-    var buf = tr && st.buffers['track:' + tr.id];
-    if (!buf) return;
+    var g = tr && gridFrom(tr);
+    if (!g) return;
+    st.grid = g;
+    // Quem edita o áudio já deixa a grade salva para a banda (o app faz igual).
+    if (L.perm.edit()) sb.from('beat_grids').upsert(G.toRow(st.pid, tr.id, st.grid), { onConflict: 'project_id' }).then(function () {}, function () {});
+  }
+  /** Grade a partir dos tics de uma faixa (null se não achar um click nela). */
+  function gridFrom(tr) {
+    var buf = st.buffers['track:' + tr.id];
+    if (!buf) return null;
     var chans = [];
     for (var c = 0; c < (buf.numberOfChannels || 1); c++) chans.push(buf.getChannelData(c));
     var res = G.detect(chans, buf.sampleRate || 44100);
-    if (res.beats.length < 4) return;
+    if (res.beats.length < 4) return null;
     var lead = st.leads['track:' + tr.id] || 0;
-    st.grid = { trackId: tr.id, beats: res.beats.map(function (b) { return Math.max(0, b - lead); }), downbeats: res.downbeats, beatsPerBar: res.beatsPerBar, accent: res.accent, saved: false };
-    // Quem edita o áudio já deixa a grade salva para a banda (o app faz igual).
-    if (L.perm.edit()) sb.from('beat_grids').upsert(G.toRow(st.pid, tr.id, st.grid), { onConflict: 'project_id' }).then(function () {}, function () {});
+    return { trackId: tr.id, beats: res.beats.map(function (b) { return Math.max(0, b - lead); }), downbeats: res.downbeats, beatsPerBar: res.beatsPerBar, accent: res.accent, saved: false };
+  }
+  /** Quem edita o áudio escolhe à mão a faixa do click (quando o nome dela não diz "click"). */
+  function chooseClick() {
+    L.sheet(function (close) {
+      return [h('div', { class: 'hi semi', style: { fontSize: '17px' } }, 'Qual faixa é o click?'),
+        U.body('A grade dos tempos (e o ímã) sai dos tics dessa faixa. Vale para a banda toda.', 'var(--muted)', 13),
+        h('div', { class: 'col', style: { gap: '6px' } }, st.tracks.map(function (tr) {
+          var on = st.grid && st.grid.trackId === tr.id;
+          return h('button', { class: 'chiptog' + (on ? ' on' : ''), style: { justifyContent: 'flex-start', minHeight: '44px' }, onclick: function () {
+            close();
+            var g = gridFrom(tr);
+            if (!g) { L.toast('Não achei os tics de um click em "' + tr.name + '". Escolha a faixa que tem o metrônomo.'); return; }
+            st.grid = g; st.gridCache = null;
+            sb.from('beat_grids').upsert(G.toRow(st.pid, tr.id, g), { onConflict: 'project_id' }).then(function (res) {
+              if (res.error) L.toast(L.errorText(res.error));
+            });
+            L.toast('Grade pelo click de "' + tr.name + '": ' + g.beats.length + ' tempos' + (g.downbeats.length ? '.' : ' (o 1 do compasso não se destaca nesse click).'));
+            L.render();
+          } }, ic(instrumentIcon(tr.name), 16), tr.name, on ? h('span', { class: 'muted small', style: { marginLeft: 'auto' } }, 'em uso') : null);
+        }))];
+    });
   }
 
   // ---------- Forma de onda: picos a cada 10 ms do arquivo (não depende das edições)
@@ -700,7 +727,8 @@
     var magnet = st.grid ? h('button', { class: 'tool' + (st.magnet ? ' on' : ''), 'aria-pressed': st.magnet ? 'true' : 'false', onclick: function () {
       st.magnet = !st.magnet; L.store.set('estudio_ima', st.magnet); L.toast(st.magnet ? 'Ímã ligado: gruda no tempo do click.' : 'Ímã desligado.'); L.render();
     } }, ic('Magnet', 19), h('span', null, 'Ímã')) : null;
-    return h('div', { class: 'toolbar', role: 'toolbar', 'aria-label': 'Ferramentas do estúdio' }, tools, h('span', { class: 'tsep' }), magnet,
+    var clickBtn = L.perm.edit() && st.tracks.length ? h('button', { class: 'tool', onclick: chooseClick, title: 'Escolher qual faixa é o click' }, ic('Timer', 19), h('span', null, 'Click')) : null;
+    return h('div', { class: 'toolbar', role: 'toolbar', 'aria-label': 'Ferramentas do estúdio' }, tools, h('span', { class: 'tsep' }), magnet, clickBtn,
       h('button', { class: 'tool', disabled: !st.undo.length, onclick: undoEdit }, ic('Undo2', 19), h('span', null, 'Desfazer')),
       h('button', { class: 'tool', disabled: !st.redo.length, onclick: redoEdit }, ic('Redo2', 19), h('span', null, 'Refazer')));
   }
@@ -1300,7 +1328,7 @@
       return root;
     }
     if (!st.tracks.length) {
-      body.appendChild(U.empty('Esta música ainda não tem multitrack. Quem cuida das músicas envia as faixas pelo app ou pelo painel.'));
+      body.appendChild(U.empty('Esta música ainda não tem multitrack. Quem cuida das músicas envia as faixas pelo app ou aqui no site, em Repertório › a música › Editar música.'));
       return root;
     }
 

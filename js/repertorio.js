@@ -127,6 +127,7 @@
         return h('div', { class: 'row' }, h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, t.name), h('div', { class: 'muted small' }, L.dm(t.created_at) + ' · ' + L.clock(t.duration_ms / 1000))), reviewChip(t.review_status));
       })));
     }
+    if (L.perm.edit() && multi) out.push(U.btn2('Revisar as gravações da banda', 'Headphones', function () { close(); setTimeout(function () { L.go({ name: 'review', id: p.id }); }, 150); }, { full: true }));
     if (L.perm.songs()) out.push(U.btn2('Editar música', 'Pencil', function () { close(); setTimeout(function () { L.go({ name: 'songedit', id: p.id }); }, 150); }, { full: true }));
     return out;
   }
