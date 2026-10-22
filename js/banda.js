@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.17.1', [
+      'Novas páginas de Privacidade, Termos de Uso, Cookies e Segurança, em português simples (no rodapé do site e em Eu).'
+    ]],
     ['1.17.0', [
       'Mais segurança: senha nova com pelo menos 8 caracteres, e a conta nova confirma o e-mail com um código de 6 números (assim ninguém cria conta com o seu e-mail).'
     ]],

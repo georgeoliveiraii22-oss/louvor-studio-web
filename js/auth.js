@@ -55,6 +55,9 @@
       U.field(st.pass, st.mode === 'criar' ? 'Senha (mín. ' + L.MIN_PASS + ', com letras e números)' : 'Senha', function (v) { st.pass = v; upd(); }, { type: 'password', autocomplete: st.mode === 'entrar' ? 'current-password' : 'new-password', onenter: submit }),
       go,
       st.mode === 'entrar' ? h('button', { class: 'textbtn', style: { width: '100%' }, onclick: function () { A.forgot(st.email); } }, 'Esqueci minha senha') : null,
+      st.mode === 'criar' ? h('p', { class: 'muted small consent' }, 'Ao criar a conta, você concorda com os ',
+        h('a', { href: 'termos/', target: '_blank', rel: 'noopener' }, 'Termos de Uso'), ' e com a ',
+        h('a', { href: 'privacidade/', target: '_blank', rel: 'noopener' }, 'Política de Privacidade'), '.') : null,
       U.body('Suas gravações de voz são dados pessoais. Só a sua banda pode ouvi-las, e só depois que você grava e o líder libera.', 'var(--muted)', 12));
   };
 

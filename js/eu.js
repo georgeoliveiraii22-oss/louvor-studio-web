@@ -48,7 +48,12 @@
       U.btn2('Excluir conta', 'Trash2', deleteAccount, { full: true, danger: true })));
 
     root.appendChild(U.panel('Privacidade', 'ShieldCheck',
-      U.body('Suas gravações ficam na nuvem da sua banda. Só você e quem cuida do áudio da banda ouvem uma gravação, até o líder liberar para o ensaio.', 'var(--muted)', 12)));
+      U.body('Suas gravações ficam na nuvem da sua banda. Só você e quem cuida do áudio da banda ouvem uma gravação, até o líder liberar para o ensaio.', 'var(--muted)', 12),
+      h('div', { class: 'row wrap legal-links' },
+        h('a', { href: 'privacidade/', target: '_blank', rel: 'noopener' }, 'Política de Privacidade'),
+        h('a', { href: 'termos/', target: '_blank', rel: 'noopener' }, 'Termos de Uso'),
+        h('a', { href: 'cookies/', target: '_blank', rel: 'noopener' }, 'Cookies'),
+        h('a', { href: 'seguranca/', target: '_blank', rel: 'noopener' }, 'Segurança'))));
     root.appendChild(h('div', { class: 'center muted small' }, 'Louvor Studio (web) ' + L.VERSION));
     return root;
   });
