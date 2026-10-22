@@ -13,47 +13,60 @@
 <meta name="apple-mobile-web-app-title" content="Louvor Studio">
 <meta name="description" content="O ensaio da sua banda, em qualquer lugar: escalas, repertório, multitrack e a conversa da banda num lugar só. Tem plano grátis.">
 <title>Louvor Studio</title>
-<link rel="manifest" href="manifest.webmanifest?v=4ec26d7">
+<link rel="manifest" href="manifest.webmanifest?v=2b16c5d">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="app.css?v=4ec26d7">
+<link rel="stylesheet" href="app.css?v=2b16c5d">
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js" integrity="sha384-rwykjmWNwVxboyFmvK9OXN0wj9hnMHA2aAHtits54DuACyCq0M2PrSNxhRb+hvXT" crossorigin="anonymous"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js" integrity="sha384-ieG+IKD0d/ZPXyCBTMVAbqsQdns8QGJR/e26WMw7M4fkaI/rHcS/YIoi+ah9WGge" crossorigin="anonymous"></script>
-<script defer src="config.js?v=4ec26d7"></script>
-<script defer src="lib/mp3scan.js?v=4ec26d7"></script>
-<script defer src="lib/mp3encode.js?v=4ec26d7"></script>
-<script defer src="lib/editmath.js?v=4ec26d7"></script>
-<script defer src="lib/beatgrid.js?v=4ec26d7"></script>
-<script defer src="lib/sections.js?v=4ec26d7"></script>
-<script defer src="lib/autoparts.js?v=4ec26d7"></script>
-<script defer src="lib/voiceparts.js?v=4ec26d7"></script>
-<script defer src="lib/nuvem.js?v=4ec26d7"></script>
-<script defer src="js/core.js?v=4ec26d7"></script>
-<script defer src="js/data.js?v=4ec26d7"></script>
-<script defer src="js/ui.js?v=4ec26d7"></script>
-<script defer src="js/auth.js?v=4ec26d7"></script>
-<script defer src="js/planos.js?v=4ec26d7"></script>
-<script defer src="js/landing.js?v=4ec26d7"></script>
-<script defer src="js/igreja.js?v=4ec26d7"></script>
-<script defer src="js/social.js?v=4ec26d7"></script>
-<script defer src="js/home.js?v=4ec26d7"></script>
-<script defer src="js/escalas.js?v=4ec26d7"></script>
-<script defer src="js/wizard.js?v=4ec26d7"></script>
-<script defer src="js/agenda.js?v=4ec26d7"></script>
-<script defer src="js/gerenciar.js?v=4ec26d7"></script>
-<script defer src="js/repertorio.js?v=4ec26d7"></script>
-<script defer src="js/revisao.js?v=4ec26d7"></script>
-<script defer src="js/banda.js?v=4ec26d7"></script>
-<script defer src="js/eu.js?v=4ec26d7"></script>
-<script defer src="js/studio.js?v=4ec26d7"></script>
-<script defer src="js/main.js?v=4ec26d7"></script>
+<script defer src="config.js?v=2b16c5d"></script>
+<script defer src="lib/mp3scan.js?v=2b16c5d"></script>
+<script defer src="lib/mp3encode.js?v=2b16c5d"></script>
+<script defer src="lib/editmath.js?v=2b16c5d"></script>
+<script defer src="lib/beatgrid.js?v=2b16c5d"></script>
+<script defer src="lib/sections.js?v=2b16c5d"></script>
+<script defer src="lib/autoparts.js?v=2b16c5d"></script>
+<script defer src="lib/voiceparts.js?v=2b16c5d"></script>
+<script defer src="lib/nuvem.js?v=2b16c5d"></script>
+<script defer src="js/core.js?v=2b16c5d"></script>
+<script defer src="js/data.js?v=2b16c5d"></script>
+<script defer src="js/ui.js?v=2b16c5d"></script>
+<script defer src="js/auth.js?v=2b16c5d"></script>
+<script defer src="js/planos.js?v=2b16c5d"></script>
+<script defer src="js/landing.js?v=2b16c5d"></script>
+<script defer src="js/igreja.js?v=2b16c5d"></script>
+<script defer src="js/social.js?v=2b16c5d"></script>
+<script defer src="js/home.js?v=2b16c5d"></script>
+<script defer src="js/escalas.js?v=2b16c5d"></script>
+<script defer src="js/wizard.js?v=2b16c5d"></script>
+<script defer src="js/agenda.js?v=2b16c5d"></script>
+<script defer src="js/gerenciar.js?v=2b16c5d"></script>
+<script defer src="js/repertorio.js?v=2b16c5d"></script>
+<script defer src="js/revisao.js?v=2b16c5d"></script>
+<script defer src="js/banda.js?v=2b16c5d"></script>
+<script defer src="js/eu.js?v=2b16c5d"></script>
+<script defer src="js/studio.js?v=2b16c5d"></script>
+<script defer src="js/main.js?v=2b16c5d"></script>
 </head>
 <body>
-<div id="app"></div>
+<div id="app">
+  <!-- Conteúdo que existe antes do JavaScript carregar (e para quem lê a página sem rodar scripts, como o Google). O app troca tudo isto ao abrir. -->
+  <main style="max-width:36rem;margin:0 auto;padding:64px 20px;font-family:system-ui,sans-serif;color:#DCE8F2">
+    <h1 style="margin:0 0 12px;font-size:2rem;color:#F5FAFF">Louvor Studio</h1>
+    <p style="margin:0 0 20px;line-height:1.55">O ensaio da sua banda, em qualquer lugar. Escalas, repertório, multitrack e a conversa da banda num lugar só, no Android, no iPhone e no navegador. Tem plano grátis.</p>
+    <nav style="display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.95rem">
+      <a href="privacidade/" style="color:#63D4FF">Política de Privacidade</a>
+      <a href="termos/" style="color:#63D4FF">Termos de Uso</a>
+      <a href="cookies/" style="color:#63D4FF">Cookies</a>
+      <a href="seguranca/" style="color:#63D4FF">Segurança</a>
+      <a href="planos/" style="color:#63D4FF">Planos</a>
+    </nav>
+  </main>
+</div>
 <noscript>O Louvor Studio precisa do JavaScript ligado no navegador.</noscript>
 </body>
 </html>
