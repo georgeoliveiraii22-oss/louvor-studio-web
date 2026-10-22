@@ -9,9 +9,11 @@
   // ------------------------------------------------------------------ Entrar / criar conta
   A.login = function () {
     var st = A.loginState = A.loginState || { mode: S.entry === 'entrar' ? 'entrar' : 'criar', email: '', pass: '', name: '', busy: false };
+    if (st.confirm) return confirmScreen(st);
+    var minPass = st.mode === 'criar' ? L.MIN_PASS : 6;
     var go = h('button', { class: 'btn full' });
     function upd() {
-      go.disabled = st.busy || !st.email.trim() || st.pass.length < 6 || (st.mode === 'criar' && !st.name.trim());
+      go.disabled = st.busy || !st.email.trim() || st.pass.length < minPass || (st.mode === 'criar' && !st.name.trim());
       go.textContent = st.busy ? 'Aguarde…' : st.mode === 'entrar' ? 'Entrar' : 'Criar conta';
     }
     go.onclick = submit;
@@ -24,10 +26,15 @@
           L.must(await sb.auth.signInWithPassword({ email: st.email.trim(), password: st.pass }));
         } else {
           var res = L.must(await sb.auth.signUp({ email: st.email.trim(), password: st.pass, options: { data: { display_name: st.name.trim() } } }));
-          if (!res.session) { L.toast('Conta criada. Confirme seu e-mail e depois entre.'); st.mode = 'entrar'; }
+          // Com a confirmação de e-mail ligada, o Supabase manda um código de 6 números e não entra na hora.
+          if (!res.session) { st.confirm = true; st.code = ''; }
         }
       } catch (e) {
-        L.toast(L.errorText(e));
+        // Conta criada mas e-mail ainda não confirmado: manda um código novo e pede aqui.
+        if (/Email not confirmed/i.test((e && e.message) || '')) {
+          try { await sb.auth.resend({ type: 'signup', email: st.email.trim() }); } catch (x) { /* o código anterior ainda vale */ }
+          st.confirm = true; st.code = '';
+        } else L.toast(L.errorText(e));
       } finally {
         st.busy = false;
         if (!S.loggedIn) L.render();
@@ -45,11 +52,39 @@
         U.toggle('Criar conta', st.mode === 'criar', null, function () { st.mode = 'criar'; L.render(); })),
       st.mode === 'criar' ? U.field(st.name, 'Seu nome', function (v) { st.name = v; upd(); }, { autocomplete: 'name', max: 80 }) : null,
       U.field(st.email, 'E-mail', function (v) { st.email = v; upd(); }, { type: 'email', autocomplete: 'email', inputmode: 'email' }),
-      U.field(st.pass, 'Senha', function (v) { st.pass = v; upd(); }, { type: 'password', autocomplete: st.mode === 'entrar' ? 'current-password' : 'new-password', onenter: submit }),
+      U.field(st.pass, st.mode === 'criar' ? 'Senha (mín. ' + L.MIN_PASS + ', com letras e números)' : 'Senha', function (v) { st.pass = v; upd(); }, { type: 'password', autocomplete: st.mode === 'entrar' ? 'current-password' : 'new-password', onenter: submit }),
       go,
       st.mode === 'entrar' ? h('button', { class: 'textbtn', style: { width: '100%' }, onclick: function () { A.forgot(st.email); } }, 'Esqueci minha senha') : null,
       U.body('Suas gravações de voz são dados pessoais. Só a sua banda pode ouvi-las, e só depois que você grava e o líder libera.', 'var(--muted)', 12));
   };
+
+  /** Confirmar o e-mail do cadastro: código de 6 números (assim ninguém cria conta com o e-mail dos outros). */
+  function confirmScreen(st) {
+    var go = h('button', { class: 'btn full' });
+    function upd() { go.disabled = st.busy || String(st.code || '').length < 6; go.textContent = st.busy ? 'Aguarde…' : 'Confirmar e entrar'; }
+    go.onclick = function () {
+      if (go.disabled) return;
+      st.busy = true; upd();
+      L.run(async function () {
+        try {
+          L.must(await sb.auth.verifyOtp({ email: st.email.trim(), token: String(st.code).trim(), type: 'signup' }));
+          A.loginState = null;
+          L.toast('E-mail confirmado. Bem-vindo!');
+        } finally { st.busy = false; if (!S.loggedIn) { upd(); } }
+      });
+    };
+    upd();
+    return h('div', { class: 'screen authwrap' },
+      h('div', { class: 'row' }, U.iconBtn('ChevronLeft', 'Voltar', function () { st.confirm = false; L.render(); }),
+        h('span', { class: 'logo' }, ic('AudioLines', 20)), h('span', { class: 'brand' }, 'Louvor Studio')),
+      h('div', { style: { height: '12px' } }),
+      U.title('Confirme seu e-mail', 'Mandamos um código de 6 números para ' + st.email.trim() + '. Olhe também a caixa de spam.'),
+      U.field(st.code || '', 'Código do e-mail', function (v) { st.code = v.replace(/\D/g, '').slice(0, 8); upd(); }, { inputmode: 'numeric', autocomplete: 'one-time-code' }),
+      go,
+      h('button', { class: 'textbtn', style: { width: '100%' }, onclick: function () {
+        L.run(async function () { L.must(await sb.auth.resend({ type: 'signup', email: st.email.trim() })); L.toast('Código novo enviado.'); });
+      } }, 'Mandar outro código'));
+  }
 
   /** Esqueci a senha: código de 6 números no e-mail, depois a senha nova. */
   A.forgot = function (initial) {
@@ -60,7 +95,7 @@
         if (!st.sent) return [U.body('Vamos mandar um código de 6 números para o seu e-mail.', null, 13), U.field(st.email, 'E-mail', function (v) { st.email = v; }, { type: 'email' })];
         return [U.body('Mandamos um código para ' + st.email + '. Ele vale por 1 hora. Olhe também a caixa de spam.', null, 13),
           U.field(st.code, 'Código do e-mail', function (v) { st.code = v.replace(/\D/g, '').slice(0, 8); }, { inputmode: 'numeric' }),
-          U.field(st.pass, 'Senha nova (mín. 6)', function (v) { st.pass = v; }, { type: 'password', autocomplete: 'new-password' })];
+          U.field(st.pass, 'Senha nova (mín. ' + L.MIN_PASS + ')', function (v) { st.pass = v; }, { type: 'password', autocomplete: 'new-password' })];
       },
       actions: function (close) {
         return [h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar'),
@@ -73,6 +108,7 @@
                   L.must(await sb.auth.resetPasswordForEmail(st.email.trim()));
                   st.sent = true; dlg.rebuild();
                 } else {
+                  if (st.pass.length < L.MIN_PASS) { L.toast('A senha nova precisa ter pelo menos ' + L.MIN_PASS + ' caracteres.'); return; }
                   L.must(await sb.auth.verifyOtp({ email: st.email.trim(), token: st.code.trim(), type: 'recovery' }));
                   L.must(await sb.auth.updateUser({ password: st.pass }));
                   close();

@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.17.0', [
+      'Mais segurança: senha nova com pelo menos 8 caracteres, e a conta nova confirma o e-mail com um código de 6 números (assim ninguém cria conta com o seu e-mail).'
+    ]],
     ['1.16.0', [
       'Mensagem lida não volta mais a aparecer como nova, e o que você lê aqui também conta como lido no app (e o contrário).',
       'O número da aba Escalas some depois que você abre a escala. Boas-vindas e parabéns vão uma vez só, de qualquer aparelho.',

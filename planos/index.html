@@ -2,6 +2,9 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<!-- Segurança: o navegador só roda código e só fala com os endereços abaixo (ver docs/SEGURANCA.md). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://mryuqpnkdkmmhmqrjixy.supabase.co https://*.r2.cloudflarestorage.com https://img.youtube.com https://i.ytimg.com; media-src 'self' blob: https://mryuqpnkdkmmhmqrjixy.supabase.co https://*.r2.cloudflarestorage.com; connect-src 'self' https://mryuqpnkdkmmhmqrjixy.supabase.co wss://mryuqpnkdkmmhmqrjixy.supabase.co https://*.r2.cloudflarestorage.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; frame-src https://www.youtube-nocookie.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050B12">
 <meta name="description" content="Planos do Louvor Studio: tem plano grátis. Todos os recursos em todos os planos; muda só o tamanho da banda e o espaço para as músicas.">
@@ -15,6 +18,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js" integrity="sha384-rwykjmWNwVxboyFmvK9OXN0wj9hnMHA2aAHtits54DuACyCq0M2PrSNxhRb+hvXT" crossorigin="anonymous"></script>
 <script defer src="../config.js"></script>
 <script defer src="../js/planos.js"></script>
+<script defer src="pagina.js"></script>
 </head>
 <body>
 <div class="site planos-page">
@@ -35,12 +39,5 @@
     <span>© 2026 Louvor Studio</span>
   </div></footer>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  // ?atual=banda (vem do app): marca o plano que a banda já tem.
-  var q = new URLSearchParams(location.search);
-  document.getElementById('conteudo').appendChild(LSPlanos.secao({ comecar: '../?criar=1', atual: q.get('atual') || null }));
-});
-</script>
 </body>
 </html>

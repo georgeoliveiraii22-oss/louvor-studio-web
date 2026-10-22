@@ -282,12 +282,18 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { t.remove(); }, 4000);
   };
+  /** Senha mínima para contas novas e senhas trocadas (as antigas, de 6, continuam entrando). */
+  L.MIN_PASS = 8;
   L.errorText = function (e) {
     var m = (e && (e.message || e.error_description || e.msg)) || String(e || 'Erro inesperado.');
     if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Sem internet. Tente de novo quando tiver conexão.';
     if (/Invalid login credentials/i.test(m)) return 'E-mail ou senha errados.';
     if (/User already registered/i.test(m)) return 'Já existe uma conta com este e-mail. Toque em Entrar.';
-    if (/Password should be at least/i.test(m)) return 'A senha precisa ter pelo menos 6 caracteres.';
+    if (/Password should be at least/i.test(m)) return 'A senha é curta demais: use pelo menos ' + L.MIN_PASS + ' caracteres.';
+    if (/Password should contain|weak_password/i.test(m)) return 'Senha fraca: misture letras e números (e não use uma senha conhecida).';
+    if (/Email not confirmed/i.test(m)) return 'Confirme seu e-mail antes de entrar.';
+    if (/Token has expired|otp_expired|is invalid/i.test(m)) return 'Código errado ou vencido. Confira o e-mail ou peça um código novo.';
+    if (/rate limit|security purposes/i.test(m)) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
     if (/row-level security|permission denied/i.test(m)) return 'Você não tem permissão para fazer isso.';
     return m;
   };

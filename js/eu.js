@@ -231,9 +231,9 @@
       });
     }, { full: true, disabled: P.busy }));
     root.appendChild(U.panel('Senha', 'Lock',
-      U.field('', 'Nova senha (mín. 6)', function (v) { P.pass = v; }, { type: 'password', autocomplete: 'new-password' }),
+      U.field('', 'Nova senha (mín. ' + L.MIN_PASS + ')', function (v) { P.pass = v; }, { type: 'password', autocomplete: 'new-password' }),
       U.btn2('Trocar senha', 'ShieldCheck', function () {
-        if (P.pass.length < 6) { L.toast('A senha precisa ter pelo menos 6 caracteres.'); return; }
+        if (P.pass.length < L.MIN_PASS) { L.toast('A senha precisa ter pelo menos ' + L.MIN_PASS + ' caracteres.'); return; }
         L.run(async function () { L.must(await sb.auth.updateUser({ password: P.pass })); P.pass = ''; L.toast('Senha alterada.'); L.render(); });
       })));
     return root;

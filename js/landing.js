@@ -284,9 +284,11 @@
   var REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
   var EASE_CSS = 'cubic-bezier(0.23, 1, 0.32, 1)';
   var EASE_MOVE = 'cubic-bezier(0.77, 0, 0.175, 1)';
+  // Cada biblioteca da CDN vem com a impressão digital (SRI): se o arquivo lá fora for trocado, o navegador
+  // recusa e o efeito é feito do jeito simples. Ao subir a versão, gerar o hash de novo (sha384).
   var LIBS = {
-    rough: 'https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.js',
-    confetti: 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.js'
+    rough: ['https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.js', 'sha384-1NLkwxMO2sOqcq7rQkFBhIAUJtbt8ziLxhVKVgKfFGMEU8pF+GEq5LVogviveup6'],
+    confetti: ['https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.js', 'sha384-/Ko/tqVwPYurnBe+Mj8WWw+39WmyOZn/kU+neqXn4hRxGI575k07mB/hIekAT51+']
   };
   var libLoads = {};
   /** Carrega uma biblioteca uma vez só; sem ela, o efeito é feito do jeito simples. */
@@ -295,7 +297,7 @@
     if (!libLoads[name]) {
       libLoads[name] = new Promise(function (resolve) {
         var s = document.createElement('script');
-        s.src = LIBS[name]; s.async = true;
+        s.src = LIBS[name][0]; s.integrity = LIBS[name][1]; s.crossOrigin = 'anonymous'; s.async = true;
         s.onload = function () { resolve(window[name] || null); };
         s.onerror = function () { resolve(null); };
         document.head.appendChild(s);
@@ -1214,6 +1216,7 @@
   // de cada recurso entrando um de cada vez, profundidade na rolagem e as listas em sequência.
   // Quem pede menos animação vê os aparelhos já no ângulo, sem movimento. Tudo roda uma vez só.
   var MOTION_URL = 'https://cdn.jsdelivr.net/npm/motion@11.18.2/dist/motion.js';
+  var MOTION_SRI = 'sha384-lFfU+kVPBF9H3h8c1O+KQNuTRX7dilL8RZiy/kxQiYulHvYCHv4z+eba37GD2qTC';
   var EASE_OUT = [0.23, 1, 0.32, 1];
   var motionLoad = null;
   function loadMotion() {
@@ -1221,7 +1224,7 @@
     if (!motionLoad) {
       motionLoad = new Promise(function (resolve, reject) {
         var s = document.createElement('script');
-        s.src = MOTION_URL; s.async = true;
+        s.src = MOTION_URL; s.integrity = MOTION_SRI; s.crossOrigin = 'anonymous'; s.async = true;
         s.onload = function () { window.Motion ? resolve(window.Motion) : reject(new Error('motion')); };
         s.onerror = function () { motionLoad = null; reject(new Error('motion')); };
         document.head.appendChild(s);
