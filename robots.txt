@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /painel/
+
+Sitemap: https://louvorstudio.app.br/sitemap.xml
