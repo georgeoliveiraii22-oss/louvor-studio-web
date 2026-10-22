@@ -3,10 +3,9 @@
   'use strict';
   var L = window.L, S = L.S, h = L.h, ic = L.ic, U = L.ui, D = L.data, sb = L.sb;
   var A = L.auth = {};
-  // Entrar com o Google: DESLIGADO enquanto o Google não libera o projeto (bloqueio automático de 22/10/2026,
-  // "violação dos Termos de Serviço" no projeto louvor-studio, cliente OAuth desativado). Quando liberar, troque para true,
-  // suba a versão do site e publique. O código do botão e o teste (steps-google.js) já estão prontos.
-  var GOOGLE_LOGIN = false;
+  // Entrar com o Google. Interruptor: se o Google bloquear o projeto de novo (aconteceu em 22/10/2026 e foi liberado no mesmo
+  // dia), troque para false, suba a versão do site e publique: o botão some e o resto continua igual.
+  var GOOGLE_LOGIN = true;
 
   // A página de entrada (antes de entrar) fica em landing.js.
 
