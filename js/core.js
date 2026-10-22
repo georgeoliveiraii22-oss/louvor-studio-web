@@ -292,6 +292,7 @@
     if (/Password should be at least/i.test(m)) return 'A senha é curta demais: use pelo menos ' + L.MIN_PASS + ' caracteres.';
     if (/Password should contain|weak_password/i.test(m)) return 'Senha fraca: misture letras e números (e não use uma senha conhecida).';
     if (/Email not confirmed/i.test(m)) return 'Confirme seu e-mail antes de entrar.';
+    if (/provider is not enabled|Unsupported provider/i.test(m)) return 'Entrar com o Google ainda não está disponível. Use o e-mail e a senha.';
     if (/Token has expired|otp_expired|is invalid/i.test(m)) return 'Código errado ou vencido. Confira o e-mail ou peça um código novo.';
     if (/rate limit|security purposes/i.test(m)) return 'Muitas tentativas seguidas. Espere um minuto e tente de novo.';
     if (/row-level security|permission denied/i.test(m)) return 'Você não tem permissão para fazer isso.';

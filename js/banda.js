@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.18.0', [
+      'Dá para entrar e criar a conta com o Google, no site (o app Android vem depois).'
+    ]],
     ['1.17.1', [
       'Novas páginas de Privacidade, Termos de Uso, Cookies e Segurança, em português simples (no rodapé do site e em Eu).'
     ]],

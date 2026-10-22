@@ -1333,3 +1333,11 @@ button.partchip { background: none; font-family: inherit; }
 .consent a, .legal-links a { color: var(--accent-light); text-decoration: underline; text-decoration-color: rgba(99, 212, 255, 0.45); text-underline-offset: 3px; }
 .consent { line-height: 1.5; }
 .legal-links { gap: 8px 16px; font-size: 13.5px; }
+
+/* Entrar com o Google */
+.gbtn { gap: 12px; background: #F5FAFF; color: #1F2933; font-weight: 600; box-shadow: none; }
+.gbtn .glogo { display: inline-flex; width: 20px; height: 20px; flex: none; }
+.gbtn:active { transform: scale(0.98); }
+@media (hover: hover) and (pointer: fine) { .gbtn:hover { background: #FFFFFF; } }
+.ou { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
+.ou::before, .ou::after { content: ""; flex: 1; height: 1px; background: var(--line); }
