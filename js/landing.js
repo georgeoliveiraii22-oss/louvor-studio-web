@@ -212,8 +212,9 @@
 
     var demo = h('section', { class: 'demo', id: 'ouvir' }, h('div', { class: 'wrap' },
       h('h2', null, 'Ouça cada instrumento separado.'),
-      h('p', { class: 'note2' }, 'Toque no botão: é uma música de exemplo feita aqui mesmo no navegador. Silencie, deixe só um instrumento, mude o volume e repita uma parte, como no estúdio do app.'),
-      mixer()));
+      h('p', { class: 'note2' }, 'Toque no botão: é um trecho de uma música de verdade, com as faixas separadas. Silencie, deixe só um instrumento, mude o volume e repita uma parte, como no estúdio do app.'),
+      mixer(),
+      h('p', { class: 'credit' }, 'Trecho de “Lá Vou Eu”, do Discopraise.')));
 
     var feats = h('section', { class: 'feats', id: 'recursos' }, h('div', { class: 'wrap', style: { display: 'flex', flexDirection: 'column', gap: 'inherit' } },
       feat('Ensaie com a banda inteira, em casa.',
@@ -987,22 +988,47 @@
     return canvas;
   }
 
-  // ------------------------------------------------------------------ Mixer de exemplo (Web Audio, sem arquivos)
-  // 8 compassos em Sol, 84 BPM: Verso (G D Em C) e Refrão (C G D Em). Quatro faixas sintetizadas.
-  var BPM = 84, BEAT = 60 / BPM, BAR = BEAT * 4;
+  // ------------------------------------------------------------------ Mixer de exemplo (Web Audio, trecho real)
+  // 8 compassos (13 s) de "Lá Vou Eu", do Discopraise (Ré menor, 144 BPM), com 5 faixas separadas em
+  // mobile/audio/exemplo/*.mp3 (cada uma ~190 KB, ~1 MB no total). Verso = os 4 primeiros compassos (mais
+  // leve, o baixo fica de fora); Refrão = os 4 últimos (tudo tocando). O trecho vai do compasso 41 ao 48.
+  // Só baixa quando a seção chega perto da tela ou quando a pessoa toca em Tocar.
+  var SONG = { title: 'Lá Vou Eu (trecho)', info: 'Ré menor · 144 BPM · Discopraise', bars: 8, base: 'audio/exemplo/' };
   var PARTS = [{ name: 'Verso', from: 0, to: 4, color: '#6CC4B0' }, { name: 'Refrão', from: 4, to: 8, color: '#E9A863' }];
-  var CHORDS = [[55, 59, 62], [54, 57, 62], [52, 55, 59], [52, 55, 60], [52, 55, 60], [55, 59, 62], [54, 57, 62], [52, 55, 59]];
-  var ROOTS = [43, 38, 40, 36, 36, 43, 38, 40];
-  var MELODY = [[71, 69, 67, 69], [69, 66, 62, 66], [67, 66, 64, 62], [64, 67, 72, 71], [72, 71, 72, 74], [74, 71, 67, 71], [69, 74, 73, 74], [71, 69, 67, 66]];
-  var LANES = [['bateria', 'Bateria', 'Drum'], ['baixo', 'Baixo', 'Guitar'], ['teclado', 'Teclado', 'Piano'], ['melodia', 'Melodia', 'Mic']];
+  // (A faixa de piano dessa multitrack é só ruído de fundo, por isso não entra.)
+  var LANES = [['bateria', 'Bateria', 'Drum'], ['baixo', 'Baixo', 'Guitar'], ['guitarra', 'Guitarras', 'Guitar'],
+    ['outros', 'Outros', 'AudioWaveform'], ['voz', 'Voz', 'Mic']];
+  var XFADE = 0.012;   // cruzamento de 12 ms ao voltar ao começo (sem estalo)
   var D = null; // estado do mixer
+  var songRaw = null, songBuf = null;   // arquivos baixados e já decodificados (valem para as próximas vezes)
 
-  function freq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
   function demoLevel() { return D && D.playing ? Math.min(1, D.level) : 0; }
+
+  function fetchSong() {
+    if (!songRaw) {
+      songRaw = Promise.all(LANES.map(function (l) {
+        return fetch(SONG.base + l[0] + '.mp3').then(function (r) { if (!r.ok) throw new Error('audio ' + r.status); return r.arrayBuffer(); });
+      })).catch(function (e) { songRaw = null; throw e; });
+    }
+    return songRaw;
+  }
+  function decodeSong(ctx) {
+    if (songBuf) return Promise.resolve(songBuf);
+    return fetchSong().then(function (raws) {
+      return Promise.all(raws.map(function (ab) {
+        return new Promise(function (ok, no) { var p = ctx.decodeAudioData(ab.slice(0), ok, no); if (p && p.then) p.then(ok, no); });
+      }));
+    }).then(function (list) {
+      songBuf = {};
+      LANES.forEach(function (l, i) { songBuf[l[0]] = list[i]; });
+      return songBuf;
+    });
+  }
 
   function stopDemo() {
     if (!D) return;
     D.playing = false;
+    D.loading = false;
     clearInterval(D.timer);
     if (D.ctx) { try { D.ctx.close(); } catch (e) { /* já fechado */ } }
     D.ctx = null;
@@ -1010,14 +1036,14 @@
   }
 
   function mixer() {
-    var st = D = { playing: false, ctx: null, vol: {}, mute: {}, solo: {}, loop: null, bar: 0, level: 0, ui: null };
+    var st = D = { playing: false, loading: false, ctx: null, vol: {}, mute: {}, solo: {}, loop: null, bar: 0, level: 0, ui: null, live: [], segs: [], nextT: 0, hold: {} };
     LANES.forEach(function (l) { st.vol[l[0]] = 0.8; });
     var playBtn = h('button', { class: 'playbig', 'aria-label': 'Tocar a música de exemplo', onclick: toggle }, ic('Play', 26));
-    var where = h('span', null, 'Sol · 84 BPM · feita aqui no navegador');
+    var where = h('span', null, SONG.info);
     var partBtns = PARTS.map(function (p) {
       return h('button', { style: { flex: (p.to - p.from) + ' 1 0', background: p.color }, 'aria-pressed': 'false', onclick: function () {
         st.loop = st.loop === p ? null : p;
-        if (st.loop && st.playing) jumpTo(p.from);
+        if (st.playing) jumpTo(st.loop ? st.loop.from : st.bar);
         refresh();
       } }, p.name);
     });
@@ -1034,17 +1060,18 @@
       return lane;
     });
     var root = h('div', { class: 'mixer' },
-      h('div', { class: 'head' }, playBtn, h('div', { class: 'song' }, h('b', null, 'Música de exemplo'), where),
+      h('div', { class: 'head' }, playBtn, h('div', { class: 'song' }, h('b', null, SONG.title), where),
         h('button', { class: 'btn2', style: { minHeight: '44px' }, onclick: function () { goEntry('criar'); } }, 'Usar com a minha banda')),
       h('div', { class: 'parts', role: 'group', 'aria-label': 'Partes: toque para repetir' }, partBtns),
       h('div', { class: 'lanes' }, lanes));
 
     function refresh() {
-      playBtn.replaceChildren(ic(st.playing ? 'Pause' : 'Play', 26));
-      playBtn.setAttribute('aria-label', st.playing ? 'Pausar' : 'Tocar a música de exemplo');
+      playBtn.replaceChildren(ic(st.loading ? 'Loader' : st.playing ? 'Pause' : 'Play', 26));
+      playBtn.setAttribute('aria-label', st.loading ? 'Carregando o áudio' : st.playing ? 'Pausar' : 'Tocar a música de exemplo');
+      playBtn.setAttribute('aria-busy', st.loading ? 'true' : 'false');
       partBtns.forEach(function (b, i) { var on = st.loop === PARTS[i] || (!st.loop && st.playing && st.bar >= PARTS[i].from && st.bar < PARTS[i].to); b.classList.toggle('on', on); b.setAttribute('aria-pressed', st.loop === PARTS[i] ? 'true' : 'false'); });
       lanes.forEach(function (ln) { ln._m.classList.toggle('m', !!st.mute[ln._k]); ln._m.setAttribute('aria-pressed', st.mute[ln._k] ? 'true' : 'false'); ln._s.classList.toggle('s', !!st.solo[ln._k]); ln._s.setAttribute('aria-pressed', st.solo[ln._k] ? 'true' : 'false'); });
-      where.textContent = st.loop ? 'Repetindo: ' + st.loop.name + ' · toque de novo para soltar' : 'Sol · 84 BPM · feita aqui no navegador';
+      where.textContent = st.loading ? 'Carregando o áudio…' : st.loop ? 'Repetindo: ' + st.loop.name + ' · toque de novo para soltar' : SONG.info;
     }
     st.ui = { refresh: refresh };
 
@@ -1054,90 +1081,98 @@
       return st.mute[k] ? 0 : st.vol[k];
     }
     function apply() {
-      if (!st.ctx) return;
+      if (!st.ctx || !st.bus) return;
       LANES.forEach(function (l) { st.bus[l[0]].gain.setTargetAtTime(gainFor(l[0]) * 1.1, st.ctx.currentTime, 0.02); });
     }
 
     function toggle() {
-      if (st.playing) { stopDemo(); return; }
+      if (st.playing || st.loading) { stopDemo(); return; }
       var Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) { L.toast('Este navegador não toca áudio.'); return; }
       var ctx = st.ctx = new Ctx();
-      var master = ctx.createDynamicsCompressor();
-      master.connect(ctx.destination);
-      st.bus = {}; st.an = {};
-      LANES.forEach(function (l) {
-        var g = ctx.createGain(), an = ctx.createAnalyser();
-        an.fftSize = 256; g.connect(an); an.connect(master);
-        st.bus[l[0]] = g; st.an[l[0]] = an;
-      });
-      st.noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-      var data = st.noise.getChannelData(0);
-      for (var i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-      apply();
-      st.playing = true;
-      jumpTo(st.loop ? st.loop.from : 0);
-      st.timer = setInterval(schedule, 25);
-      meter();
+      try { ctx.resume(); } catch (e) { /* o navegador libera no toque */ }   // dentro do toque, para o iPhone deixar tocar
+      st.loading = true;
       refresh();
+      decodeSong(ctx).then(function (bufs) {
+        if (st.ctx !== ctx) return;   // pausou ou saiu enquanto carregava
+        st.bufs = bufs;
+        st.barSec = bufs.bateria.duration / SONG.bars;
+        var master = ctx.createDynamicsCompressor();
+        master.connect(ctx.destination);
+        st.bus = {}; st.an = {};
+        LANES.forEach(function (l) {
+          var g = ctx.createGain(), an = ctx.createAnalyser();
+          an.fftSize = 256; g.connect(an); an.connect(master);
+          st.bus[l[0]] = g; st.an[l[0]] = an;
+        });
+        apply();
+        st.loading = false;
+        st.playing = true;
+        st.segs = []; st.live = [];
+        var r = segRange();
+        st.nextT = ctx.currentTime + 0.06;
+        playSegment(r[0], r[1], st.nextT);
+        st.nextT += (r[1] - r[0]) * st.barSec;
+        st.timer = setInterval(schedule, 25);
+        meter();
+        refresh();
+      }, function () {
+        if (st.ctx !== ctx) return;
+        stopDemo();
+        L.toast('Não deu para carregar a música de exemplo. Confira a internet e tente de novo.');
+      });
     }
 
-    function jumpTo(bar) { st.nextBeat = bar * 4; st.nextTime = st.ctx.currentTime + 0.06; }
-
+    // Um trecho (compassos from..to) de todas as faixas juntas, começando em `when`. Toca um pouquinho a mais
+    // (12 ms) com o final sumindo, enquanto o próximo trecho entra: a volta ao começo não estala.
+    function segRange() { return st.loop ? [st.loop.from, st.loop.to] : [0, SONG.bars]; }
+    function playSegment(from, to, when) {
+      var ctx = st.ctx, dur = (to - from) * st.barSec, off = from * st.barSec;
+      LANES.forEach(function (l) {
+        var src = ctx.createBufferSource(), g = ctx.createGain();
+        src.buffer = st.bufs[l[0]];
+        g.gain.setValueAtTime(0, when);
+        g.gain.linearRampToValueAtTime(1, when + XFADE);
+        g.gain.setValueAtTime(1, when + dur);
+        g.gain.linearRampToValueAtTime(0, when + dur + XFADE);
+        src.connect(g); g.connect(st.bus[l[0]]);
+        src.start(when, off, dur + XFADE);
+        st.live.push({ src: src, g: g, end: when + dur + XFADE });
+      });
+      st.segs.push({ t0: when, from: from, dur: dur });
+    }
     function schedule() {
       if (!root.isConnected) { stopDemo(); return; }
       var ctx = st.ctx;
-      while (st.nextTime < ctx.currentTime + 0.15) {
-        var beat = st.nextBeat, bar = Math.floor(beat / 4) % 8, b = beat % 4, t = st.nextTime;
-        var chorus = bar >= 4;
-        // Bateria
-        if (b === 0 || (chorus && b === 2)) kick(t);
-        if (b === 1 || b === 3) snare(t, chorus ? 0.5 : 0.3);
-        hat(t, 0.12); hat(t + BEAT / 2, 0.07);
-        // Baixo
-        tone('baixo', 'triangle', freq(ROOTS[bar]), t, BEAT * (b === 0 ? 1.5 : 0.9), b === 0 || b === 2 ? 0.42 : 0, 700);
-        if (b === 3) tone('baixo', 'triangle', freq(ROOTS[bar] + 7), t + BEAT / 2, BEAT * 0.45, 0.3, 700);
-        // Teclado (acorde no começo do compasso)
-        if (b === 0) CHORDS[bar].forEach(function (m) { tone('teclado', 'triangle', freq(m), t, BAR * 0.98, 0.07, 2400, 0.04); tone('teclado', 'sine', freq(m + 12), t, BAR * 0.7, 0.03, 3000, 0.02); });
-        // Melodia
-        tone('melodia', 'sawtooth', freq(MELODY[bar][b]), t, BEAT * 0.92, 0.06, 1800, 0.02, true);
-        st.bar = bar;
-        st.nextTime += BEAT;
-        st.nextBeat++;
-        // Fim da parte repetida (ou da música): volta.
-        var nb = Math.floor(st.nextBeat / 4);
-        if (st.loop && st.nextBeat % 4 === 0 && (nb >= st.loop.to || nb < st.loop.from)) st.nextBeat = st.loop.from * 4;
-        else if (st.nextBeat >= 32) st.nextBeat = 0;
+      if (!ctx || !st.playing) return;
+      while (st.nextT < ctx.currentTime + 0.25) {
+        var r = segRange();
+        playSegment(r[0], r[1], st.nextT);
+        st.nextT += (r[1] - r[0]) * st.barSec;
       }
+      st.live = st.live.filter(function (x) { return x.end > ctx.currentTime; });
+      while (st.segs.length > 2 && st.segs[1].t0 < ctx.currentTime) st.segs.shift();
     }
-
-    function env(g, t, peak, dur, attack) {
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + (attack || 0.005));
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    // Pular para um compasso (ao trocar de parte, ou ao soltar a repetição): corta o que estava tocando.
+    function jumpTo(bar) {
+      var ctx = st.ctx, now = ctx.currentTime;
+      st.live.forEach(function (x) {
+        try { x.g.gain.cancelScheduledValues(now); x.g.gain.setValueAtTime(x.g.gain.value, now); x.g.gain.linearRampToValueAtTime(0, now + XFADE); x.src.stop(now + XFADE + 0.01); } catch (e) { /* já parou */ }
+      });
+      st.live = []; st.segs = [];
+      var r = segRange(), from = st.loop ? r[0] : bar;
+      var when = now + 0.03;
+      playSegment(from, r[1], when);
+      st.nextT = when + (r[1] - from) * st.barSec;
     }
-    function tone(lane, type, f, t, dur, peak, cutoff, attack, vibrato) {
-      if (!peak) return;
-      var ctx = st.ctx, o = ctx.createOscillator(), flt = ctx.createBiquadFilter(), g = ctx.createGain();
-      o.type = type; o.frequency.value = f;
-      if (vibrato) { var lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 5; lg.gain.value = f * 0.006; lfo.connect(lg); lg.connect(o.frequency); lfo.start(t); lfo.stop(t + dur + 0.05); }
-      flt.type = 'lowpass'; flt.frequency.value = cutoff || 2000;
-      o.connect(flt); flt.connect(g); g.connect(st.bus[lane]);
-      env(g, t, peak, dur, attack);
-      o.start(t); o.stop(t + dur + 0.05);
+    function currentBar() {
+      var ctx = st.ctx;
+      if (!ctx) return 0;
+      var now = ctx.currentTime, seg = null;
+      for (var i = 0; i < st.segs.length; i++) if (st.segs[i].t0 <= now) seg = st.segs[i];
+      if (!seg) return st.bar;
+      return Math.min(SONG.bars - 1, seg.from + Math.max(0, Math.floor((now - seg.t0) / st.barSec)));
     }
-    function kick(t) {
-      var ctx = st.ctx, o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.14);
-      o.connect(g); g.connect(st.bus.bateria); env(g, t, 0.9, 0.38); o.start(t); o.stop(t + 0.4);
-    }
-    function noise(t, peak, dur, hp) {
-      var ctx = st.ctx, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-      s.buffer = st.noise; f.type = 'highpass'; f.frequency.value = hp;
-      s.connect(f); f.connect(g); g.connect(st.bus.bateria); env(g, t, peak, dur); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
-    }
-    function snare(t, peak) { noise(t, peak, 0.2, 1400); var ctx = st.ctx, o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = 190; o.connect(g); g.connect(st.bus.bateria); env(g, t, peak * 0.5, 0.1); o.start(t); o.stop(t + 0.12); }
-    function hat(t, peak) { noise(t, peak, 0.05, 7500); }
 
     var buf = new Uint8Array(128);
     function meter() {
@@ -1146,16 +1181,27 @@
       LANES.forEach(function (l) {
         var an = st.an[l[0]]; an.getByteTimeDomainData(buf);
         var peak = 0; for (var i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i] - 128));
-        var v = Math.min(1, peak / 70);
+        // Escala que também mostra sons contínuos (voz, guitarras) e cai devagar, sem piscar entre as sílabas.
+        var v = Math.max(Math.min(1, Math.sqrt(peak / 128) * 1.15), (st.hold[l[0]] || 0) * 0.9);
+        st.hold[l[0]] = v;
         meters[l[0]].style.height = Math.round(v * 100) + '%';
         total += v;
       });
-      st.level = st.level * 0.8 + Math.min(1, total / 2) * 0.2;
+      st.level = st.level * 0.8 + Math.min(1, total / 3) * 0.2;
+      st.bar = currentBar();
       if (!st.loop) refreshParts();
       requestAnimationFrame(meter);
     }
     var lastBar = -1;
     function refreshParts() { if (st.bar !== lastBar) { lastBar = st.bar; refresh(); } }
+
+    // Baixa o áudio um pouco antes de a pessoa chegar na seção (1 MB), para o Tocar responder na hora.
+    if ('IntersectionObserver' in window) {
+      var seen = new IntersectionObserver(function (es) {
+        if (es.some(function (e) { return e.isIntersecting; })) { seen.disconnect(); fetchSong().catch(function () { /* tenta de novo no Tocar */ }); }
+      }, { rootMargin: '600px 0px' });
+      seen.observe(root);
+    }
 
     refresh();
     return root;

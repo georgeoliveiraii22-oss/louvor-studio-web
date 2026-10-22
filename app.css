@@ -802,6 +802,7 @@ button.partchip { background: none; font-family: inherit; }
 .mixer .parts button.on { opacity: 1; }
 .mixer .lanes { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .mixer .lane { display: flex; align-items: center; gap: 10px; background: var(--control); border-radius: 16px; padding: 8px 12px; }
+.mixer .lanes .lane:last-child:nth-child(odd) { grid-column: 1 / -1; }   /* número ímpar de faixas: a última ocupa a linha toda */
 .mixer .lane svg { color: var(--muted); }
 .mixer .lane .nm { width: 86px; font-weight: 600; color: var(--hi); font-size: 14px; }
 .mixer .lane .mini { width: 34px; height: 34px; border-radius: 10px; background: var(--sel); }
@@ -809,6 +810,8 @@ button.partchip { background: none; font-family: inherit; }
 .mixer .lane .mini.s { background: var(--accent); }
 .mixer .meter { width: 6px; height: 28px; border-radius: 3px; background: rgba(220, 232, 242, 0.1); overflow: hidden; display: flex; align-items: flex-end; flex: none; }
 .mixer .meter i { display: block; width: 100%; height: 0; background: var(--accent-light); border-radius: 3px; }
+.demo .credit { margin-top: 12px; font-size: 12.5px; color: var(--muted); text-align: center; }
+.mixer .playbig[aria-busy="true"] svg { animation: spin 900ms linear infinite; }
 
 /* Como funciona: a ordem importa, por isso tem número */
 .how { padding: 72px 0 24px; }
