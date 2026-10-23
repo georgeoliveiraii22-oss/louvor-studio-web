@@ -316,8 +316,8 @@
     if (!Ed || Ed.id !== (r.id || null)) {
       Ed = { id: r.id || null, title: p ? p.song_title : '', artist: p ? p.artist || '' : '', link: p ? p.version_url || '' : '', key: p ? p.musical_key || '' : '',
         bandKey: p ? p.band_key || '' : '', bpm: p && p.bpm ? String(p.bpm) : '', sig: p ? p.time_signature || '' : '', chart: p ? p.chart_url || '' : '',
-        note: p ? p.leader_note || '' : '', lyrics: p ? p.lyrics || '' : '', cover: null, coverUrl: null, stems: [], tracks: null, busy: false, progress: null, taps: [] };
-      if (p) sb.from('tracks').select('id').eq('project_id', p.id).then(function (res) { if (Ed && Ed.id === p.id) { Ed.tracks = (res.data || []).length; L.render(); } });
+        note: p ? p.leader_note || '' : '', lyrics: p ? p.lyrics || '' : '', cover: null, coverUrl: null, stems: [], tracks: null, cloud: null, hidden: {}, prev: null, busy: false, progress: null, taps: [] };
+      if (p) loadCloud(Ed);
     }
     var e = Ed;
     function linkOk(s) { return !s.trim() || /^https?:\/\/\S+$/i.test(s.trim()); }
@@ -328,12 +328,13 @@
     var saveBtn = U.btn(e.busy ? 'Salvando…' : p ? 'Salvar' : 'Adicionar ao repertório', 'Check', save, { full: true, tall: true, disabled: !valid || e.busy });
     function setVal(k) { return function (v) { e[k] = v; var bn = parseInt(e.bpm, 10); saveBtn.disabled = e.busy || !(e.title.trim() && linkOk(e.link) && linkOk(e.chart) && (!e.bpm || (bn >= 20 && bn <= 300))); }; }
 
+    var cloudList = e.cloud ? cloudVisible(e).map(function (t) { return cloudRow(e, p, t); }) : [];
     var stemsList = h('div', { class: 'col' }, e.stems.map(function (f, i) {
       return h('div', { class: 'row' }, ic('FileAudio', 16, 'muted'), h('span', { class: 'grow ell small' }, f.name), h('span', { class: 'muted small' }, L.bytes(f.size)),
         U.iconBtn('X', 'Tirar', function () { e.stems.splice(i, 1); L.render(); }, { color: 'var(--muted)', disabled: e.busy }));
     }));
     return h('div', { class: 'screen' },
-      U.topRow(p ? 'Editar música' : 'Adicionar música', null, null, function () { if (!e.busy) { Ed = null; L.back(); } }),
+      U.topRow(p ? 'Editar música' : 'Adicionar música', null, null, function () { if (!e.busy) { dropEd(); L.back(); } }),
       h('div', { class: 'row', style: { gap: '14px' } }, coverEl, h('div', { class: 'col' },
         U.btn2('Escolher capa', 'Camera', function () {
           U.pickSquareJpeg(600).then(function (b) { if (b) { e.cover = b; e.coverUrl = URL.createObjectURL(b); L.render(); } }).catch(function (x) { L.toast(L.errorText(x)); });
@@ -357,19 +358,15 @@
       U.field(e.note, 'Recado para a banda (opcional)', setVal('note'), { multiline: true, rows: 2, max: 500 }),
       U.field(e.lyrics, 'Letra (opcional). Use [Verso], [Refrão]… para as partes', setVal('lyrics'), { multiline: true, rows: 6, max: 20000 }),
       U.panel('Multitrack (opcional)', 'AudioWaveform',
-        e.tracks ? h('div', { class: 'row' }, U.neon('AudioWaveform', true, ''), h('span', { class: 'hi' }, e.tracks + ' faixas na nuvem')) : null,
-        U.body(e.tracks ? 'Dá para acrescentar mais faixas (mesma taxa e duração das que já estão).' : 'Sem multitrack a música fica só com link, tom e BPM. Para ensaiar, envie as faixas separadas (até 12): MP3, M4A, WAV ou FLAC. O que não for MP3 de bitrate constante é convertido no aparelho.', 'var(--muted)', 12),
-        stemsList,
-        U.btn2(e.stems.length ? 'Escolher mais faixas' : 'Escolher as faixas', 'Upload', function () {
-          var inp = h('input', { type: 'file', accept: '.mp3,.m4a,.wav,.flac,.aif,.aiff,.ogg,audio/*', multiple: true, style: { display: 'none' } });
-          inp.onchange = function () { Array.prototype.forEach.call(inp.files, function (f) { if (!e.stems.some(function (x) { return x.name === f.name && x.size === f.size; })) e.stems.push(f); }); inp.remove(); L.render(); };
-          document.body.appendChild(inp); inp.click();
-        }, { full: true, disabled: e.busy })),
+        e.cloud && cloudVisible(e).length ? h('div', { class: 'row' }, U.neon('AudioWaveform', true, ''), h('span', { class: 'hi' }, L.plural(cloudVisible(e).length, 'faixa na nuvem', 'faixas na nuvem'))) : null,
+        cloudList.length ? h('div', { class: 'col', style: { gap: '6px' } }, cloudList) : null,
+        U.body(cloudList.length ? 'Toque em ⋯ numa faixa para renomear, trocar o arquivo ou apagar só ela. Dá para acrescentar mais (mesma taxa e duração das que já estão).' : 'Sem multitrack a música fica só com link, tom e BPM. Para ensaiar, envie as faixas separadas (até 12): MP3, M4A, WAV ou FLAC. O que não for MP3 de bitrate constante é convertido no aparelho.', 'var(--muted)', 12),
+        dropZone(e, stemsList)),
       e.progress ? [U.body(e.progress[0], null, 13), h('div', { class: 'loading-bar' }, h('i', { style: { width: Math.round(e.progress[1] * 100) + '%' } }))] : null,
       saveBtn,
       p ? h('button', { class: 'textbtn', style: { color: 'var(--bad)', width: '100%' }, disabled: e.busy, onclick: function () {
         L.confirm('Apagar ' + p.song_title + '?', 'A música sai do repertório e das escalas, com as faixas e as gravações dela. Não dá para desfazer.', 'Apagar', function () {
-          L.run(async function () { L.must(await sb.from('projects').delete().eq('id', p.id)); Nuvem.emptyTrash(sb); await D.reloadSongs(); await D.reloadServices(); Ed = null; L.toast(p.song_title + ' apagada.'); L.back(); });
+          L.run(async function () { L.must(await sb.from('projects').delete().eq('id', p.id)); Nuvem.emptyTrash(sb); await D.reloadSongs(); await D.reloadServices(); dropEd(); L.toast(p.song_title + ' apagada.'); L.back(); });
         }, true);
       } }, 'Apagar música do repertório') : null);
 
@@ -395,12 +392,21 @@
           if (p && p.cover_path) sb.storage.from('covers').remove([p.cover_path]);
         }
         if (e.stems.length) {
-          try { await uploadStems(org, pid, e.stems, e.tracks || 0, p, function (t, f) { e.progress = [t, f]; L.render(); }); }
-          catch (x) { await D.reloadSongs(); throw new Error('A música foi salva, mas a multitrack não: ' + L.errorText(x)); }
+          try { await uploadStems(org, pid, e.stems, p ? cloudVisible(e).length : 0, p, function (t, f) { e.progress = [t, f]; L.render(); }, function (left) { e.stems = left; }); }
+          catch (x) {
+            await D.reloadSongs();
+            if (!p) {   // música nova: ela já existe; segue para a edição dela, onde dá para mandar de novo as faixas que faltam
+              var why = L.errorText(x);
+              dropEd(); L.toast('A música foi salva, mas a multitrack não: ' + why + ' Escolha de novo as faixas que faltam.'); L.back(); L.go({ name: 'songedit', id: pid });
+              return;
+            }
+            loadCloud(e);
+            throw new Error('A música foi salva, mas a multitrack não: ' + L.errorText(x));
+          }
         }
         await D.reloadSongs();
         var title = e.title.trim();
-        Ed = null;
+        dropEd();
         L.toast(p ? 'Música salva.' : title + ' adicionada ao repertório.');
         L.back();
       } catch (x) {
@@ -411,7 +417,7 @@
   });
 
   /** Confere e envia a multitrack (MP3 CBR), como o painel web: cadastra, envia, o servidor confere, vira faixa. */
-  async function uploadStems(org, pid, files, existing, p, say) {
+  async function uploadStems(org, pid, files, existing, p, say, leftover) {
     if (existing + files.length > 12) throw new Error('O limite é de 12 faixas por música.');
     if (!window.crypto || !crypto.subtle) throw new Error('Este navegador não permite conferir os arquivos. Abra o site por https.');
     // O que não é MP3 CBR (M4A, WAV, FLAC, MP3 de bitrate variável ou em outra taxa) é convertido aqui.
@@ -422,15 +428,193 @@
       var min = Math.min.apply(null, items.map(function (it) { return it.scan.expectedPcmFrames; }));
       L.must(await sb.from('projects').update({ session_duration_ms: Math.max(1, Math.round(min / sr * 1000)), sample_rate: sr }).eq('id', pid));
     }
+    var made = [], failed = [];
     for (var j = 0; j < items.length; j++) {
       var it = items[j];
+      try {
       say('Enviando ' + it.file.name + ' (' + (j + 1) + ' de ' + items.length + ')…', j / items.length);
       var fileId = crypto.randomUUID();
       var key = org + '/' + pid + '/stems/' + fileId + '.mp3';
       var hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', it.buf))).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
       await Nuvem.uploadAudio(sb, { id: fileId, org_id: org, project_id: pid, object_key: key, size_bytes: it.file.size, checksum_sha256: hash, mime: 'audio/mpeg', uploaded_by: S.user.id }, it.blob);
-      L.must(await sb.from('tracks').insert({ project_id: pid, name: it.file.name.replace(/\.[^.]+$/, '').slice(0, 60), type: 'stem', source_file_id: fileId, sort_order: existing + j }));
+      made.push(L.must(await sb.from('tracks').insert({ project_id: pid, name: it.file.name.replace(/\.[^.]+$/, '').slice(0, 60), type: 'stem', source_file_id: fileId, sort_order: existing + j }).select('id').single()).id);
+      } catch (x) {
+        if (!leftover) throw x;
+        failed.push({ name: it.file.name, why: L.errorText(x) });
+      }
+    }
+    if (failed.length) {
+      // Fica na tela só o que falhou: tocar em Salvar de novo tenta de novo apenas essas.
+      leftover(files.filter(function (f) { return failed.some(function (x) { return x.name === f.name; }); }));
+      throw new Error(failed.length + (failed.length === 1 ? ' faixa não foi enviada' : ' faixas não foram enviadas') + ' (' + failed.map(function (x) { return x.name; }).join(', ') + '): ' + failed[0].why + ' Toque em Salvar para tentar de novo.');
     }
     say('Pronto!', 1);
+    return made;
+  }
+
+  // ------------------------------------------------------------------ Faixas já enviadas (editar música)
+  var AUDIO_EXT = /\.(mp3|m4a|wav|flac|aif|aiff|ogg)$/i;
+  function trimExt(n) { return String(n).replace(/\.[^.]+$/, ''); }
+  function cloudVisible(e) { return (e.cloud || []).filter(function (t) { return !e.hidden[t.id]; }); }
+  function loadCloud(e) {
+    sb.from('tracks').select('id,name,sort_order,source_file:files(id,size_bytes,object_key,bucket)').eq('project_id', e.id).order('sort_order').then(function (res) {
+      if (Ed !== e) return;
+      e.cloud = Nuvem.mark(res.data || []);
+      e.tracks = e.cloud.length;
+      L.render();
+    });
+  }
+  function stopPrev(e) { e = e || Ed; if (e && e.prev) { try { e.prev.audio.pause(); } catch (x) { /* já parou */ } e.prev = null; } }
+  function dropEd() { stopPrev(); Ed = null; }
+
+  async function preview(e, t) {
+    if (e.prev && e.prev.id === t.id) { stopPrev(e); L.render(); return; }
+    stopPrev(e);
+    try {
+      var key = t.source_file && t.source_file.object_key;
+      if (!key) throw new Error('Esta faixa não tem arquivo.');
+      var s = await Nuvem.signedUrl(sb, key, 3600);
+      if (s.error) throw s.error;
+      var a = new Audio(s.data.signedUrl);
+      a.onended = function () { if (e.prev && e.prev.audio === a) { e.prev = null; if (Ed === e) L.render(); } };
+      a.onerror = function () { if (e.prev && e.prev.audio === a) { e.prev = null; L.toast('Não deu para tocar esta faixa.'); if (Ed === e) L.render(); } };
+      e.prev = { id: t.id, audio: a };
+      await a.play();
+      L.render();
+    } catch (x) { e.prev = null; L.toast(L.errorText(x)); L.render(); }
+  }
+
+  function cloudRow(e, p, t) {
+    var playing = e.prev && e.prev.id === t.id;
+    var size = t.source_file && t.source_file.size_bytes;
+    var more = U.iconBtn('Ellipsis', 'Mais opções da faixa ' + t.name, function (ev) {
+      ev.stopPropagation();
+      L.menu(more, [
+        ['Pencil', 'Renomear', function () { renameTrack(e, t); }],
+        ['Replace', 'Trocar o arquivo', function () { pickReplacement(e, p, t); }],
+        ['Trash2', 'Apagar só esta faixa', function () { askDeleteTrack(e, t); }]
+      ]);
+    }, { disabled: e.busy });
+    return h('div', { class: 'row trackrow' },
+      U.iconBtn(playing ? 'Pause' : 'Play', playing ? 'Parar de ouvir' : 'Ouvir a faixa ' + t.name, function () { preview(e, t); }, { color: playing ? 'var(--accent-text)' : null }),
+      h('div', { class: 'grow tn' }, h('div', { class: 'hi semi ell', style: { fontSize: '15px' } }, t.name), size ? h('div', { class: 'muted tiny' }, L.bytes(size)) : null),
+      more);
+  }
+
+  function askDeleteTrack(e, t) {
+    L.confirm('Apagar a faixa “' + t.name + '”?', 'Só esta faixa sai da multitrack. A música e as outras faixas continuam. Você tem alguns segundos para desfazer.', 'Apagar a faixa', function () { deleteTrack(e, t); }, true);
+  }
+  function deleteTrack(e, t) {
+    if (e.prev && e.prev.id === t.id) stopPrev(e);
+    e.hidden[t.id] = true;
+    if (Ed === e) L.render();
+    var timer = setTimeout(async function () {
+      try {
+        L.must(await sb.rpc('delete_track', { _track: t.id }));
+        e.cloud = (e.cloud || []).filter(function (x) { return x.id !== t.id; });
+        delete e.hidden[t.id];
+        e.tracks = e.cloud.length;
+        Nuvem.emptyTrash(sb);
+        await D.reloadSongs();
+        if (Ed === e) L.render();
+      } catch (x) {
+        delete e.hidden[t.id];
+        L.toast(L.errorText(x));
+        if (Ed === e) L.render();
+      }
+    }, 6000);
+    L.toast('Faixa “' + t.name + '” apagada.', { label: 'Desfazer', ms: 6000, fn: function () { clearTimeout(timer); delete e.hidden[t.id]; if (Ed === e) L.render(); } });
+  }
+
+  function renameTrack(e, t) {
+    var val = t.name;
+    var field = U.field(val, 'Nome da faixa', function (v) { val = v; }, { max: 60 });
+    L.dialog({
+      title: 'Renomear a faixa',
+      body: function () { return field; },
+      actions: function (close) {
+        return [h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar'),
+          h('button', { class: 'textbtn', onclick: function () {
+            var name = val.trim().slice(0, 60);
+            if (!name || name === t.name) { close(); return; }
+            if (e.cloud.some(function (x) { return x.id !== t.id && L.norm(x.name) === L.norm(name); })) { L.toast('Já existe uma faixa com este nome.'); return; }
+            close();
+            L.run(async function () {
+              L.must(await sb.from('tracks').update({ name: name }).eq('id', t.id));
+              t.name = name;
+              await D.reloadSongs();
+              L.toast('Faixa renomeada.');
+              if (Ed === e) L.render();
+            });
+          } }, 'Salvar')];
+      }
+    });
+  }
+
+  function pickReplacement(e, p, t) {
+    var inp = h('input', { type: 'file', accept: '.mp3,.m4a,.wav,.flac,.aif,.aiff,.ogg,audio/*', style: { display: 'none' } });
+    inp.onchange = function () { var f = inp.files && inp.files[0]; inp.remove(); if (f) replaceTrack(e, p, t, f); };
+    document.body.appendChild(inp); inp.click();
+  }
+  /** Envia o arquivo novo, passa o nome e o lugar da faixa velha para ele e só então apaga a velha. Se algo falhar, a velha fica. */
+  async function replaceTrack(e, p, t, file) {
+    if (e.busy) return;
+    e.busy = true; e.progress = ['Preparando ' + file.name + '…', 0]; L.render();
+    try {
+      var org = S.current.org.id;
+      var made = await uploadStems(org, p.id, [file], cloudVisible(e).length, p, function (txt, f) { e.progress = [txt, f]; if (Ed === e) L.render(); });
+      var fresh = made && made[0];
+      if (!fresh) throw new Error('O arquivo novo não foi enviado.');
+      L.must(await sb.from('tracks').update({ name: t.name, sort_order: t.sort_order }).eq('id', fresh));
+      L.must(await sb.rpc('delete_track', { _track: t.id }));
+      Nuvem.emptyTrash(sb);
+      await D.reloadSongs();
+      loadCloud(e);
+      L.toast('Arquivo da faixa “' + t.name + '” trocado.');
+    } catch (x) { L.toast(L.errorText(x)); }
+    e.busy = false; e.progress = null;
+    if (Ed === e) L.render();
+  }
+
+  /** Aceita arquivos escolhidos ou soltos: tira o que não é áudio, repetido ou passa de 12. */
+  function addStems(e, list) {
+    var files = Array.prototype.slice.call(list || []);
+    var notAudio = files.filter(function (f) { return !AUDIO_EXT.test(f.name) && !/^audio\//.test(f.type); });
+    files = files.filter(function (f) { return notAudio.indexOf(f) < 0; });
+    var msgs = [];
+    if (notAudio.length) msgs.push(notAudio.length === 1 ? '“' + notAudio[0].name + '” não é um arquivo de áudio.' : notAudio.length + ' arquivos não eram de áudio.');
+    files.forEach(function (f) {
+      var base = L.norm(trimExt(f.name));
+      if (e.stems.some(function (x) { return x.name === f.name && x.size === f.size; })) return;
+      if ((e.cloud || []).some(function (t) { return L.norm(t.name) === base && !e.hidden[t.id]; })) { msgs.push('Já existe uma faixa chamada “' + trimExt(f.name) + '”. Para trocar o arquivo dela, toque em ⋯ › Trocar o arquivo.'); return; }
+      if (cloudVisible(e).length + e.stems.length >= 12) { if (msgs.indexOf('O limite é de 12 faixas por música.') < 0) msgs.push('O limite é de 12 faixas por música.'); return; }
+      e.stems.push(f);
+    });
+    if (msgs.length) L.toast(msgs[0]);
+    L.render();
+  }
+
+  /** Quadro que aceita arquivos arrastados (no computador) e traz o botão de escolher. */
+  function dropZone(e, stemsList) {
+    var depth = 0;
+    var zone = h('div', { class: 'dropzone' });
+    function has(ev) { var t = ev.dataTransfer && ev.dataTransfer.types; return !!t && Array.prototype.indexOf.call(t, 'Files') >= 0; }
+    zone.addEventListener('dragenter', function (ev) { if (!has(ev) || e.busy) return; ev.preventDefault(); depth++; zone.classList.add('dragging'); });
+    zone.addEventListener('dragover', function (ev) { if (!has(ev) || e.busy) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; });
+    zone.addEventListener('dragleave', function (ev) { if (!has(ev)) return; depth = Math.max(0, depth - 1); if (!depth) zone.classList.remove('dragging'); });
+    zone.addEventListener('drop', function (ev) {
+      if (!has(ev)) return;
+      ev.preventDefault(); depth = 0; zone.classList.remove('dragging');
+      if (!e.busy) addStems(e, ev.dataTransfer.files);
+    });
+    L.fill(zone,
+      stemsList,
+      U.btn2(e.stems.length ? 'Escolher mais faixas' : 'Escolher as faixas', 'Upload', function () {
+        var inp = h('input', { type: 'file', accept: '.mp3,.m4a,.wav,.flac,.aif,.aiff,.ogg,audio/*', multiple: true, style: { display: 'none' } });
+        inp.onchange = function () { addStems(e, inp.files); inp.remove(); };
+        document.body.appendChild(inp); inp.click();
+      }, { full: true, disabled: e.busy }),
+      h('div', { class: 'drophint' }, 'ou arraste os arquivos para cá'));
+    return zone;
   }
 })();

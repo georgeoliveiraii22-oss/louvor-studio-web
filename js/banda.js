@@ -5,6 +5,11 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.19.0', [
+      'Multitrack: depois de enviar, toque em ⋯ numa faixa para ouvir, renomear, trocar o arquivo ou apagar só ela (com Desfazer). Quem pode adicionar músicas pode apagar faixas.',
+      'No computador, dá para arrastar os arquivos de áudio para a área da multitrack. Se uma faixa falhar, as outras entram e só a que falhou fica para tentar de novo.',
+      'Início: mostra só as escalas em que você está, com o botão "Ver todas as escalas".'
+    ]],
     ['1.18.0', [
       'Dá para entrar e criar a conta com o Google, no site (o app Android vem depois).'
     ]],

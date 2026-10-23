@@ -223,6 +223,20 @@ svg.i { display: block; flex: none; stroke-width: 2; }
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 0 0 1px var(--glass-border); animation: toast 260ms var(--ease-out);
 }
 @keyframes toast { from { opacity: 0; transform: translate(-50%, 12px); } }
+.toast.withact { display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px; }
+.toast.withact .textbtn { min-height: 44px; padding: 0 14px; color: var(--accent-text); font-weight: 600; }
+
+/* Multitrack: faixas já enviadas e a área de soltar arquivos */
+.trackrow { min-height: 52px; padding: 0 2px 0 4px; border-radius: 14px; background: var(--control); gap: 4px; transition: opacity 160ms ease; }
+.trackrow .tn { padding-left: 6px; min-width: 0; }
+.dropzone { border-radius: 18px; padding: 0; display: flex; flex-direction: column; gap: 10px; box-shadow: inset 0 0 0 1.5px transparent; transition: background-color 160ms ease, box-shadow 160ms ease; }
+.dropzone .drophint { display: none; text-align: center; color: var(--muted); font-size: 13px; }
+@media (hover: hover) and (pointer: fine) {
+  .dropzone { padding: 12px; box-shadow: inset 0 0 0 1.5px var(--line); }
+  .dropzone .drophint { display: block; }
+}
+.dropzone.dragging { background: var(--sel); box-shadow: inset 0 0 0 2px var(--accent); }
+.dropzone.dragging .drophint { color: var(--accent-text); }
 
 .spinner { width: 36px; height: 36px; border: 4px solid var(--control); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 .spinner.sm { width: 18px; height: 18px; border-width: 2px; }

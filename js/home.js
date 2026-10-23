@@ -9,7 +9,7 @@
     var first = mine && mine.name ? mine.name.trim().split(' ')[0] : null;
     var hour = new Date().getHours();
     var hello = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-    var next = L.myUpcoming()[0] || L.upcoming()[0] || null;
+    var next = L.myUpcoming()[0] || null;   // só as escalas em que eu estou; as outras ficam em "Ver todas as escalas"
     var news = D.unseenNews();
 
     var head = h('div', { class: 'tabhead' },
@@ -17,10 +17,17 @@
       U.iconBtn('Newspaper', 'Avisos e novidades', function () { L.go({ name: 'news' }); }, { badge: news }),
       U.iconBtn('RefreshCw', 'Atualizar', L.reload));
 
-    var nextBlock = next ? nextCard(next) : h('div', { class: 'panel', style: { padding: '16px' } },
-      h('div', { class: 'hi semi', style: { fontSize: '17px' } }, 'Nenhuma escala marcada'),
-      U.body(L.perm.schedule() ? 'Crie a próxima escala: o dia, as músicas e quem vai tocar e cantar.' : 'Quando o líder marcar a próxima escala, ela aparece aqui.', 'var(--muted)', 13),
-      L.perm.schedule() ? h('div', null, U.btn('Nova escala', 'Plus', function () { L.go({ name: 'wizard' }); })) : null);
+    function showAll() { L.escalas.view = 'proximas'; L.setTab('escalas'); }
+    var allCount = L.upcoming().length;
+    var allBtn = allCount ? h('button', { class: 'textbtn', style: { fontSize: '15px', padding: '8px 4px', alignSelf: 'flex-start' }, onclick: showAll },
+      'Ver todas as escalas (' + allCount + ')') : null;
+    var nextBlock = next ? h('div', { class: 'col', style: { gap: '4px' } }, nextCard(next), allBtn) : h('div', { class: 'panel', style: { padding: '16px' } },
+      h('div', { class: 'hi semi', style: { fontSize: '17px' } }, allCount ? 'Você não está em nenhuma escala próxima' : 'Nenhuma escala marcada'),
+      U.body(allCount ? 'Quando o líder te escalar, ela aparece aqui. Dá para ver as escalas da banda quando quiser.'
+        : L.perm.schedule() ? 'Crie a próxima escala: o dia, as músicas e quem vai tocar e cantar.' : 'Quando o líder marcar a próxima escala, ela aparece aqui.', 'var(--muted)', 13),
+      h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+        allCount ? U.btn2('Ver todas as escalas (' + allCount + ')', 'CalendarDays', showAll) : null,
+        L.perm.schedule() ? U.btn('Nova escala', 'Plus', function () { L.go({ name: 'wizard' }); }) : null));
 
     var todos = buildTodos(me, next && next.id);
     var todoBlock = todos.length ? h('div', { class: 'list' }, todos.map(function (t) {

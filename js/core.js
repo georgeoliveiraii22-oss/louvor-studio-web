@@ -274,13 +274,15 @@
 
   // ------------------------------------------------------------------ Avisos e janelas
   var toastTimer = null;
-  L.toast = function (msg) {
+  /** Aviso rápido. `act` (opcional) põe um botão no aviso: { label: 'Desfazer', fn: function, ms: 6000 }. */
+  L.toast = function (msg, act) {
     var old = document.querySelector('.toast');
     if (old) old.remove();
-    var t = h('div', { class: 'toast', role: 'status' }, msg);
+    var t = h('div', { class: 'toast' + (act ? ' withact' : ''), role: 'status' }, h('span', { class: 'grow' }, msg),
+      act ? h('button', { class: 'textbtn', onclick: function () { t.remove(); clearTimeout(toastTimer); act.fn(); } }, act.label) : null);
     document.body.appendChild(t);
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.remove(); }, 4000);
+    toastTimer = setTimeout(function () { t.remove(); }, act && act.ms ? act.ms : 4000);
   };
   /** Senha mínima para contas novas e senhas trocadas (as antigas, de 6, continuam entrando). */
   L.MIN_PASS = 8;
@@ -305,7 +307,16 @@
 
   function pushOverlay(o) {
     overlays.push(o);
-    history.pushState({ louvor: 'overlay' }, '');
+    if (!skipPop) { history.pushState({ louvor: 'overlay' }, ''); return; }
+    // Ainda há um history.back() a caminho (ex.: o menu ⋯ que acabou de fechar e abriu esta janela): se a entrada nova
+    // entrasse agora, esse "voltar" a tiraria e o próximo fechamento sairia do site. Espera ele terminar.
+    o.waiting = function () {
+      if (skipPop > 0) return;
+      window.removeEventListener('popstate', o.waiting);
+      o.waiting = null;
+      history.pushState({ louvor: 'overlay' }, '');
+    };
+    window.addEventListener('popstate', o.waiting);
   }
   /** Fecha pela tela (não pelo botão voltar): tira do histórico também. */
   function closeOverlay(o) {
@@ -313,6 +324,7 @@
     if (i < 0) return;
     overlays.splice(i, 1);
     o.close(true);
+    if (o.waiting) { window.removeEventListener('popstate', o.waiting); o.waiting = null; return; }   // nunca chegou a entrar no histórico
     skipPop++;
     history.back();
   }
