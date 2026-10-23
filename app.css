@@ -589,6 +589,37 @@ button.partchip { background: none; font-family: inherit; }
 .hero .facts span { display: inline-flex; align-items: center; gap: 6px; }
 .hero .facts svg { color: var(--accent); }
 
+/* ---------------------------------------------------------------- Primeira dobra: palco de imagem em loop */
+.hero.stagehero { margin-top: -64px; padding: 64px 0 0; isolation: isolate; overflow: hidden; min-height: 0; }
+.stagehero .sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+.herobg { position: absolute; inset: 0 0 auto 0; height: min(66vh, 560px); z-index: -2; pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%); mask-image: linear-gradient(180deg, #000 55%, transparent 100%); }
+.herobg video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 62% 50%; opacity: 0; transition: opacity 700ms var(--ease-out); }
+.herobg video.on { opacity: 1; }
+.heroshade { position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(5, 11, 18, 0.7) 0, rgba(5, 11, 18, 0) 14%), linear-gradient(180deg, rgba(5, 11, 18, 0) 18vh, rgba(5, 11, 18, 0.6) 36vh, var(--bg) 56vh); opacity: 1; transition: opacity 700ms var(--ease-out); }
+.hero.media .heroshade { opacity: 1; }
+.heroapp { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 22% 12%; opacity: 0.3; transition: opacity 600ms var(--ease-out); }
+.hero.media .heroapp { opacity: 0; }
+.stagehero .hero-in { padding-top: 22vh; }
+.stagehero .herocopy { text-align: center; }
+.hlbox { min-height: 270px; display: flex; flex-direction: column; align-items: center; }
+.hlbox .hl { color: var(--hi); font-size: clamp(36px, 9vw, 52px); line-height: 1.04; font-weight: 700; letter-spacing: -0.035em; text-wrap: balance; text-shadow: 0 2px 30px rgba(5, 11, 18, 0.5); }
+.hlbox .sub { margin-top: 18px; font-size: 17px; line-height: 1.5; max-width: 34em; color: var(--text); text-wrap: pretty; }
+.hlbox .w { display: inline-block; white-space: pre; opacity: 0; transform: translateY(0.32em); filter: blur(6px); }
+.hlbox.in .w { opacity: 1; transform: none; filter: none; transition: opacity 520ms var(--ease-out), transform 520ms var(--ease-out), filter 520ms var(--ease-out); transition-delay: calc(var(--i) * 28ms); }
+.hlbox.out .w { opacity: 0; transform: translateY(-0.18em); filter: blur(4px); transition: opacity 160ms ease-out, transform 160ms ease-out, filter 160ms ease-out; transition-delay: 0ms; }
+.hlbox.in .sub .w { transition-delay: calc(var(--i) * 10ms + 200ms); }
+.stagehero .ctas { justify-content: center; flex-direction: column; align-items: stretch; max-width: 340px; margin-inline: auto; }
+.stagehero .facts { justify-content: center; }
+.herodots { display: flex; gap: 8px; justify-content: center; margin-top: 18px; }
+.herodots[hidden] { display: none; }
+.herodots b { width: 28px; height: 4px; border-radius: 2px; background: rgba(220, 232, 242, 0.25); position: relative; overflow: hidden; }
+.herodots b::after { content: ''; position: absolute; inset: 0; background: var(--accent); transform: scaleX(0); transform-origin: left; }
+.herodots b.on::after { transform: scaleX(1); transition: transform var(--d, 6s) linear; }
+.herodots b.done::after { transform: scaleX(1); }
+@media (prefers-reduced-motion: reduce) { .hlbox .w, .hlbox.in .w { transition-duration: 1ms; filter: none; transform: none; } }
+
 /* Aparelhos com as fotos reais do app */
 .devices { position: relative; min-height: 420px; }
 .screenwin { position: relative; border-radius: 16px; overflow: hidden; background: #071724; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(220, 232, 242, 0.10); }
@@ -882,6 +913,26 @@ button.partchip { background: none; font-family: inherit; }
   .site-top nav, .site-top .cta { display: flex; }
   .hero { padding: 56px 0 24px; }
   .hero-in { grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr); align-items: center; gap: 40px; }
+
+  /* Computador: a imagem cobre o fundo todo, o degradê escuro fica sob o texto (à esquerda) e os aparelhos saem de cena enquanto a imagem toca. */
+  .hero.stagehero { min-height: clamp(680px, 90vh, 860px); padding-top: 64px; display: flex; flex-direction: column; }
+  .herobg { inset: 0; height: auto; -webkit-mask-image: none; mask-image: none; }
+  .herobg video { object-position: 62% 50%; }
+  .heroapp { display: none; }
+  .hero.stagehero .heroshade { opacity: 0; }
+  .hero.media .heroshade { opacity: 1; }
+  .heroshade { background: linear-gradient(180deg, rgba(5, 11, 18, 0.78) 0, rgba(5, 11, 18, 0) 20%), linear-gradient(0deg, var(--bg) 0, rgba(5, 11, 18, 0) 24%),
+    linear-gradient(90deg, rgba(5, 11, 18, 0.97) 0%, rgba(5, 11, 18, 0.94) 34%, rgba(5, 11, 18, 0.72) 52%, rgba(5, 11, 18, 0.2) 70%, rgba(5, 11, 18, 0) 82%); }
+  .stagehero .hero-in { padding-top: 0; flex: 1; }
+  .stagehero .herocopy { text-align: left; }
+  .hlbox { min-height: 372px; align-items: flex-start; justify-content: flex-end; }
+  .hlbox .hl { font-size: clamp(44px, 4.9vw, 68px); }
+  .hlbox .sub { font-size: 19px; max-width: 46ch; margin-top: 22px; }
+  .stagehero .ctas { flex-direction: row; align-items: center; justify-content: flex-start; max-width: none; margin-inline: 0; }
+  .stagehero .facts { justify-content: flex-start; }
+  .stagehero .devices { transition: opacity 600ms var(--ease-out), filter 600ms var(--ease-out); }
+  .hero.media .devices { opacity: 0; filter: blur(6px); pointer-events: none; }
+  .herodots { justify-content: flex-end; margin-top: 0; }
   .devices { min-height: 600px; }
   .devices .winwrap { display: block; position: absolute; left: 70px; top: 40px; width: 860px; }
   .devices .herophone { position: absolute; left: -36px; bottom: -34px; width: 250px; margin: 0; z-index: 2; }

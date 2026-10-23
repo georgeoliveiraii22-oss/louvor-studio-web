@@ -175,6 +175,77 @@
     return sec;
   }
 
+
+  // ------------------------------------------------------------------ Primeira dobra: imagem em loop no fundo e o texto muda junto com ela
+  // O título que o Google e os leitores de tela veem é um só (o slogan, escondido na tela); o que troca é só o texto visível.
+  var HERO_SCENES = [
+    { h: 'O ensaio da sua banda, em qualquer lugar.', p: 'Escalas, repertório, multitrack e a conversa da banda num lugar só. Cada um ensaia em casa e chega no culto sabendo a música.', ms: 6000 },
+    { v: 'banda', h: 'Cada um chega no ensaio sabendo a música.', p: 'Estude a sua parte em casa, com a multitrack da banda. No ensaio, o tempo é para tocar junto.', ms: 6000 },
+    { v: 'fpv', h: 'Da escala ao ensaio, sem sair do app.', p: 'O líder publica a escala, você confirma com um toque e abre a música no estúdio, já no tom do dia.', ms: 9600 },
+    { v: 'cozinha', h: 'Ensaie enquanto a vida acontece.', p: 'Fone no ouvido e o estúdio no celular. Cada instrumento separado, onde você estiver.', ms: 6000 },
+    { v: 'violao', h: 'Estude a sua parte, do seu jeito.', p: 'Silencie o seu instrumento, repita o refrão e toque junto. No celular e no navegador, com a mesma conta.', ms: 6000 }
+  ];
+  function heroWords(el, text) {
+    el.textContent = '';
+    text.split(' ').forEach(function (w, k, a) {
+      var s = document.createElement('span'); s.className = 'w'; s.style.setProperty('--i', k); s.textContent = w + (k < a.length - 1 ? ' ' : '');
+      el.appendChild(s);
+    });
+  }
+  function heroBox() {
+    var box = h('div', { class: 'hlbox in', 'aria-hidden': 'true' }, h('div', { class: 'hl' }), h('p', { class: 'sub' }));
+    heroWords(box.firstChild, HERO_SCENES[0].h); heroWords(box.lastChild, HERO_SCENES[0].p);
+    return box;
+  }
+  function heroLoop(hero) {
+    var conn = navigator.connection || {};
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || conn.saveData || /^(slow-2g|2g|3g)$/.test(conn.effectiveType || '')) return;   // fica a primeira cena, parada
+    var bg = hero.querySelector('.herobg'), box = hero.querySelector('.hlbox'), hl = box.firstChild, sub = box.lastChild, dotsEl = hero.querySelector('.herodots');
+    var vids = {}, i = 0, timer = null, running = false, visible = true;
+    function vid(name) {
+      if (vids[name]) return vids[name];
+      var v = document.createElement('video');
+      v.muted = true; v.defaultMuted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.tabIndex = -1; v.setAttribute('aria-hidden', 'true');
+      v.src = 'video/hero/' + name + '.mp4'; bg.appendChild(v); vids[name] = v; return v;
+    }
+    function ready(sc) { return !sc.v || (vids[sc.v] && vids[sc.v].readyState >= 3); }
+    function setText(sc) {
+      box.classList.remove('in'); box.classList.add('out');
+      setTimeout(function () { heroWords(hl, sc.h); heroWords(sub, sc.p); box.classList.remove('out'); void box.offsetWidth; box.classList.add('in'); }, 190);   // sai rápido, entra com calma
+    }
+    function show(n) {
+      var sc = HERO_SCENES[n]; i = n;
+      [].forEach.call(dotsEl.children, function (d, k) { d.className = k < n ? 'done' : ''; });
+      void dotsEl.offsetWidth;
+      dotsEl.children[n].style.setProperty('--d', sc.ms + 'ms'); dotsEl.children[n].className = 'on';
+      [].forEach.call(bg.querySelectorAll('video'), function (v) { v.classList.remove('on'); v.pause(); });
+      if (sc.v) { var v = vid(sc.v); try { v.currentTime = 0; } catch (e) { /* ainda carregando */ } var p = v.play(); if (p && p.catch) p.catch(function () {}); v.classList.add('on'); }
+      hero.classList.toggle('media', !!sc.v);
+      setText(sc);
+      var nx = HERO_SCENES[(n + 1) % HERO_SCENES.length]; if (nx.v) vid(nx.v);      // já vai baixando a próxima
+      schedule(sc.ms);
+    }
+    function schedule(ms) { clearTimeout(timer); timer = setTimeout(next, ms); }
+    function next(tries) {
+      if (!hero.isConnected) { running = false; return; }                // saiu da página de entrada
+      var n = (i + 1) % HERO_SCENES.length;
+      if (!ready(HERO_SCENES[n])) { if ((tries || 0) < 4) { timer = setTimeout(function () { next((tries || 0) + 1); }, 800); return; } n = 0; }   // vídeo não chegou: volta ao app
+      show(n);
+    }
+    function pause() { clearTimeout(timer); [].forEach.call(bg.querySelectorAll('video'), function (v) { v.pause(); }); }
+    function resume() { if (running && visible && !document.hidden) { var sc = HERO_SCENES[i]; if (sc.v) { var p = vids[sc.v].play(); if (p && p.catch) p.catch(function () {}); } schedule(sc.ms); } }
+    if ('IntersectionObserver' in window) new IntersectionObserver(function (es) { visible = es[0].isIntersecting; visible ? resume() : pause(); }, { threshold: 0.15 }).observe(hero);
+    document.addEventListener('visibilitychange', function () { if (!hero.isConnected) return; document.hidden ? pause() : resume(); });
+    function start() {
+      if (!hero.isConnected) return;
+      running = true; dotsEl.hidden = false; vid(HERO_SCENES[1].v);
+      dotsEl.children[0].className = 'on'; dotsEl.children[0].style.setProperty('--d', HERO_SCENES[0].ms + 'ms');
+      schedule(HERO_SCENES[0].ms);
+    }
+    var go = function () { setTimeout(start, 2500); };      // espera a primeira pintura: o loop não disputa a largada com o resto da página
+    document.readyState === 'complete' ? go() : window.addEventListener('load', go, { once: true });
+  }
+
   function point(icon, text) { return h('li', null, ic(icon, 20), h('span', null, text)); }
 
   A.landing = function () {
@@ -190,10 +261,12 @@
       h('button', { class: 'textbtn', onclick: function () { goEntry('entrar'); } }, 'Entrar'),
       h('button', { class: 'btn cta', onclick: function () { goEntry('criar'); } }, 'Criar minha banda')));
 
-    var hero = h('section', { class: 'hero' }, h('div', { class: 'wrap hero-in' },
-      h('div', null,
-        h('h1', { class: 'rise d1' }, 'O ensaio da sua banda, em qualquer lugar.'),
-        h('p', { class: 'lede rise d2' }, 'Escalas, repertório, multitrack e a conversa da banda num lugar só. Cada um ensaia em casa e chega no culto sabendo a música.'),
+    var dotsEl = h('div', { class: 'herodots', 'aria-hidden': 'true', hidden: true }, HERO_SCENES.map(function () { return h('b'); }));
+    var hero = h('section', { class: 'hero stagehero' }, h('div', { class: 'herobg', 'aria-hidden': 'true' }, h('img', { class: 'heroapp', src: 'img/desk-inicio.webp', alt: '' })), h('div', { class: 'heroshade', 'aria-hidden': 'true' }), h('div', { class: 'wrap hero-in' },
+      h('div', { class: 'herocopy' },
+        h('h1', { class: 'sr' }, HERO_SCENES[0].h),
+        h('p', { class: 'sr' }, HERO_SCENES[0].p),
+        (function () { var b = heroBox(); b.classList.add('rise', 'd1'); return b; })(),
         h('div', { class: 'ctas rise d3' },
           U.btn('Criar minha banda', 'Plus', function () { goEntry('criar'); }),
           U.btn2('Entrar com convite', 'Users', function () { goEntry('convite'); })),
@@ -208,7 +281,9 @@
             { pose: { rx: 5, ry: -14 }, from: { y: 46, rx: 5, ry: -14 }, depth: 24, delay: 0.1 }),
           phone('img/cel-inicio.webp', 'O Louvor Studio no celular: o passe da próxima escala, com Confirmar e Não posso.',
             { cls: 'herophone', pose: { z: 60, rx: 3, ry: 18, rz: -4 }, from: { y: 90, z: 60, rx: 3, ry: 18, rz: -4 }, depth: 70, delay: 0.35 })))),
+      h('div', { class: 'wrap herodots-wrap', 'aria-hidden': 'true' }, dotsEl),
       h('div', { class: 'wrap waveband', 'aria-hidden': 'true' }, waveCanvas()));
+    heroLoop(hero);
 
     var demo = h('section', { class: 'demo', id: 'ouvir' }, h('div', { class: 'wrap' },
       h('h2', null, 'Ouça cada instrumento separado.'),

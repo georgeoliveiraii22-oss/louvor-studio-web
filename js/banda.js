@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.20.0', [
+      'A página inicial ficou mais viva: fotos de bandas e de pessoas ensaiando no fundo, com o texto mudando junto a cada cena. No celular, o texto fica centralizado.'
+    ]],
     ['1.19.0', [
       'Multitrack: depois de enviar, toque em ⋯ numa faixa para ouvir, renomear, trocar o arquivo ou apagar só ela (com Desfazer). Quem pode adicionar músicas pode apagar faixas.',
       'No computador, dá para arrastar os arquivos de áudio para a área da multitrack. Se uma faixa falhar, as outras entram e só a que falhou fica para tentar de novo.',
