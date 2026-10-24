@@ -256,7 +256,8 @@
         h('a', { href: '#recursos', onclick: function (e) { e.preventDefault(); jump('recursos'); } }, 'Recursos'),
         h('a', { href: '#como', onclick: function (e) { e.preventDefault(); jump('como'); } }, 'Como começar'),
         h('a', { href: '#planos', onclick: function (e) { e.preventDefault(); jump('planos'); } }, 'Planos'),
-        h('a', { href: '#perguntas', onclick: function (e) { e.preventDefault(); jump('perguntas'); } }, 'Perguntas')),
+        h('a', { href: '#perguntas', onclick: function (e) { e.preventDefault(); jump('perguntas'); } }, 'Perguntas'),
+        h('a', { href: 'blog/' }, 'Blog')),
       h('span', { class: 'sp' }),
       h('button', { class: 'textbtn', onclick: function () { goEntry('entrar'); } }, 'Entrar'),
       h('button', { class: 'btn cta', onclick: function () { goEntry('criar'); } }, 'Criar minha banda')));
@@ -342,6 +343,7 @@
       h('span', { class: 'sp' }),
       h('a', { href: '#', onclick: function (e) { e.preventDefault(); goEntry('entrar'); } }, 'Entrar'),
       h('a', { href: '#', onclick: function (e) { e.preventDefault(); goEntry('convite'); } }, 'Entrar com convite'),
+      h('a', { href: 'blog/' }, 'Blog'),
       h('a', { href: 'privacidade/' }, 'Privacidade'),
       h('a', { href: 'termos/' }, 'Termos de Uso'),
       h('a', { href: 'cookies/' }, 'Cookies'),

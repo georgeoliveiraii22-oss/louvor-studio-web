@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.21.0', [
+      'Novo blog com guias para o ministério de louvor: escala, ensaio com multitrack, vozes por naipe, repertório e mais. Está no rodapé da página inicial.'
+    ]],
     ['1.20.0', [
       'A página inicial ficou mais viva: fotos de bandas e de pessoas ensaiando no fundo, com o texto mudando junto a cada cena. No celular, o texto fica centralizado.'
     ]],

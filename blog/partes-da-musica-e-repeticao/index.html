@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- Gerado por tools/blog.py: edite lá, não aqui. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050B12">
+<meta name="description" content="Veja como dividir a música em partes (intro, verso, refrão, ponte) e repetir só o trecho difícil no estúdio do Louvor Studio, inclusive com detecção automática.">
+<title>Partes da música: marcar intro, verso, refrão e repetir · Louvor Studio</title>
+<link rel="canonical" href="https://louvorstudio.app.br/blog/partes-da-musica-e-repeticao/">
+<meta property="og:site_name" content="Louvor Studio">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:url" content="https://louvorstudio.app.br/blog/partes-da-musica-e-repeticao/">
+<meta property="og:title" content="Partes da música: marcar intro, verso, refrão e repetir · Louvor Studio">
+<meta property="og:description" content="Veja como dividir a música em partes (intro, verso, refrão, ponte) e repetir só o trecho difícil no estúdio do Louvor Studio, inclusive com detecção automática.">
+<meta property="og:image" content="https://louvorstudio.app.br/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="../../icon-96.png" sizes="96x96" type="image/png">
+<link rel="icon" href="../../icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../../icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../../app.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BlogPosting", "headline": "Intro, verso, refrão: dividir a música em partes e repetir o trecho", "description": "Veja como dividir a música em partes (intro, verso, refrão, ponte) e repetir só o trecho difícil no estúdio do Louvor Studio, inclusive com detecção automática.", "inLanguage": "pt-BR", "datePublished": "2026-10-24", "dateModified": "2026-10-24", "mainEntityOfPage": "https://louvorstudio.app.br/blog/partes-da-musica-e-repeticao/", "url": "https://louvorstudio.app.br/blog/partes-da-musica-e-repeticao/", "image": "https://louvorstudio.app.br/img/og.png", "author": {"@type": "Organization", "name": "Louvor Studio", "url": "https://louvorstudio.app.br"}, "publisher": {"@type": "Organization", "name": "Louvor Studio", "url": "https://louvorstudio.app.br", "logo": {"@type": "ImageObject", "url": "https://louvorstudio.app.br/icon-180.png"}}}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Todo mundo pode marcar as partes?", "acceptedAnswer": {"@type": "Answer", "text": "Só o líder (e quem ele liberar para editar o áudio) marca ou altera as partes. Todos podem ver e repetir cada parte."}}, {"@type": "Question", "name": "A detecção automática acerta sempre?", "acceptedAnswer": {"@type": "Answer", "text": "Ela ajuda a começar, mas pode errar. Sempre confira antes de usar."}}, {"@type": "Question", "name": "Dá para repetir um trecho que não é uma parte?", "acceptedAnswer": {"@type": "Answer", "text": "Sim. Arrastando na régua, você marca qualquer trecho para repetir."}}]}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Louvor Studio", "item": "https://louvorstudio.app.br/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://louvorstudio.app.br/blog/"}, {"@type": "ListItem", "position": 3, "name": "Intro, verso, refrão: dividir a música em partes e repetir o trecho", "item": "https://louvorstudio.app.br/blog/partes-da-musica-e-repeticao/"}]}]}</script>
+<script defer src="../../config.js"></script>
+</head>
+<body>
+<div class="site legal-page">
+  <header class="site-top solid"><div class="wrap">
+    <a class="row" href="../../" style="gap:10px;text-decoration:none">
+      <span class="logo"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg></span>
+      <span class="brand">Louvor Studio</span>
+    </a>
+    <span class="sp"></span>
+    <a class="legal-back" href="../../blog/" style="margin-right:14px"><span>Blog</span></a>
+    <a class="legal-back" href="../../"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span>Voltar ao app</span></a>
+  </div></header>
+
+  <main class="legal"><div class="wrap">
+    <nav class="blog-crumbs" aria-label="Você está em"><a href="../../">Início</a> <span>›</span> <a href="../">Blog</a> <span>›</span> <span>Ensaio</span></nav>
+    <header class="legal-head">
+      <h1>Intro, verso, refrão: dividir a música em partes e repetir o trecho</h1>
+      <p class="legal-lead">Ninguém precisa ouvir a música inteira para estudar o refrão. Dividir a música em partes e repetir o trecho difícil economiza muito tempo no ensaio em casa.</p>
+      <p class="legal-date">Ensaio · 4 min de leitura · Atualizado em 24 de outubro de 2026</p>
+    </header>
+    <div class="legal-grid">
+      <nav class="legal-toc" aria-label="Neste artigo">
+        <p>Neste artigo</p>
+        <ul>
+        <li><a href="#partes">As partes de uma música</a></li>
+        <li><a href="#marcar">Como marcar as partes</a></li>
+        <li><a href="#detectar">Detectar partes automaticamente (no site)</a></li>
+        <li><a href="#repetir">Repetir o trecho difícil</a></li>
+        <li><a href="#perguntas">Perguntas frequentes</a></li>
+        </ul>
+      </nav>
+      <article class="legal-body">
+      <div class="legal-sum" role="note" aria-label="Resumo">
+        <h2>Em poucas palavras</h2>
+        <ul>
+        <li>As partes (intro, verso, pré-refrão, refrão, ponte) ficam marcadas na linha do tempo.</li>
+        <li>Tocando numa parte, você a repete quantas vezes quiser.</li>
+        <li>O líder marca as partes e todo mundo usa. No site, há detecção automática de partes.</li>
+        </ul>
+      </div>
+      <section id="partes">
+        <h2>As partes de uma música</h2>
+<p>A maioria das músicas de louvor segue uma estrutura parecida: <strong>intro</strong>, <strong>verso</strong>, <strong>pré-refrão</strong>, <strong>refrão</strong>, <strong>ponte</strong> e <strong>final</strong>. Dar nome a cada pedaço ajuda a banda a combinar a ordem e a encontrar rápido o trecho que precisa ensaiar.</p>
+      </section>
+      <section id="marcar">
+        <h2>Como marcar as partes</h2>
+<p>No estúdio do Louvor Studio, o líder marca as partes direto na linha do tempo: arrasta sobre a faixa, escolhe o nome (Intro, Verso, Refrão…) e pode ajustar as pontas, dividir ou juntar partes. As partes aparecem como botões no alto do estúdio e coloridas na régua. Quem não é líder só vê e usa.</p>
+      </section>
+      <section id="detectar">
+        <h2>Detectar partes automaticamente (no site)</h2>
+<p>No site, o botão <strong>Detectar partes</strong> analisa a multitrack e sugere onde cada parte começa. A análise é feita no seu próprio navegador. Confira o resultado e ajuste o que for preciso antes de aceitar.</p>
+      </section>
+      <section id="repetir">
+        <h2>Repetir o trecho difícil</h2>
+<p>Com as partes marcadas, basta tocar numa parte para repetir só ela, sem pular entre uma volta e outra. Também é possível marcar um trecho qualquer arrastando na régua. Combine com o <a href="../tom-e-andamento-para-ensaiar/">andamento mais lento</a> para estudar o que está difícil e, com a <a href="../click-e-grade/">grade do click</a>, as partes começam exatamente no compasso.</p>
+      </section>
+      <section id="perguntas">
+        <h2>Perguntas frequentes</h2>
+        <h3>Todo mundo pode marcar as partes?</h3>
+        <p>Só o líder (e quem ele liberar para editar o áudio) marca ou altera as partes. Todos podem ver e repetir cada parte.</p>
+        <h3>A detecção automática acerta sempre?</h3>
+        <p>Ela ajuda a começar, mas pode errar. Sempre confira antes de usar.</p>
+        <h3>Dá para repetir um trecho que não é uma parte?</h3>
+        <p>Sim. Arrastando na régua, você marca qualquer trecho para repetir.</p>
+      </section>
+      <aside class="blog-cta">
+        <strong>Organize a sua banda no Louvor Studio</strong>
+        <p>Escala com confirmação, repertório, ensaio com multitrack e conversa da banda. Tem plano grátis.</p>
+        <a class="btn primary" href="../../">Acesse agora grátis</a>
+      </aside>
+      <section class="blog-rel">
+        <h2>Leia também</h2>
+        <div class="blog-grid">
+        <a class="blog-card" href="../click-e-grade/"><span class="blog-cat">Ensaio</span><strong>Click no louvor: como a banda toca no mesmo tempo</strong></a>
+        <a class="blog-card" href="../ensaio-com-multitrack-em-casa/"><span class="blog-cat">Ensaio</span><strong>Ensaio com multitrack em casa: como estudar a sua parte</strong></a>
+        <a class="blog-card" href="../repertorio-de-louvor/"><span class="blog-cat">Repertório</span><strong>Repertório de louvor organizado: tom, letra, cifra e link em um lugar só</strong></a>
+        </div>
+      </section>
+      </article>
+    </div>
+  </div></main>
+
+  <footer class="site-foot"><div class="wrap">
+    <span class="hi semi">Louvor Studio</span>
+    <span>O ensaio da sua banda, em qualquer lugar.</span>
+    <span class="sp"></span>
+    <a href="../../blog/">Blog</a> <a href="../../planos/">Planos</a> <a href="../../privacidade/">Privacidade</a> <a href="../../termos/">Termos</a>
+    <a href="mailto:contato@louvorstudio.app.br">contato@louvorstudio.app.br</a>
+  </div></footer>
+</div>
+</body>
+</html>

@@ -1,9 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://louvorstudio.app.br/</loc><lastmod>2026-10-22</lastmod><priority>1.0</priority></url>
-  <url><loc>https://louvorstudio.app.br/planos/</loc><lastmod>2026-10-22</lastmod><priority>0.8</priority></url>
-  <url><loc>https://louvorstudio.app.br/privacidade/</loc><lastmod>2026-10-22</lastmod><priority>0.3</priority></url>
-  <url><loc>https://louvorstudio.app.br/termos/</loc><lastmod>2026-10-22</lastmod><priority>0.3</priority></url>
-  <url><loc>https://louvorstudio.app.br/cookies/</loc><lastmod>2026-10-22</lastmod><priority>0.2</priority></url>
-  <url><loc>https://louvorstudio.app.br/seguranca/</loc><lastmod>2026-10-22</lastmod><priority>0.3</priority></url>
+  <url><loc>https://louvorstudio.app.br/</loc><lastmod>2026-10-24</lastmod><priority>1.0</priority></url>
+  <url><loc>https://louvorstudio.app.br/planos/</loc><lastmod>2026-10-24</lastmod><priority>0.8</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/</loc><lastmod>2026-10-24</lastmod><priority>0.8</priority></url>
+  <url><loc>https://louvorstudio.app.br/privacidade/</loc><lastmod>2026-10-24</lastmod><priority>0.3</priority></url>
+  <url><loc>https://louvorstudio.app.br/termos/</loc><lastmod>2026-10-24</lastmod><priority>0.3</priority></url>
+  <url><loc>https://louvorstudio.app.br/cookies/</loc><lastmod>2026-10-24</lastmod><priority>0.3</priority></url>
+  <url><loc>https://louvorstudio.app.br/seguranca/</loc><lastmod>2026-10-24</lastmod><priority>0.3</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/escala-de-louvor/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/aplicativo-de-escala-de-louvor/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/ensaio-com-multitrack-em-casa/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/multitrack-da-banda/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/gravar-voz-em-casa/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/vozes-por-naipe-louvor/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/click-e-grade/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/partes-da-musica-e-repeticao/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/tom-e-andamento-para-ensaiar/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/repertorio-de-louvor/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/conversa-da-banda-e-avisos/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/confirmar-presenca-e-troca-de-escala/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/agenda-fixa-e-escalas-do-mes/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/modelo-de-escala-de-louvor/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/ensaio-sem-internet/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
+  <url><loc>https://louvorstudio.app.br/blog/plano-gratis-do-louvor-studio/</loc><lastmod>2026-10-24</lastmod><priority>0.7</priority></url>
 </urlset>
