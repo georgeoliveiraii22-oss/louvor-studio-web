@@ -464,7 +464,9 @@ button.partchip { background: none; font-family: inherit; }
 .lane.voice .lwave { background: #0A2236; }
 .lane.off .lwave canvas, .lane.off .lhead .nm { opacity: 0.35; }
 .rulerlane { min-height: 52px; }
-.rulerlane .lhead { justify-content: flex-end; padding-bottom: 6px; }
+.rulerlane .lhead { justify-content: space-between; padding-top: 4px; padding-bottom: 2px; }
+.rulerlane .lhead .partlbl { color: var(--muted); font-weight: 700; letter-spacing: 0.08em; line-height: 18px; }
+.rulerlane .lhead .partlbl.on { color: var(--accent-text, #7FD3FF); }
 .rulerlane .lwave canvas { inset: 2px 0; height: calc(100% - 4px); }
 .dawarea { position: absolute; top: 0; bottom: 0; left: var(--hw); right: 0; z-index: 2; touch-action: pan-y; cursor: default; overflow: hidden; }
 .rulerlane .lhead .zbtn { width: 28px; height: 26px; border-radius: 8px; border: 0; background: var(--control); color: var(--text); display: inline-flex; align-items: center; justify-content: center; flex: none; position: relative; z-index: 3; }

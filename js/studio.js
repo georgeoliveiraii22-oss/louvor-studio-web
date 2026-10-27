@@ -485,6 +485,11 @@
       }
       if (b - a > 28) { g.fillStyle = '#050B12'; g.font = '600 10px Geist, system-ui, sans-serif'; g.fillText(sc.name, Math.max(a, 0) + (editing ? 8 : 4), SY + PART_H - 5, b - Math.max(a, 0) - (editing ? 14 : 6)); }
     });
+    if (st.partDraft) {
+      var da = xOf(st.partDraft.a), db = xOf(st.partDraft.b);
+      g.fillStyle = 'rgba(8,169,245,0.35)'; g.fillRect(da, SY, Math.max(1, db - da), PART_H);
+      g.strokeStyle = '#7FD3FF'; g.lineWidth = 1.5; g.strokeRect(da + 0.75, SY + 0.75, Math.max(1, db - da - 1.5), PART_H - 1.5);
+    }
     // Tempo: números no alto; as marcas descem até a faixa das partes.
     g.font = '600 10px "Geist Mono", ui-monospace, monospace';
     var bars = barTimes(), LY = 12;
@@ -914,6 +919,20 @@
       return m.id === id ? Object.assign({}, m, { at_ms: Math.round(rr.start * 1000), end_ms: Math.round(rr.end * 1000) }) : m;
     }));
   }
+  /** Setas: a ponta anda um compasso (ou meio segundo, sem a grade), sem invadir as vizinhas. */
+  function nudgePart(id, edge, dir) {
+    var list = viewParts(), sc = list.find(function (x) { return x.id === id; });
+    if (!sc) return;
+    var v = edge === 'start' ? sc.start : sc.end, bars = barTimes(), t = v + dir * 0.5;
+    if (bars.length) {
+      var nx = dir > 0 ? bars.find(function (b) { return b > v + 0.05; }) : bars.slice().reverse().find(function (b) { return b < v - 0.05; });
+      t = nx === undefined ? (dir > 0 ? sessionEnd() : 0) : nx;
+    }
+    var rr = SEC.clampRange(list, id, edge === 'start' ? t : sc.start, edge === 'end' ? t : sc.end, sessionEnd(), edge);
+    setParts(SEC.withEnds(partList(), sessionEnd()).map(function (m) {
+      return m.id === id ? Object.assign({}, m, { at_ms: Math.round(rr.start * 1000), end_ms: Math.round(rr.end * 1000) }) : m;
+    }));
+  }
   function splitPart(id) {
     var nid = newPartId(), sc = viewParts().find(function (x) { return x.id === id; });
     var after = sc && SEC.splitMarker(partList(), id, snapEdge(st.pos), sessionEnd(), nid, sc.name);
@@ -972,6 +991,10 @@
           b('Repetir', function () { loopPart(sel); }, 'Repeat'),
           b('Início no cursor', function () { setPartEdge(sel.id, 'start'); }, 'ArrowRightToLine'),
           b('Fim no cursor', function () { setPartEdge(sel.id, 'end'); }, 'ArrowLeftToLine'),
+          b('Início ◀', function () { nudgePart(sel.id, 'start', -1); }),
+          b('Início ▶', function () { nudgePart(sel.id, 'start', 1); }),
+          b('Fim ◀', function () { nudgePart(sel.id, 'end', -1); }),
+          b('Fim ▶', function () { nudgePart(sel.id, 'end', 1); }),
           b('Dividir no cursor', function () { splitPart(sel.id); }, 'Scissors'),
           idx < list.length - 1 ? b('Juntar com a seguinte', function () { mergePart(sel.id); }, 'Merge') : null,
           b('Apagar', function () { delPart(sel.id); }, 'Trash2', 'danger'),
@@ -1176,6 +1199,10 @@
       if (hitPart) {
         kind = 'part';
         extra = { id: hitPart.id, mode: hitPart.mode, s0: hitPart.start, e0: hitPart.end, before: SEC.copyMarkers(partList()) };
+      } else if (tool === 'partes' && ruler && inPartStrip(ev.clientY) && second && L.perm.leader()) {
+        var a0 = snapEdge(t), room = SEC.freeAround(viewParts(), a0, sessionEnd(), null);
+        kind = 'partnew';
+        extra = { a: Math.max(room.lo, Math.min(a0, room.hi)), lo: room.lo, hi: room.hi };
       }
       // Pontas do trecho de repetir: prioridade (menos quando a ferramenta edita a gravação).
       if (!kind && !editsClips && st.loop) {
@@ -1233,6 +1260,12 @@
         requestDraw();
         return;
       }
+      if (g.kind === 'partnew') {
+        var pb = Math.max(g.extra.lo, Math.min(g.extra.hi, snapEdge(t)));
+        st.partDraft = { a: Math.min(g.extra.a, pb), b: Math.max(g.extra.a, pb) };
+        st.dragLabel = pb; requestDraw();
+        return;
+      }
       if (g.kind === 'edge') {
         var v = snapEdge(t); st.loop = { a: Math.min(g.extra.fixed, v), b: Math.max(g.extra.fixed, v), name: 'o trecho escolhido' }; st.dragLabel = v; requestDraw();
       } else if (g.kind === 'create') {
@@ -1260,6 +1293,17 @@
       if (pinch) { if (count() < 2) pinch = null; g = null; return; }
       if (!g) return;
       var d = g; g = null; st.dragLabel = null;
+      if (d.kind === 'partnew') {
+        var dr = st.partDraft; st.partDraft = null;
+        if (!cancel && !d.pending && dr && dr.b - dr.a >= SEC.MIN_LEN) {
+          var nid = newPartId(), nm = SEC.suggestName(viewParts(), dr.a);
+          setParts(SEC.withEnds(partList(), sessionEnd()).concat([{ id: nid, at_ms: Math.round(dr.a * 1000), end_ms: Math.round(dr.b * 1000), name: nm }]));
+          st.selPart = nid;
+          L.toast(nm + ' marcado. Escolha o nome certo no painel.');
+          L.render();
+        } else requestDraw();
+        return;
+      }
       if (d.kind === 'part') {
         if (cancel) { replaceParts(d.extra.before); requestDraw(); return; }
         st.selPart = d.extra.id;
@@ -1409,7 +1453,8 @@
       U.textBtn('Volume original', function () { st.mix = {}; st.solo = {}; saveMix(); applyGains(); L.render(); })));
     body.appendChild(h('div', { class: 'daw' },
       h('div', { class: 'lane rulerlane' }, h('div', { class: 'lhead' }, h('div', { class: 'row', style: { gap: '6px' } },
-        h('span', { class: 'muted tiny grow', style: { letterSpacing: '0.06em' } }, st.grid && st.grid.downbeats && st.grid.downbeats.length ? 'COMPASSOS' : 'TEMPO'), u.zoomOut, u.zoomIn)), h('div', { class: 'lwave' }, u.ruler)),
+        h('span', { class: 'muted tiny grow', style: { letterSpacing: '0.06em' } }, st.grid && st.grid.downbeats && st.grid.downbeats.length ? 'COMPASSOS' : 'TEMPO'), u.zoomOut, u.zoomIn),
+        h('span', { class: 'tiny partlbl' + (st.tool === 'partes' && L.perm.leader() ? ' on' : '') }, 'PARTES')), h('div', { class: 'lwave' }, u.ruler)),
       laneRows, area));
     if (st.otherTakes.length && !st.voices.length) {
       body.appendChild(U.btn2('Ouvir as vozes para estudar', 'Users', voicesSheet, { full: true }));

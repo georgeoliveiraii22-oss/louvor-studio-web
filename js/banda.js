@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.22.0', [
+      'Estúdio igual no site, no Android e no iPhone: tempo em cima, partes logo abaixo e as faixas embaixo.',
+      'Partes (líder): setas para ajustar as pontas um compasso por vez e dois toques e arrastar na faixa das partes para criar uma parte nova.'
+    ]],
     ['1.21.0', [
       'Novo blog com guias para o ministério de louvor: escala, ensaio com multitrack, vozes por naipe, repertório e mais. Está no rodapé da página inicial.'
     ]],
