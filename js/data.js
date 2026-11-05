@@ -265,12 +265,24 @@
     S.unread[ch] = 0;
   };
 
-  D.refreshMessages = async function () {
+  // Para gastar pouco tráfego, a lista inteira (300) só vem ao abrir, ao trocar de banda, com `full` e a cada
+  // 10 min (para sumirem as apagadas); nas outras vezes vêm só as mensagens novas.
+  var msgOrg = null, msgFullAt = 0;
+  D.refreshMessages = async function (full) {
     if (!S.current) return;
-    var res = await sb.from('messages').select('id,service_id,author,body,created_at').eq('org_id', S.current.org.id).order('created_at', { ascending: false }).limit(300);
-    if (res.error) return;
+    var org = S.current.org.id;
+    var newest = msgOrg === org && S.lastMessages.length ? S.lastMessages[0].created_at : null;
+    var whole = full || !newest || Date.now() - msgFullAt > 10 * 60000;
+    var q = sb.from('messages').select('id,service_id,author,body,created_at').eq('org_id', org).order('created_at', { ascending: false }).limit(300);
+    if (!whole) q = q.gt('created_at', newest);
+    var res = await q;
+    if (res.error || !S.current || S.current.org.id !== org) return;
     await D.loadSeen().catch(function () { /* sem internet: usa o que já tem */ });
-    S.lastMessages = res.data || [];
+    if (whole) { msgOrg = org; msgFullAt = Date.now(); S.lastMessages = res.data || []; }
+    else {
+      var ids = {};
+      S.lastMessages = (res.data || []).concat(S.lastMessages).filter(function (m) { return ids[m.id] ? false : (ids[m.id] = true); }).slice(0, 300);
+    }
     var me = S.user.id;
     S.unread = {};
     var by = {};
