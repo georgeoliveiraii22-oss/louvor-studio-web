@@ -37,6 +37,12 @@
         })));
     }
 
+    var bloq = L.blocked();
+    if (bloq.length) root.appendChild(U.panel('Pessoas bloqueadas', 'Ban', h('div', null, bloq.map(function (id) {
+      return h('div', { class: 'row', style: { gap: '10px', padding: '6px 0' } },
+        h('span', { class: 'grow' }, L.nameOf(id) || 'Pessoa que saiu da banda'),
+        h('button', { class: 'textbtn', onclick: function () { L.setBlocked(id, false); L.toast('Desbloqueado(a).'); L.render(); } }, 'Desbloquear'));
+    }))));
     root.appendChild(U.panel('Aparência', 'SunMoon', h('div', { class: 'row wrap' }, [['auto', 'Automático'], ['escuro', 'Escuro'], ['claro', 'Claro']].map(function (x) {
       var atual = 'escuro';
       try { atual = localStorage.getItem('aparencia') || 'escuro'; } catch (e) { /* sem armazenamento: fica o escuro */ }

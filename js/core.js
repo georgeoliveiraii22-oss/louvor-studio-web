@@ -378,6 +378,16 @@
   };
 
   /** Menu ⋯ ao lado de um botão. items: [[ícone, texto, fn], ...] */
+  /** Pessoas que eu bloqueei na conversa (por conta, neste navegador): as mensagens delas somem para mim. */
+  L.blocked = function () {
+    try { return JSON.parse(localStorage.getItem('bloqueados_' + L.uid()) || '[]'); } catch (e) { return []; }
+  };
+  L.setBlocked = function (id, on) {
+    var s = L.blocked().filter(function (x) { return x !== id; });
+    if (on) s.push(id);
+    try { localStorage.setItem('bloqueados_' + L.uid(), JSON.stringify(s)); } catch (e) { /* sem armazenamento */ }
+  };
+
   L.menu = function (anchor, items) {
     var r = anchor.getBoundingClientRect();
     var scrim = h('div', { class: 'scrim', style: { background: 'transparent', padding: 0 } });

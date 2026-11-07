@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.24.3', [
+      'Conversa: segure (ou clique com o botão direito) a mensagem de alguém para denunciar ou bloquear a pessoa. Quem você bloqueia some só para você (Eu › Pessoas bloqueadas).'
+    ]],
     ['1.24.0', [
       'Tema claro: em Eu › Aparência escolha Automático, Escuro ou Claro. O estúdio fica sempre escuro, como numa mesa de som.',
       'Página de entrada: primeiro você cria a sua conta (ou entra); depois cria a banda ou entra com o código de convite.'
@@ -389,7 +392,8 @@
       if (c.msgs === null) { list.appendChild(h('div', { class: 'fill-center', style: { minHeight: '40vh' } }, h('div', { class: 'spinner' }))); return; }
       if (!c.msgs.length) list.appendChild(h('div', { class: 'empty', style: { paddingTop: '40px' } }, service ? 'Nenhuma mensagem ainda. Combine aqui os detalhes desta escala.' : 'A conversa da banda inteira. Nenhuma mensagem ainda: diga um oi!'));
       var prevDay = null, prevAuthor = null;
-      c.msgs.forEach(function (msg) {
+      var bloqueados = L.blocked();
+      c.msgs.filter(function (msg) { return bloqueados.indexOf(msg.author) < 0; }).forEach(function (msg) {
         var dt = new Date(msg.created_at);
         var day = L.iso(dt);
         if (day !== prevDay) {
@@ -402,8 +406,9 @@
           !mine && showName ? h('div', { class: 'who' }, L.nameOf(msg.author)) : null,
           h('div', { class: 'txt' }, msg.body),
           h('div', { class: 'tm' }, String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0')));
-        if (mine || L.perm.leader()) bubble.addEventListener('contextmenu', function (e) { e.preventDefault(); askDelete(msg); });
-        holdToDelete(bubble, function () { if (mine || L.perm.leader()) askDelete(msg); });
+        // Segurar (ou botão direito): denunciar e bloquear (mensagem dos outros) e apagar (a minha, ou o líder).
+        bubble.addEventListener('contextmenu', function (e) { e.preventDefault(); msgMenu(bubble, msg, mine); });
+        holdToDelete(bubble, function () { msgMenu(bubble, msg, mine); });
         list.appendChild(h('div', { class: 'bubrow' + (mine ? ' mine' : ''), style: { marginTop: showName ? '6px' : 0 } },
           !mine ? (showName ? U.avatar(L.member(msg.author), 30) : h('span', { style: { width: '30px', flex: 'none' } })) : null, bubble));
         prevDay = day; prevAuthor = msg.author;
@@ -441,6 +446,25 @@
         D.markRead(ch, lastAt());
         c.paint();
       } catch (e) { L.toast(L.errorText(e)); } finally { c.sending = false; }
+    }
+    function msgMenu(anchor, msg, mine) {
+      var nome = L.nameOf(msg.author);
+      var items = [];
+      if (!mine) {
+        items.push(['MessageSquareWarning', 'Denunciar mensagem', function () { report(msg, nome); }]);
+        items.push(['Ban', 'Bloquear ' + nome.split(' ')[0], function () {
+          L.confirm('Bloquear ' + nome + '?', 'Você deixa de ver as mensagens desta pessoa nas conversas. Para desbloquear, vá em Eu › Pessoas bloqueadas.', 'Bloquear', function () {
+            L.setBlocked(msg.author, true); c.paint(); L.toast(nome + ' bloqueado(a).');
+          }, true);
+        }]);
+      }
+      if (mine || L.perm.leader()) items.push(['Trash2', 'Apagar mensagem', function () { askDelete(msg); }]);
+      if (items.length) L.menu(anchor, items);
+    }
+    // A denúncia vai por e-mail para a equipe (respondemos em até 24 horas), como no app.
+    function report(msg, nome) {
+      var corpo = 'Quero denunciar esta mensagem.\n\nBanda: ' + (S.current && S.current.org.name || '') + '\nAutor: ' + nome + ' (' + msg.author + ')\nMensagem (' + msg.id + '):\n' + msg.body + '\n\nMotivo:';
+      location.href = 'mailto:contato@louvorstudio.app.br?subject=' + encodeURIComponent('Denúncia de mensagem') + '&body=' + encodeURIComponent(corpo);
     }
     function askDelete(msg) {
       L.confirm('Apagar mensagem?', '"' + msg.body.slice(0, 120) + '" some para todos.', 'Apagar', function () {
