@@ -37,6 +37,15 @@
         })));
     }
 
+    root.appendChild(U.panel('Aparência', 'SunMoon', h('div', { class: 'row wrap' }, [['auto', 'Automático'], ['escuro', 'Escuro'], ['claro', 'Claro']].map(function (x) {
+      var atual = 'escuro';
+      try { atual = localStorage.getItem('aparencia') || 'escuro'; } catch (e) { /* sem armazenamento: fica o escuro */ }
+      return U.toggle(x[1], atual === x[0], null, function () {
+        try { localStorage.setItem('aparencia', x[0]); } catch (e) { /* ok */ }
+        document.documentElement.setAttribute('data-theme', x[0] === 'claro' ? 'light' : (x[0] === 'auto' ? 'auto' : 'dark'));
+        L.render();
+      });
+    })), h('p', { class: 'muted small', style: { margin: '8px 0 0' } }, 'Automático segue o aparelho. O estúdio fica sempre escuro, como numa mesa de som.')));
     root.appendChild(U.panel('Este site', 'Smartphone',
       U.menuRow('House', 'Pôr na tela inicial', 'Abre como um app, sem a barra do navegador', installHelp),
       U.menuRow('Newspaper', 'Novidades', 'O que tem nesta versão do site', function () { L.go({ name: 'news' }); }),

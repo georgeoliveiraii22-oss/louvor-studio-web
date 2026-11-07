@@ -20,6 +20,32 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* Tema claro (Eu › Aparência): branco gelo e azul claro, texto azul-petróleo. O estúdio e a página de entrada
+   ficam sempre escuros (data-force-dark, posto pelo core.js). "auto" segue o aparelho. */
+:root[data-theme="light"]:not([data-force-dark]) {
+  --bg: #F3F7FB; --panel: #FFFFFF; --control: #E5EEF6; --sel: #DCEEFB; --menu: #FFFFFF; --field: #FFFFFF;
+  --line: rgba(10, 38, 58, 0.10); --outline: #A6B6C4;
+  --text: #2A4458; --hi: #0A1E2E; --muted: #5F788C; --glass-label: #6F8798;
+  --accent: #0077C8; --accent-deep: #005E9E; --accent-light: #0A86C9; --accent-text: #0077C8; --accent-soft: #DCEEFB; --on-accent: #FFFFFF;
+  --ok: #0E9F6E; --ok-bg: rgba(14, 159, 110, 0.12); --warn: #B86E00; --warn-bg: rgba(184, 110, 0, 0.12); --bad: #D23A30; --bad-bg: rgba(210, 58, 48, 0.10);
+  --glass: rgba(245, 249, 253, 0.86); --glass-solid: rgba(245, 249, 253, 0.96); --glass-border: rgba(10, 38, 58, 0.12);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"]:not([data-force-dark]) {
+  --bg: #F3F7FB; --panel: #FFFFFF; --control: #E5EEF6; --sel: #DCEEFB; --menu: #FFFFFF; --field: #FFFFFF;
+  --line: rgba(10, 38, 58, 0.10); --outline: #A6B6C4;
+  --text: #2A4458; --hi: #0A1E2E; --muted: #5F788C; --glass-label: #6F8798;
+  --accent: #0077C8; --accent-deep: #005E9E; --accent-light: #0A86C9; --accent-text: #0077C8; --accent-soft: #DCEEFB; --on-accent: #FFFFFF;
+  --ok: #0E9F6E; --ok-bg: rgba(14, 159, 110, 0.12); --warn: #B86E00; --warn-bg: rgba(184, 110, 0, 0.12); --bad: #D23A30; --bad-bg: rgba(210, 58, 48, 0.10);
+  --glass: rgba(245, 249, 253, 0.86); --glass-solid: rgba(245, 249, 253, 0.96); --glass-border: rgba(10, 38, 58, 0.12);
+  color-scheme: light;
+  }
+}
+:root[data-theme="light"]:not([data-force-dark]) body { background-image: radial-gradient(900px 520px at 0% -8%, rgba(0, 119, 200, 0.10), transparent 70%); }
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"]:not([data-force-dark]) body { background-image: radial-gradient(900px 520px at 0% -8%, rgba(0, 119, 200, 0.10), transparent 70%); }
+}
 html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
 body {
   font-family: var(--sans); font-size: 14px; line-height: 1.4; overscroll-behavior-y: none; -webkit-text-size-adjust: 100%;

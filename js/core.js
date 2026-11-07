@@ -231,6 +231,8 @@
     var side = !rfn && S.loggedIn && !!S.current;
     if (side) { frame.classList.add('has-side'); frame.appendChild(L.bottomNav(!withNav)); }
     root.replaceChildren(frame);
+    // O estúdio e a página de entrada ficam sempre escuros, também no tema claro.
+    document.documentElement.toggleAttribute('data-force-dark', !!root.querySelector('.studio, .site'));
     lastKey = key;
     if (sameRoute) window.scrollTo(0, y);
     else window.scrollTo(0, scrolls[key] || 0);

@@ -260,7 +260,7 @@
         h('a', { href: 'blog/' }, 'Blog')),
       h('span', { class: 'sp' }),
       h('button', { class: 'textbtn', onclick: function () { goEntry('entrar'); } }, 'Entrar'),
-      h('button', { class: 'btn cta', onclick: function () { goEntry('criar'); } }, 'Criar minha banda')));
+      h('button', { class: 'btn cta', onclick: function () { goEntry('criar'); } }, 'Criar minha conta')));
 
     var dotsEl = h('div', { class: 'herodots', 'aria-hidden': 'true', hidden: true }, HERO_SCENES.map(function () { return h('b'); }));
     var hero = h('section', { class: 'hero stagehero' }, h('div', { class: 'herobg', 'aria-hidden': 'true' }, h('img', { class: 'heroapp', src: 'img/desk-inicio.webp', alt: '' })), h('div', { class: 'heroshade', 'aria-hidden': 'true' }), h('div', { class: 'wrap hero-in' },
@@ -269,8 +269,8 @@
         h('p', { class: 'sr' }, HERO_SCENES[0].p),
         (function () { var b = heroBox(); b.classList.add('rise', 'd1'); return b; })(),
         h('div', { class: 'ctas rise d3' },
-          U.btn('Criar minha banda', 'Plus', function () { goEntry('criar'); }),
-          U.btn2('Entrar com convite', 'Users', function () { goEntry('convite'); })),
+          U.btn('Criar minha conta', 'UserPlus', function () { goEntry('criar'); }),
+          U.btn2('Entrar', 'LogIn', function () { goEntry('entrar'); })),
         h('div', { class: 'facts rise d3' },
           h('span', null, ic('Check', 16), 'Tem plano grátis'),
           h('span', null, ic('MonitorSmartphone', 16), 'No celular e no computador'),
@@ -314,7 +314,7 @@
     var how = h('section', { class: 'how', id: 'como' }, h('div', { class: 'wrap' },
       h('h2', null, 'Como a banda começa'),
       h('ol', { class: 'steps' },
-        h('li', null, h('h3', null, 'O líder cria a banda'), h('p', null, 'Leva um minuto. Depois é só mandar o código de convite para o pessoal, pelo WhatsApp mesmo.')),
+        h('li', null, h('h3', null, 'Cada um cria a sua conta'), h('p', null, 'O líder cria a banda e manda o código de convite pelo WhatsApp. Quem recebe cria a conta e entra com o código.')),
         h('li', null, h('h3', null, 'Sobe as músicas'), h('p', null, 'Com a multitrack em MP3, o tom, o BPM, a letra e as partes: Intro, Verso, Refrão.')),
         h('li', null, h('h3', null, 'Escala e todo mundo ensaia'), h('p', null, 'Cada um confirma a escala e ensaia a sua parte em casa, no celular ou no computador.')))));
 
@@ -334,15 +334,14 @@
 
     var close = h('section', { class: 'close' }, h('div', { class: 'wrap' }, h('div', { class: 'card' },
       h('h2', null, 'Sua banda chega pronta no culto.'),
-      h('p', null, 'Crie a banda agora e convide o pessoal. Acesse grátis.'),
-      h('div', { class: 'ctas' }, U.btn('Criar minha banda', 'Plus', function () { goEntry('criar'); }), U.btn2('Entrar com convite', 'Users', function () { goEntry('convite'); })))));
+      h('p', null, 'Crie a sua conta e, em seguida, crie a banda ou entre com o código de convite. Acesse grátis.'),
+      h('div', { class: 'ctas' }, U.btn('Criar minha conta', 'UserPlus', function () { goEntry('criar'); }), U.btn2('Entrar', 'LogIn', function () { goEntry('entrar'); })))));
 
     var foot = h('footer', { class: 'site-foot' }, h('div', { class: 'wrap' },
       h('span', { class: 'row', style: { gap: '10px' } }, h('span', { class: 'logo', style: { width: '28px', height: '28px', borderRadius: '8px' } }, ic('AudioLines', 16)), h('span', { class: 'hi semi' }, 'Louvor Studio')),
       h('span', null, 'O ensaio da sua banda, em qualquer lugar.'),
       h('span', { class: 'sp' }),
       h('a', { href: '#', onclick: function (e) { e.preventDefault(); goEntry('entrar'); } }, 'Entrar'),
-      h('a', { href: '#', onclick: function (e) { e.preventDefault(); goEntry('convite'); } }, 'Entrar com convite'),
       h('a', { href: 'blog/' }, 'Blog'),
       h('a', { href: 'privacidade/' }, 'Privacidade'),
       h('a', { href: 'termos/' }, 'Termos de Uso'),
