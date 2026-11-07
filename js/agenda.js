@@ -26,7 +26,10 @@
       var box = h('div', { class: 'panel', style: { background: 'var(--accent-soft)', borderColor: 'var(--accent)' } },
         h('div', { class: 'hi bold', style: { fontSize: '16px' } }, 'Criar as escalas do mês'),
         h('div', { class: 'row' }, monthsAhead().map(function (ym) { return U.toggle(L.cap(L.MESES[+ym.slice(5, 7) - 1]), T.month === ym, null, function () { T.month = ym; L.render(); }); })));
-      if (!plan.length) box.appendChild(U.body('Todas as escalas de ' + L.MESES[m - 1] + ' já existem (ou os dias já passaram).', 'var(--muted)', 13));
+      if (!plan.length) {
+        box.appendChild(U.body('Todas as escalas de ' + L.MESES[m - 1] + ' já existem (ou os dias já passaram).', 'var(--muted)', 13));
+        box.appendChild(U.btn('Preencher as vagas de ' + L.MESES[m - 1], 'Sparkles', function () { L.go({ name: 'autofill', month: T.month }); }, { full: true, tall: true }));
+      }
       else {
         var byTpl = {};
         plan.forEach(function (x) { (byTpl[x[0].id] = byTpl[x[0].id] || []).push(x); });
@@ -34,14 +37,20 @@
           var t = byTpl[k][0][0];
           box.appendChild(h('div', { style: { fontSize: '13px' } }, DIAS[t.weekday - 1] + ' ' + L.hhmm(t.start_time) + ' · ' + t.title + ': ' + byTpl[k].map(function (x) { return x[1].slice(8); }).join(', ')));
         });
-        box.appendChild(U.btn(T.busy ? 'Criando…' : 'Criar ' + L.plural(plan.length, 'escala', 'escalas') + ' de ' + L.MESES[m - 1], 'CalendarCheck', function () {
+        var create = function (fill) {
           T.busy = true; L.render();
+          var month = T.month;
           L.run(async function () {
-            try { var n = await D.generate(active, dates); await D.reloadServices(); L.toast(n + ' escalas criadas. Abra cada uma para escolher as músicas e conferir a equipe.'); }
-            finally { T.busy = false; L.render(); }
+            try {
+              var n = await D.generate(active, dates); await D.reloadServices();
+              if (fill) L.go({ name: 'autofill', month: month });
+              else L.toast(n + ' escalas criadas. Abra cada uma para escolher as músicas e conferir a equipe.');
+            } finally { T.busy = false; L.render(); }
           });
-        }, { full: true, tall: true, disabled: T.busy }));
-        box.appendChild(U.body('Depois é só abrir cada escala e escolher as músicas. As que já existem não são criadas de novo.', 'var(--muted)', 12));
+        };
+        box.appendChild(U.btn(T.busy ? 'Criando…' : 'Criar e preencher o mês', 'Sparkles', function () { create(true); }, { full: true, tall: true, disabled: T.busy }));
+        box.appendChild(U.btn2('Só criar as ' + plan.length + ' escalas (sem pessoas)', 'CalendarCheck', function () { create(false); }, { full: true, disabled: T.busy }));
+        box.appendChild(U.body('Criar e preencher: o app monta as ' + plan.length + ' escalas e sugere quem vai em cada vaga, de forma equilibrada. Você confere e publica. As que já existem não são criadas de novo.', 'var(--muted)', 12));
       }
       root.appendChild(box);
     }
@@ -65,7 +74,8 @@
 
   function tplDialog(t) {
     var st = { weekday: t ? t.weekday : 7, kind: t ? t.kind : 'culto', title: t ? t.title : '', start: t ? L.hhmm(t.start_time) : '19:00', end: t ? L.hhmm(t.end_time) : '',
-      location: t ? t.location || '' : '', team: t ? t.team_id : null, active: t ? t.active !== false : true };
+      location: t ? t.location || '' : '', team: t ? t.team_id : null, active: t ? t.active !== false : true,
+      needs: Object.assign({}, t && t.needs || {}), showNeeds: !!(t && t.needs && Object.keys(t.needs).length) };
     function sug() {
       if (st.kind === 'ensaio') return 'Ensaio de ' + DIAS[st.weekday - 1].toLowerCase();
       if (st.kind === 'evento') return 'Evento';
@@ -91,6 +101,15 @@
           U.field(st.location, 'Local (opcional)', function (v) { st.location = v.slice(0, 120); }),
           S.teams.length ? [U.label('Equipe que costuma tocar'), h('div', { class: 'hscroll' }, U.toggle('Nenhuma', !st.team, null, function () { st.team = null; dlg.rebuild(); }),
             S.teams.map(function (tm) { return U.toggle(tm.name, st.team === tm.id, 'UsersRound', function () { st.team = tm.id; dlg.rebuild(); }); }))] : null,
+          U.clickRow(function () { st.showNeeds = !st.showNeeds; dlg.rebuild(); },
+            h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, 'Quantas pessoas em cada função'),
+              h('div', { class: 'muted small' }, Object.keys(st.needs).filter(function (k) { return st.needs[k] > 0; }).map(function (k) { return st.needs[k] + ' ' + L.fnLabel(k).toLowerCase(); }).join(', ')
+                || 'Para a escala automática. Sem marcar: a equipe fixa ou 1 por função')),
+            ic(st.showNeeds ? 'ChevronDown' : 'ChevronRight', 18, 'muted')),
+          st.showNeeds ? L.FUNCTIONS.map(function (f) {
+            return h('div', { class: 'row', style: { gap: '8px' } }, ic(L.fnIcon(f[0]), 16, 'muted'), h('span', { class: 'grow ell', style: { fontSize: '13px' } }, f[1]),
+              L.auto.stepper(st.needs[f[0]] || 0, 0, 6, null, function (v) { if (v) st.needs[f[0]] = v; else delete st.needs[f[0]]; dlg.rebuild(); }));
+          }) : null,
           t ? U.switchRow('Ativo', 'Desligue para pausar (ex.: férias) sem apagar.', st.active, function (v) { st.active = v; }) : null,
           t ? h('button', { class: 'textbtn', style: { color: 'var(--bad)', alignSelf: 'flex-start' }, onclick: function () {
             L.confirm('Apagar ' + t.title + '?', 'As escalas já criadas continuam. Só deixa de criar as próximas.', 'Apagar', function () {
@@ -104,10 +123,17 @@
           h('button', { class: 'textbtn', onclick: function () {
             var row = { weekday: st.weekday, kind: st.kind, title: st.title.trim() || sug(), start_time: st.start, end_time: st.end || null,
               location: st.location.trim() || null, team_id: st.team || null, active: st.active };
+            var needs = {};
+            Object.keys(st.needs).forEach(function (k) { if (st.needs[k] > 0) needs[k] = st.needs[k]; });
             close();
             L.run(async function () {
-              L.must(t ? await sb.from('service_templates').update(row).eq('id', t.id) : await sb.from('service_templates').insert(Object.assign({ org_id: S.current.org.id }, row)));
-              await reloadTemplates(); L.toast('Horário salvo.'); L.render();
+              var save = function (r) { return t ? sb.from('service_templates').update(r).eq('id', t.id) : sb.from('service_templates').insert(Object.assign({ org_id: S.current.org.id }, r)); };
+              // Sem a migração 0032 a coluna "needs" não existe: salva sem ela e avisa.
+              var res = await save(Object.assign({ needs: needs }, row)), ok = !res.error;
+              if (res.error) L.must(await save(row));
+              await reloadTemplates();
+              L.toast(ok || (!Object.keys(needs).length && !(t && t.needs && Object.keys(t.needs).length)) ? 'Horário salvo.' : 'Horário salvo, mas sem as quantidades: falta rodar a migração 0032 no Supabase.');
+              L.render();
             });
           } }, 'Salvar')];
       }

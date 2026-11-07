@@ -38,6 +38,7 @@
       U.menuRow('CalendarCheck', 'O mês inteiro e a agenda fixa', S.templates.length
         ? 'Agenda fixa da igreja: ' + L.plural(S.templates.filter(function (t) { return t.active !== false; }).length, 'horário', 'horários') + '. Crie o mês inteiro de uma vez.'
         : 'Cadastre os cultos fixos da igreja (ex.: quarta 19h, domingo 9h) e crie o mês num toque.', function () { L.go({ name: 'templates' }); }),
+      U.menuRow('Sparkles', 'Preencher o mês automaticamente', 'O app escolhe as pessoas das vagas vazias, equilibrado e respeitando quem não pode. Você revisa antes de publicar.', function () { L.auto.open(null); }),
       U.menuRow('UsersRound', 'Equipes fixas', S.teams.length ? L.plural(S.teams.length, 'equipe', 'equipes') + ': ' + S.teams.slice(0, 3).map(function (t) { return t.name; }).join(', ')
         : 'Equipe A, Equipe B…: escale a equipe inteira com um toque.', function () { L.go({ name: 'teams' }); })));
 

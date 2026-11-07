@@ -5,6 +5,11 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.25.0', [
+      'Escala automática: em Escalas › Gerenciar escalas (ou na Agenda fixa, Criar e preencher o mês) o app escolhe quem vai em cada vaga, de forma equilibrada. Você confere, troca, trava e só então publica.',
+      'Dentro de cada escala: Gerar a equipe automaticamente, só para aquela escala.',
+      'Dias que não posso: agora também dá para marcar os horários em que você costuma poder e quantas vezes por mês quer servir.'
+    ]],
     ['1.24.3', [
       'Conversa: segure (ou clique com o botão direito) a mensagem de alguém para denunciar ou bloquear a pessoa. Quem você bloqueia some só para você (Eu › Pessoas bloqueadas).'
     ]],
@@ -321,6 +326,8 @@
           voice ? U.keyValue('Voz', voice[1]) : null,
           mb.bio ? U.body(mb.bio, 'var(--muted)', 13) : null,
           next.length ? [U.label('Próximas escalas'), next.map(function (s) { return h('div', { style: { fontSize: '13px' } }, s.title + ' · ' + L.serviceWhen(s.starts_on)); })] : null,
+          L.perm.schedule() && !isMe ? U.btn2((S.availability[mb.user_id] || []).length ? 'Disponibilidade: ' + L.plural(S.availability[mb.user_id].length, 'horário', 'horários') : 'Disponibilidade: qualquer horário',
+            'CalendarCheck', function () { close(); setTimeout(function () { L.go({ name: 'memberavail', id: mb.user_id }); }, 60); }, { full: true }) : null,
           L.perm.leader() && !isMe ? [U.label('Permissões'),
             U.switchRow('Pode editar áudio', 'Aprova gravações e ajusta o estúdio', mb.can_edit_audio || mb.role === 'leader', function (v) { set({ can_edit_audio: v }, v ? mb.name + ' agora pode editar áudio.' : 'Permissão retirada.', close); }, mb.role === 'leader'),
             U.switchRow('Pode montar escalas', 'Cria escalas e chama as pessoas', mb.can_schedule || mb.role === 'leader', function (v) { set({ can_schedule: v }, v ? mb.name + ' agora pode montar escalas.' : 'Permissão retirada.', close); }, mb.role === 'leader'),

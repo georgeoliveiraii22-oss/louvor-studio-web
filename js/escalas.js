@@ -96,6 +96,7 @@
           U.menuRow('CalendarDays', 'Uma escala', 'Passo a passo: dia, músicas, ministro, vozes, músicos e técnica.', function () { close(); setTimeout(function () { L.go({ name: 'wizard', day: day }); }, 60); }),
           U.menuRow('CalendarCheck', 'O mês inteiro', S.templates.length ? 'Cria as escalas do mês pela agenda fixa da igreja (' + S.templates.filter(function (t) { return t.active !== false; }).length + ' horários).'
             : 'Cadastre os cultos fixos da igreja (ex.: quarta 19h, domingo 9h) e crie o mês num toque.', function () { close(); setTimeout(function () { L.go({ name: 'templates' }); }, 60); }),
+          U.menuRow('Sparkles', 'Preencher o mês automaticamente', 'O app escolhe as pessoas das vagas vazias, equilibrado. Você revisa antes de publicar.', function () { close(); setTimeout(function () { L.auto.open(null); }, 60); }),
           U.menuRow('UsersRound', 'Equipes fixas', 'Equipe A, Equipe B…: escale a equipe inteira com um toque.', function () { close(); setTimeout(function () { L.go({ name: 'teams' }); }, 60); }),
           U.menuRow('SlidersHorizontal', 'Gerenciar escalas', 'Escolha várias para apagar, mudar a hora, o local ou lembrar quem não respondeu.', function () { close(); setTimeout(function () { L.go({ name: 'gerenciar' }); }, 60); })
         ];
@@ -193,9 +194,13 @@
         actions));
     }
 
-    if (can && (!s.songs.length || !s.people.length)) {
-      root.appendChild(U.btn(!s.songs.length && !s.people.length ? 'Montar esta escala passo a passo' : !s.songs.length ? 'Escolher as músicas' : 'Escalar a equipe', 'Sparkles',
-        function () { L.go({ name: 'wizard', id: s.id, step: !s.songs.length ? 1 : 2 }); }, { full: true, tall: true }));
+    if (can && s.starts_on >= L.today()) {
+      // Gerar: o sorteio equilibrado só desta escala (olha o mês inteiro). Passo a passo: montar à mão.
+      root.appendChild(U.btn('Gerar a equipe automaticamente', 'Sparkles', function () { L.auto.open(s.id); }, { full: true, tall: true }));
+      if (!s.songs.length || !s.people.length) {
+        root.appendChild(U.btn2(!s.songs.length && !s.people.length ? 'Montar esta escala passo a passo' : !s.songs.length ? 'Escolher as músicas' : 'Escalar a equipe passo a passo', 'ListChecks',
+          function () { L.go({ name: 'wizard', id: s.id, step: !s.songs.length ? 1 : 2 }); }, { full: true }));
+      }
     }
 
     // Músicas
@@ -378,6 +383,7 @@
         if (S.services.some(function (s) { return s.starts_on === d && s.people.some(function (p) { return p.user_id === me; }); })) return 'mine';
         return '';
       }),
-      next.length ? [U.label('Marcados'), next.map(function (d) { return U.keyValue(L.cap(L.fullDate(d)), 'não posso'); })] : null);
+      next.length ? [U.label('Marcados'), next.map(function (d) { return U.keyValue(L.cap(L.fullDate(d)), 'não posso'); })] : null,
+      L.auto.panel(me));
   });
 })();
