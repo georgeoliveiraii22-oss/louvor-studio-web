@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.24.0', [
+      'Tema claro: em Eu › Aparência escolha Automático, Escuro ou Claro. O estúdio fica sempre escuro, como numa mesa de som.',
+      'Página de entrada: primeiro você cria a sua conta (ou entra); depois cria a banda ou entra com o código de convite.'
+    ]],
     ['1.23.0', [
       'O site gasta menos internet para conferir mensagens novas.'
     ]],
