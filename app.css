@@ -17,7 +17,7 @@
   --mono: "Geist Mono", ui-monospace, "Roboto Mono", Menlo, monospace;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-  --ink: 220, 232, 242; --mine: #0E4C78; --hover-1: #0D2E46; --hover-2: #17405E; --warn-bg-solid: #3A2A06;
+  --ink: 220, 232, 242; --festa: #FFB547; --bday: linear-gradient(135deg, #0B3A5C, #0A2A42); --mine: #0E4C78; --hover-1: #0D2E46; --hover-2: #17405E; --warn-bg-solid: #3A2A06;
   color-scheme: dark;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -30,7 +30,7 @@
   --accent: #0077C8; --accent-deep: #005E9E; --accent-light: #0A86C9; --accent-text: #0077C8; --accent-soft: #DCEEFB; --on-accent: #FFFFFF;
   --ok: #0E9F6E; --ok-bg: rgba(14, 159, 110, 0.12); --warn: #B86E00; --warn-bg: rgba(184, 110, 0, 0.12); --bad: #D23A30; --bad-bg: rgba(210, 58, 48, 0.10);
   --glass: rgba(245, 249, 253, 0.86); --glass-solid: rgba(245, 249, 253, 0.96); --glass-border: rgba(10, 38, 58, 0.12);
-  --ink: 10, 38, 58; --mine: #D3EAFB; --hover-1: #EEF4FA; --hover-2: #D9E6F1; --warn-bg-solid: #FFF4DE;
+  --ink: 10, 38, 58; --festa: #B86E00; --bday: linear-gradient(135deg, #FFF4DE, #E3F1FC); --mine: #D3EAFB; --hover-1: #EEF4FA; --hover-2: #D9E6F1; --warn-bg-solid: #FFF4DE;
   color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
@@ -41,7 +41,7 @@
   --accent: #0077C8; --accent-deep: #005E9E; --accent-light: #0A86C9; --accent-text: #0077C8; --accent-soft: #DCEEFB; --on-accent: #FFFFFF;
   --ok: #0E9F6E; --ok-bg: rgba(14, 159, 110, 0.12); --warn: #B86E00; --warn-bg: rgba(184, 110, 0, 0.12); --bad: #D23A30; --bad-bg: rgba(210, 58, 48, 0.10);
   --glass: rgba(245, 249, 253, 0.86); --glass-solid: rgba(245, 249, 253, 0.96); --glass-border: rgba(10, 38, 58, 0.12);
-  --ink: 10, 38, 58; --mine: #D3EAFB; --hover-1: #EEF4FA; --hover-2: #D9E6F1; --warn-bg-solid: #FFF4DE;
+  --ink: 10, 38, 58; --festa: #B86E00; --bday: linear-gradient(135deg, #FFF4DE, #E3F1FC); --mine: #D3EAFB; --hover-1: #EEF4FA; --hover-2: #D9E6F1; --warn-bg-solid: #FFF4DE;
   color-scheme: light;
   }
 }
@@ -1197,12 +1197,12 @@ button.partchip { background: none; font-family: inherit; }
 }
 
 /* ---------------------------------------------------------------- O lado "gente" do Início (js/social.js) */
-.festa { color: #FFB547; }
+.festa { color: var(--festa); }
 .soc-bday { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 22px;
-  background: radial-gradient(70% 90% at 100% 0%, rgba(255, 181, 71, 0.30), transparent 70%), linear-gradient(135deg, #0B3A5C, #0A2A42);
+  background: radial-gradient(70% 90% at 100% 0%, rgba(255, 181, 71, 0.30), transparent 70%), var(--bday);
   box-shadow: inset 0 0 0 1px rgba(255, 181, 71, 0.35); }
-.soc-bday .ring { display: inline-flex; padding: 3px; border-radius: 50%; box-shadow: inset 0 0 0 2px #FFB547; flex: none; }
-.soc-bday .tag { display: flex; align-items: center; gap: 6px; color: #FFB547; font-size: 13px; font-weight: 600; }
+.soc-bday .ring { display: inline-flex; padding: 3px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--festa); flex: none; }
+.soc-bday .tag { display: flex; align-items: center; gap: 6px; color: var(--festa); font-size: 13px; font-weight: 600; }
 .soc-bday .nm { color: var(--hi); font-size: 20px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.2; margin-top: 2px; }
 .soc-bday .row, .soc-bday .btn, .soc-bday .soc-done, .soc-bday p { position: relative; }
 /* Confete parado no canto, sem animação: o clima de festa sem distrair */
