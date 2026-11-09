@@ -116,6 +116,8 @@
       st.markers = r[3].error ? [] : r[3].data || [];
       var all = targets();
       st.total = all.length;
+      // O navegador guarda todas as faixas na memória: em celular, música com muitas faixas pode travar a página.
+      if (all.length > 12 && window.matchMedia('(pointer: coarse)').matches) L.toast('Música com muitas faixas: no navegador do celular ela pode travar. No app fica melhor.');
       for (var i = 0; i < all.length; i++) {
         st.loading = 'Baixando o áudio: ' + i + ' de ' + all.length;
         paintLoading();

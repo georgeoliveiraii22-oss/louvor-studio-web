@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.27.0', [
+      'Importar planilha: quando o app não reconhece uma coluna, você diz o que ela é. Dá para ajustar as colunas também na prévia.',
+      'Multitrack: agora até 24 faixas por música.'
+    ]],
     ['1.26.0', [
       'Repertório › Planilha: importe várias músicas de uma vez por Excel ou CSV, conferindo tudo antes de entrar, e exporte o repertório para outra banda.',
       'Ficha da música: agora tem álbum, classificações, link da letra e link do áudio.',

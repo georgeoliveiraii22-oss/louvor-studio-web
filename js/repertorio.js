@@ -363,18 +363,57 @@
   }
   async function readSheet(f) {
     try {
-      var parsed = Planilha.parseRows(await Planilha.readFile(f.name, await f.arrayBuffer()));
-      if (parsed.error) throw new Error(parsed.error);
-      if (!parsed.songs.length) { L.toast('Não encontrei músicas nesse arquivo.'); return; }
-      var items = Planilha.classify(parsed.songs, S.projects), sel = {};
-      items.forEach(function (it, i) { if (it.status === 'new') sel[i] = true; });
-      Imp = { file: f.name, items: items, sel: sel, busy: false, progress: null };
+      var rows = await Planilha.readFile(f.name, await f.arrayBuffer()), info = Planilha.inspect(rows);
+      if (info.at < 0 || !info.cols.length) { L.toast('Não encontrei músicas nesse arquivo.'); return; }
+      var m = { file: f.name, rows: rows, at: info.at, cols: info.cols, items: null, sel: {}, step: 'cols', busy: false, progress: null };
+      if (!Planilha.needsReview(info.cols)) { var n = buildItems(m); if (!n) { L.toast('Não encontrei músicas nesse arquivo.'); return; } }
+      Imp = m;
       L.go({ name: 'songimport' });
     } catch (x) { L.dialog({ title: 'Não deu para importar', body: function () { return U.body(IMP_ERR[x.message] || IMP_ERR.arquivo, null, 14); }, actions: function (close) { return [h('button', { class: 'textbtn', onclick: close }, 'Entendi')]; } }); }
+  }
+  function buildItems(m) {
+    var parsed = Planilha.parseRows(m.rows, { at: m.at, cols: m.cols });
+    if (parsed.error || !parsed.songs.length) return 0;
+    m.items = Planilha.classify(parsed.songs, S.projects);
+    m.sel = {};
+    m.items.forEach(function (it, i) { if (it.status === 'new') m.sel[i] = true; });
+    m.step = 'list';
+    return m.items.length;
+  }
+  function columnCard(m, c) {
+    var unknown = !c.field && !c.ignored;
+    var sel = h('select', { 'aria-label': 'O que é a coluna ' + c.name, style: { width: '100%', minHeight: '44px', padding: '0 10px', borderRadius: '10px', fontSize: '16px', background: 'var(--bg)', color: 'var(--hi)', border: '1px solid var(--outline)' },
+      onchange: function () {
+        var v = this.value;
+        if (v) m.cols.forEach(function (o) { if (o !== c && o.field === v) o.field = null; });   // cada campo vem de uma coluna só
+        c.field = v || null; c.ignored = !v;
+        L.render();
+      } },
+      h('option', { value: '' }, 'Não importar'),
+      Planilha.FIELDS.map(function (f) { return h('option', { value: f[0] }, f[1]); }));
+    sel.value = c.field || '';
+    return h('div', { class: 'col', style: { gap: '8px', padding: '12px', borderRadius: 'var(--r-group)', background: 'var(--panel)', boxShadow: unknown ? 'inset 0 0 0 1px var(--warn)' : null } },
+      h('div', { class: 'hi semi ell', style: { fontSize: '15px' } }, c.name),
+      c.samples.length ? h('div', { class: 'muted small ell' }, 'Ex.: ' + c.samples.join(' · ')) : null,
+      unknown ? h('div', { class: 'small', style: { color: 'var(--warn)' } }, 'Não reconheci esta coluna. Se não escolher, ela fica de fora.') : null,
+      sel);
+  }
+  function columnsStep(m) {
+    var hasTitle = m.cols.some(function (c) { return c.field === 'title'; });
+    return h('div', { class: 'screen', style: { paddingBottom: '120px', gap: '10px' } },
+      U.topRow('O que é cada coluna?', m.file, null, function () { if (m.items) { m.step = 'list'; L.render(); } else { Imp = null; L.back(); } }),
+      U.body('A primeira linha da tabela precisa ter os títulos. Confira o que cada coluna traz antes de continuar.', 'var(--muted)', 13),
+      m.cols.map(function (c) { return columnCard(m, c); }),
+      h('div', { class: 'bulkbar' },
+        U.btn(hasTitle ? 'Continuar' : 'Escolha a coluna do nome da música', 'ArrowRight', function () {
+          if (!buildItems(m)) L.toast('Não encontrei músicas com essa coluna de nome. Confira a escolha.');
+          L.render();
+        }, { full: true, tall: true, disabled: !hasTitle })));
   }
   function importRow(it, i) {
     var free = it.status === 'new', on = free && !!Imp.sel[i], r = it.row;
     var info = [r.artist, r.musical_key ? 'Tom ' + r.musical_key : null, r.bpm ? r.bpm + ' BPM' : null].filter(Boolean).join(' · ');
+    var has = [r.version_url ? 'Vídeo' : null, r.lyrics || r.lyrics_url ? 'Letra' : null, r.chart_url ? 'Cifra' : null, r.audio_url ? 'Áudio' : null, r.tags ? r.tags.join(', ') : null].filter(Boolean).join(' · ');
     return h('div', { class: 'bulkrow' + (on ? ' on' : ''), role: 'checkbox', 'aria-checked': String(on), 'aria-disabled': String(!free), tabindex: free ? '0' : '-1', style: free ? null : { opacity: 0.55 },
       onclick: function () { if (!free || Imp.busy) return; if (on) delete Imp.sel[i]; else Imp.sel[i] = true; L.render(); },
       onkeydown: function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); this.click(); } } },
@@ -382,11 +421,13 @@
       h('div', { class: 'grow col', style: { gap: '2px', minWidth: 0 } },
         h('div', { class: 'hi semi ell', style: { fontSize: '15px' } }, r.song_title),
         h('div', { class: 'muted small ell' }, info || ' '),
+        has ? h('div', { class: 'muted small ell' }, has) : null,
         !free ? h('div', { class: 'small semi' }, it.status === 'dup' ? 'Já está no repertório' : 'Repetida na planilha') : null,
         it.warnings.map(function (w) { return h('div', { class: 'small', style: { color: 'var(--warn)' } }, w); })));
   }
   L.screen('songimport', function () {
     if (!Imp) { setTimeout(function () { L.back(); }, 0); return h('div', { class: 'screen' }); }
+    if (Imp.step === 'cols') return columnsStep(Imp);
     var m = Imp, count = function (st) { return m.items.filter(function (x) { return x.status === st; }).length; };
     var nw = count('new'), dup = count('dup'), rep = count('repeat'), chosen = Object.keys(m.sel).length, warned = m.items.filter(function (x) { return x.status === 'new' && x.warnings.length; }).length;
     var parts = [L.plural(nw, 'música nova', 'músicas novas'), dup ? dup + ' já no repertório' : null, rep ? L.plural(rep, 'repetida', 'repetidas') + ' na planilha' : null, warned ? L.plural(warned, 'com aviso', 'com aviso') : null].filter(Boolean);
@@ -395,9 +436,10 @@
       U.topRow('Importar músicas', m.file, null, function () { if (!m.busy) { Imp = null; L.back(); } }),
       U.body(parts.join(' · '), 'var(--hi)', 14),
       U.body('Toque em uma música para deixar de fora. Depois, é só abrir a música e editar.', 'var(--muted)', 13),
-      nw ? h('div', { class: 'row' }, h('span', { class: 'grow' }), h('button', { class: 'textbtn', style: { fontSize: '14px' }, disabled: m.busy, onclick: function () {
-        m.sel = {}; if (!allOn) m.items.forEach(function (x, i) { if (x.status === 'new') m.sel[i] = true; }); L.render();
-      } }, allOn ? 'Tirar todas' : 'Escolher todas')) : null,
+      h('div', { class: 'row' }, h('button', { class: 'textbtn', style: { fontSize: '14px' }, disabled: m.busy, onclick: function () { m.step = 'cols'; L.render(); } }, 'Ajustar colunas'), h('span', { class: 'grow' }),
+        nw ? h('button', { class: 'textbtn', style: { fontSize: '14px' }, disabled: m.busy, onclick: function () {
+          m.sel = {}; if (!allOn) m.items.forEach(function (x, i) { if (x.status === 'new') m.sel[i] = true; }); L.render();
+        } }, allOn ? 'Tirar todas' : 'Escolher todas') : null),
       m.items.map(importRow),
       h('div', { class: 'bulkbar' },
         m.progress ? [U.body(m.progress[0], null, 13), h('div', { class: 'loading-bar' }, h('i', { style: { width: Math.round(m.progress[1] * 100) + '%' } }))]
@@ -500,7 +542,7 @@
       U.panel('Multitrack (opcional)', 'AudioWaveform',
         e.cloud && cloudVisible(e).length ? h('div', { class: 'row' }, U.neon('AudioWaveform', true, ''), h('span', { class: 'hi' }, L.plural(cloudVisible(e).length, 'faixa na nuvem', 'faixas na nuvem'))) : null,
         cloudList.length ? h('div', { class: 'col', style: { gap: '6px' } }, cloudList) : null,
-        U.body(cloudList.length ? 'Toque em ⋯ numa faixa para renomear, trocar o arquivo ou apagar só ela. Dá para acrescentar mais (mesma taxa e duração das que já estão).' : 'Sem multitrack a música fica só com link, tom e BPM. Para ensaiar, envie as faixas separadas (até 12): MP3, M4A, WAV ou FLAC. O que não for MP3 de bitrate constante é convertido no aparelho.', 'var(--muted)', 12),
+        U.body(cloudList.length ? 'Toque em ⋯ numa faixa para renomear, trocar o arquivo ou apagar só ela. Dá para acrescentar mais (mesma taxa e duração das que já estão).' : 'Sem multitrack a música fica só com link, tom e BPM. Para ensaiar, envie as faixas separadas (até 24): MP3, M4A, WAV ou FLAC. O que não for MP3 de bitrate constante é convertido no aparelho.', 'var(--muted)', 12),
         dropZone(e, stemsList)),
       e.progress ? [U.body(e.progress[0], null, 13), h('div', { class: 'loading-bar' }, h('i', { style: { width: Math.round(e.progress[1] * 100) + '%' } }))] : null,
       saveBtn,
@@ -559,7 +601,7 @@
 
   /** Confere e envia a multitrack (MP3 CBR), como o painel web: cadastra, envia, o servidor confere, vira faixa. */
   async function uploadStems(org, pid, files, existing, p, say, leftover) {
-    if (existing + files.length > 12) throw new Error('O limite é de 12 faixas por música.');
+    if (existing + files.length > 24) throw new Error('O limite é de 24 faixas por música.');
     if (!window.crypto || !crypto.subtle) throw new Error('Este navegador não permite conferir os arquivos. Abra o site por https.');
     // O que não é MP3 CBR (M4A, WAV, FLAC, MP3 de bitrate variável ou em outra taxa) é convertido aqui.
     var prep = await Mp3Encode.prepareStems(files, { sampleRate: p && p.sample_rate && existing ? p.sample_rate : null, say: say });
@@ -728,7 +770,7 @@
       var base = L.norm(trimExt(f.name));
       if (e.stems.some(function (x) { return x.name === f.name && x.size === f.size; })) return;
       if ((e.cloud || []).some(function (t) { return L.norm(t.name) === base && !e.hidden[t.id]; })) { msgs.push('Já existe uma faixa chamada “' + trimExt(f.name) + '”. Para trocar o arquivo dela, toque em ⋯ › Trocar o arquivo.'); return; }
-      if (cloudVisible(e).length + e.stems.length >= 12) { if (msgs.indexOf('O limite é de 12 faixas por música.') < 0) msgs.push('O limite é de 12 faixas por música.'); return; }
+      if (cloudVisible(e).length + e.stems.length >= 24) { if (msgs.indexOf('O limite é de 24 faixas por música.') < 0) msgs.push('O limite é de 24 faixas por música.'); return; }
       e.stems.push(f);
     });
     if (msgs.length) L.toast(msgs[0]);
