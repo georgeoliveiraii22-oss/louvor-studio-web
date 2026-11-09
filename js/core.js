@@ -184,7 +184,16 @@
 
   L.setTab = function (t) {
     // No computador o menu fica à vista também nas telas de dentro: volta para a aba.
-    if (S.stack.length > 1) { scrolls[routeKey()] = window.scrollY; S.stack = [{ name: 'main' }]; S.tab = t; L.render(); return; }
+    if (S.stack.length > 1) {
+      scrolls[routeKey()] = window.scrollY;
+      // Tira do histórico as telas de dentro: senão o Voltar do navegador passa por elas e acaba no Início.
+      var inner = S.stack.length - 1;
+      S.stack = [{ name: 'main' }]; S.tab = t; L.render();
+      skipPop++;
+      afterPop = function () { if (t !== 'inicio' && !tabPushed) { history.pushState({ louvor: 'tab' }, ''); tabPushed = true; } };
+      history.go(-inner);
+      return;
+    }
     if (S.tab === t) { window.scrollTo(0, 0); return; }
     scrolls[routeKey()] = window.scrollY;
     S.tab = t;
@@ -193,9 +202,14 @@
   };
 
   var skipPop = 0;
+  var afterPop = null;
   window.addEventListener('popstate', function () {
     // Fechou uma janela pela tela: o voltar do histórico já foi feito; ignora uma vez.
-    if (skipPop > 0) { skipPop--; return; }
+    if (skipPop > 0) {
+      skipPop--;
+      if (!skipPop && afterPop) { var f = afterPop; afterPop = null; f(); }
+      return;
+    }
     if (overlays.length) { var o = overlays.pop(); o.close(true); return; }
     if (S.stack.length > 1) { S.stack.pop(); L.render(); return; }
     if (S.tab !== 'inicio') { tabPushed = false; S.tab = 'inicio'; L.render(); }

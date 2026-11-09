@@ -5,6 +5,12 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.25.1', [
+      'Escalas: salvar uma edição agora é de uma vez só, mesmo com internet lenta, e criar uma escala que se repete não fica pela metade.',
+      'Se o dia da escala mudar, todos voltam a confirmar. Mudando o resto, quem já confirmou continua confirmado.',
+      'Trocar uma pessoa não deixa mais a vaga vazia, e tirar pessoa ou música pede confirmação.',
+      'Correções: o calendário dentro da escala abre ao tocar em qualquer parte da caixa, e depois de apagar uma escala você volta para Escalas.'
+    ]],
     ['1.25.0', [
       'Escala automática: em Escalas › Gerenciar escalas (ou na Agenda fixa, Criar e preencher o mês) o app escolhe quem vai em cada vaga, de forma equilibrada. Você confere, troca, trava e só então publica.',
       'Dentro de cada escala: Gerar a equipe automaticamente, só para aquela escala.',

@@ -360,6 +360,8 @@ svg.i { display: block; flex: none; stroke-width: 2; }
 .tplcard.on { background: var(--sel); box-shadow: inset 0 0 0 1.5px var(--accent); }
 .pickbox { position: relative; display: flex; align-items: center; gap: 10px; background: var(--field); border: 1px solid var(--line); border-radius: 14px; min-height: 60px; padding: 0 14px; cursor: pointer; color: var(--muted); }
 .pickbox input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; border: 0; cursor: pointer; }
+/* No computador, o calendário só abre clicando no ícone do campo: o ícone (invisível) ocupa a caixa inteira. */
+.pickbox input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; cursor: pointer; }
 
 /* ---------------------------------------------------------------- Repertório */
 .songlist { display: flex; flex-direction: column; gap: 2px; }

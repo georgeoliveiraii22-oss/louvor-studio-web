@@ -257,12 +257,12 @@
           h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, p.user_id === me ? 'Você' : L.nameOf(p.user_id)),
             L.isOff(p.user_id, s.starts_on) ? h('div', { class: 'warn tiny' }, 'marcou que não pode neste dia') : null),
           U.statusFor(p),
-          can && (p.swap_requested || p.status === 'recusado') ? U.iconBtn('RefreshCw', 'Trocar ' + L.nameOf(p.user_id), function () {
-            D.scheduleAction(null, function () { return sb.from('service_members').delete().eq('service_id', s.id).eq('user_id', p.user_id).eq('function', p.function); })
-              .then(function () { addPerson(s, p.function); });
-          }, { color: 'var(--warn)' }) : null,
+          // Trocar: só tira a pessoa depois que a substituta entrar (fechar a janela não muda nada).
+          can && (p.swap_requested || p.status === 'recusado') ? U.iconBtn('RefreshCw', 'Trocar ' + L.nameOf(p.user_id), function () { addPerson(s, p.function, p); }, { color: 'var(--warn)' }) : null,
           can ? U.iconBtn('X', 'Tirar da escala', function () {
-            D.scheduleAction(null, function () { return sb.from('service_members').delete().eq('service_id', s.id).eq('user_id', p.user_id).eq('function', p.function); });
+            L.confirm('Tirar ' + L.nameOf(p.user_id) + ' da escala?', 'A resposta dessa pessoa nesta função será apagada.', 'Tirar', function () {
+              D.scheduleAction(null, function () { return sb.from('service_members').delete().eq('service_id', s.id).eq('user_id', p.user_id).eq('function', p.function); });
+            }, true);
           }, { color: 'var(--muted)' }) : null));
       });
     });
@@ -291,7 +291,14 @@
       body: function () { return [U.field(val, 'Ex.: G, Bb, F#m', function (v) { val = v.slice(0, 12); }), U.body('Deixe vazio para usar o tom da ficha da música.', 'var(--muted)', 12)]; },
       actions: function (close) {
         return [
-          h('button', { class: 'textbtn', style: { color: 'var(--bad)' }, onclick: function () { close(); D.scheduleAction('Música tirada da escala.', function () { return sb.from('service_songs').delete().eq('service_id', s.id).eq('project_id', pr.id); }); } }, 'Tirar da escala'),
+          h('button', { class: 'textbtn', style: { color: 'var(--bad)' }, onclick: function () {
+            close();
+            setTimeout(function () {
+              L.confirm('Tirar ' + pr.song_title + ' da escala?', 'A música continua no repertório.', 'Tirar', function () {
+                D.scheduleAction('Música tirada da escala.', function () { return sb.from('service_songs').delete().eq('service_id', s.id).eq('project_id', pr.id); });
+              }, true);
+            }, 60);
+          } }, 'Tirar da escala'),
           h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar'),
           h('button', { class: 'textbtn', onclick: function () { close(); D.scheduleAction(null, function () { return sb.from('service_songs').update({ song_key: val.trim() || null }).eq('service_id', s.id).eq('project_id', pr.id); }); } }, 'Salvar')];
       }
@@ -305,7 +312,7 @@
       actions: function (close) {
         function done(q, msg) {
           close();
-          L.run(async function () { L.must(await q); await D.reloadServices(); L.toast(msg); setTimeout(L.back, 80); });
+          L.run(async function () { L.must(await q); await D.reloadServices(); L.toast(msg); setTimeout(function () { L.setTab('escalas'); }, 80); });
         }
         return [h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar'),
           s.series_id ? h('button', { class: 'textbtn', style: { color: 'var(--bad)' }, onclick: function () { done(sb.from('services').delete().eq('series_id', s.series_id).gte('starts_on', s.starts_on), 'Escalas apagadas.'); } }, 'Esta e as próximas') : null,
@@ -314,7 +321,7 @@
     });
   }
 
-  function addPerson(s, preset) {
+  function addPerson(s, preset, replacing) {
     var fn = preset;
     var dlg = L.dialog({
       live: true,
@@ -336,7 +343,11 @@
           return h('div', { class: 'row', style: { minHeight: '52px', gap: '10px', cursor: already ? 'default' : 'pointer' }, onclick: function () {
             if (already) return;
             close();
-            D.scheduleAction(m.name + ' escalado(a) como ' + L.fnLabel(fn) + '.', function () { return sb.from('service_members').insert({ service_id: s.id, user_id: m.user_id, function: fn }); });
+            D.scheduleAction(m.name + ' escalado(a) como ' + L.fnLabel(fn) + '.', async function () {
+              var added = await sb.from('service_members').insert({ service_id: s.id, user_id: m.user_id, function: fn });
+              if (added.error || !replacing) return added;
+              return sb.from('service_members').delete().eq('service_id', s.id).eq('user_id', replacing.user_id).eq('function', replacing.function);
+            });
           } },
             U.avatar(m, 34),
             h('div', { class: 'grow' }, h('div', { class: 'semi', style: { color: already ? 'var(--muted)' : 'var(--hi)' } }, m.name),
@@ -359,9 +370,17 @@
     var endT = s.end_time || (s.start_time ? String((+s.start_time.slice(0, 2) + 2) % 24).padStart(2, '0') + s.start_time.slice(2, 5) : '11:00');
     var esc = function (t) { return String(t || '').replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n'); };
     var ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Louvor Studio//PT', 'BEGIN:VEVENT', 'UID:' + s.id + '@louvorstudio',
-      'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z', 'DTSTART:' + start, 'DTEND:' + stamp(s.starts_on, endT),
+      'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z', 'DTSTART:' + start,
+      // Termina depois da meia-noite (ex.: 23:00 + 2 h): o fim é no dia seguinte, senão a agenda recusa o evento.
+      'DTEND:' + stamp(endT.slice(0, 5) <= (s.start_time || '09:00').slice(0, 5) ? L.addDays(s.starts_on, 1) : s.starts_on, endT),
       'SUMMARY:' + esc(L.kindLabel(s.kind) + ': ' + s.title), s.location ? 'LOCATION:' + esc(s.location) : null,
       'DESCRIPTION:' + esc(s.notes || 'Escala do Louvor Studio'), 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
+    // No site instalado no iPhone, o download não abre a agenda: usa a janela de compartilhar.
+    var standalone = window.navigator.standalone === true;
+    if (standalone && window.File && navigator.canShare) {
+      var file = new File([ics], 'escala.ics', { type: 'text/calendar' });
+      if (navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: s.title }).catch(function () {}); return; }
+    }
     var a = h('a', { href: URL.createObjectURL(new Blob([ics], { type: 'text/calendar' })), download: 'escala.ics' });
     document.body.appendChild(a); a.click(); a.remove();
   }

@@ -99,29 +99,12 @@
         var ids;
         if (!existing) {
           var dates = d.repeat === 0 ? [d.date] : Array.from({ length: d.times }, function (_, i) { return L.addDays(d.date, d.repeat * i); });
-          var series = dates.length > 1 && window.crypto && crypto.randomUUID ? crypto.randomUUID() : null;
-          var created = L.must(await sb.from('services').insert(dates.map(function (dt) { return Object.assign({ org_id: org, starts_on: dt, series_id: series }, row); })).select());
-          ids = created.map(function (c) { return c.id; });
-          for (var i = 0; i < ids.length; i++) {
-            if (songs.length) L.must(await sb.from('service_songs').insert(songs.map(function (x) { return Object.assign({ service_id: ids[i] }, x); })));
-            if (people.length) L.must(await sb.from('service_members').insert(people.map(function (x) { return Object.assign({ service_id: ids[i] }, x); })));
-          }
+          // Tudo de uma vez no servidor: ou cria todas as datas, ou nenhuma (migração 0034).
+          ids = L.must(await sb.rpc('create_services', { _org: org, _fields: row, _dates: dates, _songs: songs, _people: people }));
         } else {
           ids = [existing.id];
-          L.must(await sb.from('services').update(Object.assign({ starts_on: d.date }, row)).eq('id', existing.id));
-          var oldSongs = JSON.stringify(existing.songs.map(function (x) { return [x.project_id, x.key || null]; }));
-          if (oldSongs !== JSON.stringify(songs.map(function (x) { return [x.project_id, x.song_key]; }))) {
-            L.must(await sb.from('service_songs').delete().eq('service_id', existing.id));
-            if (songs.length) L.must(await sb.from('service_songs').insert(songs.map(function (x) { return Object.assign({ service_id: existing.id }, x); })));
-          }
-          var old = existing.people.map(function (p) { return p.user_id + '|' + p.function; });
-          var now = people.map(function (p) { return p.user_id + '|' + p.function; });
-          for (var j = 0; j < existing.people.length; j++) {
-            var p = existing.people[j];
-            if (now.indexOf(p.user_id + '|' + p.function) < 0) L.must(await sb.from('service_members').delete().eq('service_id', existing.id).eq('user_id', p.user_id).eq('function', p.function));
-          }
-          var add = people.filter(function (p) { return old.indexOf(p.user_id + '|' + p.function) < 0; });
-          if (add.length) L.must(await sb.from('service_members').insert(add.map(function (x) { return Object.assign({ service_id: existing.id }, x); })));
+          // Tudo de uma vez no servidor: ou salva tudo, ou nada muda (migração 0033).
+          L.must(await sb.rpc('save_service', { _service: existing.id, _fields: Object.assign({ starts_on: d.date }, row), _songs: songs, _people: people }));
         }
         if (W.notify && people.length) {
           var by = {};
