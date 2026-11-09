@@ -5,6 +5,23 @@
   var R = { query: '', filter: 'todas', showFilters: false, sel: null };   // sel: músicas escolhidas para apagar (null = sem seleção)
   var FILTERS = [['todas', 'Todas'], ['escala', 'Das próximas escalas'], ['multi', 'Com multitrack']];
 
+  function tagList() {
+    var seen = {};
+    S.projects.forEach(function (p) { (p.tags || []).forEach(function (t) { seen[t] = true; }); });
+    return Object.keys(seen).sort(function (a, b) { return L.norm(a).localeCompare(L.norm(b)); });
+  }
+  function filterLabel() {
+    if (R.filter.indexOf('tag:') === 0) return R.filter.slice(4);
+    var f = FILTERS.find(function (x) { return x[0] === R.filter; });
+    return f ? f[1] : 'Todas';
+  }
+  function matchesFilter(p, soon) {
+    if (R.filter === 'todas') return true;
+    if (R.filter === 'escala') return !!soon[p.id];
+    if (R.filter === 'multi') return L.hasMulti(p);
+    return (p.tags || []).indexOf(R.filter.slice(4)) >= 0;
+  }
+
   function soonSet() {
     var out = {};
     L.myUpcoming().filter(function (s) { return L.daysBetween(L.today(), s.starts_on) <= 21; }).forEach(function (s) { s.songIds.forEach(function (id) { out[id] = true; }); });
@@ -89,12 +106,12 @@
     function fill() {
       listBox.replaceChildren();
       var q = L.norm(R.query.trim());
-      var list = S.projects.filter(function (p) { return !q || [p.song_title, p.artist, p.name, p.musical_key, p.band_key].some(function (f) { return f && L.norm(f).indexOf(q) >= 0; }); })
-        .filter(function (p) { return R.filter === 'todas' || (R.filter === 'escala' ? soon[p.id] : L.hasMulti(p)); })
+      var list = S.projects.filter(function (p) { return !q || [p.song_title, p.artist, p.name, p.musical_key, p.band_key, p.album, (p.tags || []).join(' ')].some(function (f) { return f && L.norm(f).indexOf(q) >= 0; }); })
+        .filter(function (p) { return matchesFilter(p, soon); })
         .sort(function (a, b) { return L.norm(a.song_title).localeCompare(L.norm(b.song_title)); });
       if (!list.length) listBox.appendChild(U.empty(R.query.trim() ? 'Nenhuma música encontrada para "' + R.query + '".'
-        : R.filter === 'escala' ? 'Nenhuma música nas suas escalas das próximas 3 semanas.' : R.filter === 'multi' ? 'Nenhuma música com multitrack ainda.'
-          : L.perm.songs() ? 'O repertório está vazio. Toque em Adicionar música para colocar a primeira.' : 'O repertório está vazio. Quem cuida das músicas da banda adiciona aqui.'));
+        : R.filter === 'escala' ? 'Nenhuma música nas suas escalas das próximas 3 semanas.' : R.filter === 'multi' ? 'Nenhuma música com multitrack ainda.' : R.filter !== 'todas' ? 'Nenhuma música em "' + filterLabel() + '".'
+          : L.perm.songs() ? 'O repertório está vazio. Toque em Adicionar música para colocar a primeira, ou em Planilha para trazer várias de uma vez.' : 'O repertório está vazio. Quem cuida das músicas da banda adiciona aqui.'));
       // No computador a lista ganha colunas (como a setlist do Moises).
       if (list.length) listBox.appendChild(h('div', { class: 'songrow songhead', 'aria-hidden': 'true', style: { display: 'none', cursor: 'default', gridTemplateColumns: '1fr auto', background: 'none' } },
         h('span', { class: 'label', style: { paddingLeft: '70px' } }, 'Música'),
@@ -110,20 +127,23 @@
       list.forEach(function (p) { listBox.appendChild(songRow(p, soon[p.id])); });
     }
     if (R.sel && !L.perm.songs()) R.sel = null;
+    if (R.filter.indexOf('tag:') === 0 && tagList().indexOf(R.filter.slice(4)) < 0) R.filter = 'todas';
     fill();
     var active = R.filter !== 'todas';
     var root = h('div', { class: 'screen', style: { paddingBottom: '96px', gap: '12px' } },
-      U.tabHead('Repertório', L.perm.songs() && S.projects.length
+      U.tabHead('Repertório', L.perm.songs()
         ? (R.sel ? U.textBtn('Cancelar', function () { R.sel = null; L.render(); })
-          : U.iconBtn('ListChecks', 'Escolher músicas para apagar', function () { R.sel = {}; L.render(); }))
+          : h('div', { class: 'row', style: { gap: '4px' } },
+            U.btn2('Planilha', 'FileSpreadsheet', sheetMenu),
+            S.projects.length ? U.iconBtn('ListChecks', 'Escolher músicas para apagar', function () { R.sel = {}; L.render(); }) : null))
         : null),
       h('div', { class: 'row', style: { alignItems: 'flex-end' } },
         h('div', { class: 'grow' }, U.field(R.query, 'Buscar música, artista ou tom', function (v) { R.query = v; fill(); })),
         h('button', { class: 'filterbtn' + (R.showFilters || active ? ' on' : ''), 'aria-label': R.showFilters ? 'Esconder os filtros' : active ? 'Filtros (um filtro ligado)' : 'Mostrar os filtros',
           onclick: function () { R.showFilters = !R.showFilters; L.render(); } }, ic('ListFilter', 22), active ? h('span', { class: 'd' }) : null)),
-      R.showFilters ? h('div', { class: 'hscroll' }, FILTERS.map(function (f) { return U.toggle(f[1], R.filter === f[0], null, function () { R.filter = f[0]; L.render(); }); })) : null,
+      R.showFilters ? h('div', { class: 'hscroll' }, FILTERS.concat(tagList().map(function (t) { return ['tag:' + t, t]; })).map(function (f) { return U.toggle(f[1], R.filter === f[0], null, function () { R.filter = f[0]; L.render(); }); })) : null,
       !R.showFilters && active ? h('button', { class: 'filterpill', onclick: function () { R.filter = 'todas'; L.render(); } },
-        'Mostrando: ' + FILTERS.find(function (f) { return f[0] === R.filter; })[1], ic('X', 14, 'accent')) : null,
+        'Mostrando: ' + filterLabel(), ic('X', 14, 'accent')) : null,
       listBox);
     if (R.sel) {
       var chosen = S.projects.filter(function (p) { return R.sel[p.id]; });
@@ -178,6 +198,8 @@
     out.push(h('div', { class: 'col center', style: { alignItems: 'center', gap: '4px' } },
       h('div', { class: 'hi bold', style: { fontSize: '22px', lineHeight: 1.2 } }, p.song_title),
       p.artist ? h('div', { class: 'muted' }, p.artist) : null,
+      p.album ? h('div', { class: 'muted small' }, p.album) : null,
+      p.tags && p.tags.length ? h('div', { class: 'muted small' }, p.tags.join(' · ')) : null,
       h('div', { class: 'row' }, U.neon('AudioWaveform', multi, ''), h('span', { class: 'small', style: { color: multi ? 'var(--accent-text)' : 'var(--muted)' } }, multi ? 'Multitrack' : 'Sem multitrack'))));
     out.push(h('div', { class: 'row', style: { gap: '8px' } },
       infoBox('Tom', key || '—', p.band_key && p.musical_key && p.band_key !== p.musical_key ? 'original ' + p.musical_key : null),
@@ -185,7 +207,11 @@
     if (p.version_url) out.push(U.clickRow(function () { U.openUrl(p.version_url); }, h('span', { class: 'circle soft' }, ic('Play', 18)),
       h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, 'Ouvir a versão'), h('div', { class: 'muted small ell' }, p.version_url.replace(/^https?:\/\/(www\.)?/, ''))), ic('ExternalLink', 16, 'muted')));
     if (p.chart_url) out.push(U.clickRow(function () { U.openUrl(p.chart_url); }, h('span', { class: 'circle', style: { color: 'var(--text)' } }, ic('FileText', 18)),
-      h('div', { class: 'hi semi grow' }, 'Letra / cifra'), ic('ExternalLink', 16, 'muted')));
+      h('div', { class: 'hi semi grow' }, p.lyrics_url ? 'Cifra' : 'Letra / cifra'), ic('ExternalLink', 16, 'muted')));
+    if (p.lyrics_url) out.push(U.clickRow(function () { U.openUrl(p.lyrics_url); }, h('span', { class: 'circle', style: { color: 'var(--text)' } }, ic('AlignLeft', 18)),
+      h('div', { class: 'hi semi grow' }, 'Letra'), ic('ExternalLink', 16, 'muted')));
+    if (p.audio_url) out.push(U.clickRow(function () { U.openUrl(p.audio_url); }, h('span', { class: 'circle', style: { color: 'var(--text)' } }, ic('Music', 18)),
+      h('div', { class: 'hi semi grow' }, 'Ouvir o áudio'), ic('ExternalLink', 16, 'muted')));
     out.push(U.btn('Ouvir com multitrack', 'Headphones', function () { close(); setTimeout(function () { L.go({ name: 'studio', id: p.id }); }, 150); }, { full: true, tall: true, disabled: !multi }));
     if (!multi) out.push(U.body(L.perm.songs() ? 'Esta música ainda não tem multitrack. Toque em Editar música para enviar as faixas.' : 'Esta música ainda não tem multitrack. Por enquanto dá para ouvir pelo link.', 'var(--muted)', 12));
 
@@ -308,6 +334,115 @@
     return panel;
   }
 
+  // ------------------------------------------------------------------ Importar e exportar planilha
+  var Imp = null;
+  var IMP_ERR = {
+    formato: 'Use um arquivo .xlsx ou .csv. No Excel: Arquivo › Salvar como › Pasta de Trabalho do Excel (.xlsx).',
+    colunas: 'Não achei a coluna com o nome das músicas. A primeira linha precisa ter um título como "Nome da música" ou "Música".',
+    grande: 'Esse arquivo é grande demais. O limite é 8 MB.',
+    linhas: 'Essa planilha tem linhas demais. O limite é 3.000 músicas.',
+    arquivo: 'Não consegui ler esse arquivo. Confira se ele abre no Excel e salve de novo como .xlsx.'
+  };
+  function sheetMenu() {
+    L.sheet(function (close) {
+      return [h('div', { class: 'hi bold', style: { fontSize: '20px' } }, 'Planilha do repertório'),
+        U.clickRow(function () { close(); setTimeout(pickSheet, 150); }, h('span', { class: 'circle soft' }, ic('Upload', 18)),
+          h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, 'Importar músicas'), h('div', { class: 'muted small' }, 'Excel (.xlsx) ou CSV. Você confere tudo antes de entrar.'))),
+        U.clickRow(function () { close(); setTimeout(exportSheet, 150); }, h('span', { class: 'circle soft' }, ic('Download', 18)),
+          h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, 'Exportar repertório'), h('div', { class: 'muted small' }, S.projects.length ? L.plural(S.projects.length, 'música', 'músicas') + ' em Excel, para outra banda importar.' : 'O repertório ainda está vazio.'))),
+        U.body('A planilha leva só os dados, os links e as letras. A multitrack não sai do app.', 'var(--muted)', 13)];
+    });
+  }
+  function pickSheet() {
+    var inp = h('input', { type: 'file', accept: '.xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv', style: { display: 'none' } });
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      if (f) readSheet(f);
+    });
+    inp.click();
+  }
+  async function readSheet(f) {
+    try {
+      var parsed = Planilha.parseRows(await Planilha.readFile(f.name, await f.arrayBuffer()));
+      if (parsed.error) throw new Error(parsed.error);
+      if (!parsed.songs.length) { L.toast('Não encontrei músicas nesse arquivo.'); return; }
+      var items = Planilha.classify(parsed.songs, S.projects), sel = {};
+      items.forEach(function (it, i) { if (it.status === 'new') sel[i] = true; });
+      Imp = { file: f.name, items: items, sel: sel, busy: false, progress: null };
+      L.go({ name: 'songimport' });
+    } catch (x) { L.dialog({ title: 'Não deu para importar', body: function () { return U.body(IMP_ERR[x.message] || IMP_ERR.arquivo, null, 14); }, actions: function (close) { return [h('button', { class: 'textbtn', onclick: close }, 'Entendi')]; } }); }
+  }
+  function importRow(it, i) {
+    var free = it.status === 'new', on = free && !!Imp.sel[i], r = it.row;
+    var info = [r.artist, r.musical_key ? 'Tom ' + r.musical_key : null, r.bpm ? r.bpm + ' BPM' : null].filter(Boolean).join(' · ');
+    return h('div', { class: 'bulkrow' + (on ? ' on' : ''), role: 'checkbox', 'aria-checked': String(on), 'aria-disabled': String(!free), tabindex: free ? '0' : '-1', style: free ? null : { opacity: 0.55 },
+      onclick: function () { if (!free || Imp.busy) return; if (on) delete Imp.sel[i]; else Imp.sel[i] = true; L.render(); },
+      onkeydown: function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); this.click(); } } },
+      h('span', { class: 'chk' }, on ? ic('Check', 15) : null),
+      h('div', { class: 'grow col', style: { gap: '2px', minWidth: 0 } },
+        h('div', { class: 'hi semi ell', style: { fontSize: '15px' } }, r.song_title),
+        h('div', { class: 'muted small ell' }, info || ' '),
+        !free ? h('div', { class: 'small semi' }, it.status === 'dup' ? 'Já está no repertório' : 'Repetida na planilha') : null,
+        it.warnings.map(function (w) { return h('div', { class: 'small', style: { color: 'var(--warn)' } }, w); })));
+  }
+  L.screen('songimport', function () {
+    if (!Imp) { setTimeout(function () { L.back(); }, 0); return h('div', { class: 'screen' }); }
+    var m = Imp, count = function (st) { return m.items.filter(function (x) { return x.status === st; }).length; };
+    var nw = count('new'), dup = count('dup'), rep = count('repeat'), chosen = Object.keys(m.sel).length, warned = m.items.filter(function (x) { return x.status === 'new' && x.warnings.length; }).length;
+    var parts = [L.plural(nw, 'música nova', 'músicas novas'), dup ? dup + ' já no repertório' : null, rep ? L.plural(rep, 'repetida', 'repetidas') + ' na planilha' : null, warned ? L.plural(warned, 'com aviso', 'com aviso') : null].filter(Boolean);
+    var allOn = nw && chosen === nw;
+    return h('div', { class: 'screen', style: { paddingBottom: '120px', gap: '10px' } },
+      U.topRow('Importar músicas', m.file, null, function () { if (!m.busy) { Imp = null; L.back(); } }),
+      U.body(parts.join(' · '), 'var(--hi)', 14),
+      U.body('Toque em uma música para deixar de fora. Depois, é só abrir a música e editar.', 'var(--muted)', 13),
+      nw ? h('div', { class: 'row' }, h('span', { class: 'grow' }), h('button', { class: 'textbtn', style: { fontSize: '14px' }, disabled: m.busy, onclick: function () {
+        m.sel = {}; if (!allOn) m.items.forEach(function (x, i) { if (x.status === 'new') m.sel[i] = true; }); L.render();
+      } }, allOn ? 'Tirar todas' : 'Escolher todas')) : null,
+      m.items.map(importRow),
+      h('div', { class: 'bulkbar' },
+        m.progress ? [U.body(m.progress[0], null, 13), h('div', { class: 'loading-bar' }, h('i', { style: { width: Math.round(m.progress[1] * 100) + '%' } }))]
+          : U.btn(chosen ? 'Importar ' + L.plural(chosen, 'música', 'músicas') : 'Nenhuma música escolhida', 'Check', runImport, { full: true, tall: true, disabled: !chosen })));
+  });
+  async function runImport() {
+    var m = Imp;
+    if (!m || m.busy) return;
+    m.busy = true; m.progress = ['Conferindo o repertório…', 0]; L.render();
+    var done = 0;
+    try {
+      await D.reloadSongs();   // alguém pode ter adicionado música enquanto a lista estava aberta
+      var todo = Planilha.classify(Object.keys(m.sel).map(function (i) { return m.items[i]; }), S.projects).filter(function (x) { return x.status === 'new'; });
+      var org = S.current.org.id, me = L.uid(), STEP = 50;
+      for (var i = 0; i < todo.length; i += STEP) {
+        L.must(await sb.from('projects').insert(todo.slice(i, i + STEP).map(function (x) { return Object.assign({ org_id: org, created_by: me }, x.row); })));
+        done += Math.min(STEP, todo.length - i);
+        m.progress = ['Importando ' + done + ' de ' + todo.length + '…', done / todo.length]; L.render();
+      }
+      await D.reloadSongs();
+      Imp = null;
+      L.toast(done ? L.plural(done, 'música adicionada', 'músicas adicionadas') + ' ao repertório.' : 'Essas músicas já estavam no repertório.');
+      L.back();
+    } catch (x) {
+      await D.reloadSongs().catch(function () {});
+      m.items = Planilha.classify(m.items.map(function (it) { return { line: it.line, warnings: it.warnings, row: it.row }; }), S.projects);
+      m.sel = {}; m.items.forEach(function (it, n) { if (it.status === 'new') m.sel[n] = true; });
+      m.busy = false; m.progress = null; L.render();
+      L.toast((done ? done + ' entraram, mas o resto não. ' : 'Não deu para importar. ') + L.errorText(x) + ' Toque em Importar para tentar de novo.');
+    }
+  }
+  function exportSheet() {
+    if (!S.projects.length) { L.toast('O repertório ainda está vazio.'); return; }
+    var bytes = Planilha.writeXlsx(Planilha.exportRows(S.projects));
+    var type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    var name = 'Repertorio_' + L.norm(S.current.org.name).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + L.today() + '.xlsx';
+    if (window.navigator.standalone === true && window.File && navigator.canShare) {   // no iPhone instalado, baixar não funciona
+      var file = new File([bytes], name, { type: type });
+      if (navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: 'Repertório' }).catch(function () {}); return; }
+    }
+    var a = h('a', { href: URL.createObjectURL(new Blob([bytes], { type: type })), download: name });
+    document.body.appendChild(a); a.click(); a.remove();
+    L.toast(L.plural(S.projects.length, 'música exportada', 'músicas exportadas') + '.');
+  }
+
   // ------------------------------------------------------------------ Adicionar / editar música
   var SIGS = ['4/4', '3/4', '6/8', '2/4', '12/8'];
   var Ed = null;
@@ -316,17 +451,18 @@
     if (!Ed || Ed.id !== (r.id || null)) {
       Ed = { id: r.id || null, title: p ? p.song_title : '', artist: p ? p.artist || '' : '', link: p ? p.version_url || '' : '', key: p ? p.musical_key || '' : '',
         bandKey: p ? p.band_key || '' : '', bpm: p && p.bpm ? String(p.bpm) : '', sig: p ? p.time_signature || '' : '', chart: p ? p.chart_url || '' : '',
-        note: p ? p.leader_note || '' : '', lyrics: p ? p.lyrics || '' : '', cover: null, coverUrl: null, stems: [], tracks: null, cloud: null, hidden: {}, prev: null, busy: false, progress: null, taps: [] };
+        note: p ? p.leader_note || '' : '', lyrics: p ? p.lyrics || '' : '', album: p ? p.album || '' : '', tags: p && p.tags ? p.tags.join(', ') : '', lyricsUrl: p ? p.lyrics_url || '' : '', audio: p ? p.audio_url || '' : '', cover: null, coverUrl: null, stems: [], tracks: null, cloud: null, hidden: {}, prev: null, busy: false, progress: null, taps: [] };
       if (p) loadCloud(Ed);
     }
     var e = Ed;
     function linkOk(s) { return !s.trim() || /^https?:\/\/\S+$/i.test(s.trim()); }
     var bpmN = parseInt(e.bpm, 10);
-    var valid = e.title.trim() && linkOk(e.link) && linkOk(e.chart) && (!e.bpm || (bpmN >= 20 && bpmN <= 300));
+    function linksOk() { return linkOk(e.link) && linkOk(e.chart) && linkOk(e.lyricsUrl) && linkOk(e.audio); }
+    var valid = e.title.trim() && linksOk() && (!e.bpm || (bpmN >= 20 && bpmN <= 300));
     var preview = Object.assign({ id: p ? p.id : 'nova', song_title: e.title || '?', version_url: e.link }, p ? { cover_path: p.cover_path } : {});
     var coverEl = e.coverUrl ? h('span', { class: 'cover', style: { width: '120px', height: '120px', borderRadius: '6px' } }, h('img', { src: e.coverUrl, alt: '' })) : U.cover(preview, 120, 6, 52);
     var saveBtn = U.btn(e.busy ? 'Salvando…' : p ? 'Salvar' : 'Adicionar ao repertório', 'Check', save, { full: true, tall: true, disabled: !valid || e.busy });
-    function setVal(k) { return function (v) { e[k] = v; var bn = parseInt(e.bpm, 10); saveBtn.disabled = e.busy || !(e.title.trim() && linkOk(e.link) && linkOk(e.chart) && (!e.bpm || (bn >= 20 && bn <= 300))); }; }
+    function setVal(k) { return function (v) { e[k] = v; var bn = parseInt(e.bpm, 10); saveBtn.disabled = e.busy || !(e.title.trim() && linksOk() && (!e.bpm || (bn >= 20 && bn <= 300))); }; }
 
     var cloudList = e.cloud ? cloudVisible(e).map(function (t) { return cloudRow(e, p, t); }) : [];
     var stemsList = h('div', { class: 'col' }, e.stems.map(function (f, i) {
@@ -342,6 +478,8 @@
         U.body(!e.cover && !(p && p.cover_path) ? 'Sem capa, usamos a imagem do vídeo do link (YouTube).' : 'Capa escolhida.', 'var(--muted)', 12))),
       U.field(e.title, 'Nome da música *', setVal('title'), { max: 80 }),
       U.field(e.artist, 'Artista / ministério', setVal('artist'), { max: 120 }),
+      U.field(e.album, 'Álbum (opcional)', setVal('album'), { max: 200 }),
+      U.field(e.tags, 'Classificações, separadas por vírgula (ex.: Louvor, Santa Ceia)', setVal('tags'), { max: 400 }),
       U.field(e.link, 'Link da versão (YouTube)', setVal('link'), { type: 'url', inputmode: 'url', max: 500 }),
       h('div', { class: 'row' }, h('div', { class: 'grow' }, U.field(e.key, 'Tom original', setVal('key'), { max: 12 })), h('div', { class: 'grow' }, U.field(e.bandKey, 'Tom da banda', setVal('bandKey'), { max: 12 }))),
       h('div', { class: 'row', style: { alignItems: 'stretch' } }, h('div', { class: 'grow' }, U.field(e.bpm, 'BPM', function (v) { setVal('bpm')(v.replace(/\D/g, '').slice(0, 3)); }, { inputmode: 'numeric' })),
@@ -354,7 +492,9 @@
         }, { style: { minHeight: '56px' } })),
       U.label('Compasso'),
       h('div', { class: 'hscroll' }, U.toggle('—', !e.sig, null, function () { e.sig = ''; L.render(); }), SIGS.map(function (s) { return U.toggle(s, e.sig === s, null, function () { e.sig = s; L.render(); }); })),
-      U.field(e.chart, 'Link da letra / cifra (opcional)', setVal('chart'), { type: 'url', inputmode: 'url', max: 500 }),
+      U.field(e.chart, 'Link da cifra (opcional)', setVal('chart'), { type: 'url', inputmode: 'url', max: 500 }),
+      U.field(e.lyricsUrl, 'Link da letra (opcional)', setVal('lyricsUrl'), { type: 'url', inputmode: 'url', max: 500 }),
+      U.field(e.audio, 'Link do áudio: Spotify, Deezer… (opcional)', setVal('audio'), { type: 'url', inputmode: 'url', max: 500 }),
       U.field(e.note, 'Recado para a banda (opcional)', setVal('note'), { multiline: true, rows: 2, max: 500 }),
       U.field(e.lyrics, 'Letra (opcional). Use [Verso], [Refrão]… para as partes', setVal('lyrics'), { multiline: true, rows: 6, max: 20000 }),
       U.panel('Multitrack (opcional)', 'AudioWaveform',
@@ -379,7 +519,8 @@
         var org = S.current.org.id;
         var opt = function (s) { return s.trim() || null; };
         var row = { song_title: e.title.trim(), name: e.title.trim(), artist: opt(e.artist), version_url: (function (v) { v = opt(v); return v && !/^https?:\/\//i.test(v) ? 'https://' + v : v; })(e.link), musical_key: opt(e.key), band_key: opt(e.bandKey),
-          bpm: e.bpm ? parseInt(e.bpm, 10) : null, time_signature: e.sig || null, chart_url: opt(e.chart), leader_note: opt(e.note) };
+          bpm: e.bpm ? parseInt(e.bpm, 10) : null, time_signature: e.sig || null, chart_url: opt(e.chart), leader_note: opt(e.note), album: opt(e.album), lyrics_url: opt(e.lyricsUrl), audio_url: opt(e.audio),
+          tags: (function () { var t = []; e.tags.split(/[,;]/).forEach(function (x) { x = x.trim().slice(0, 40); if (x && t.indexOf(x) < 0 && t.length < 10) t.push(x); }); return t.length ? t : null; })() };
         if (e.lyrics.trim() || (p && p.lyrics)) row.lyrics = opt(e.lyrics);
         var pid;
         if (p) { L.must(await sb.from('projects').update(row).eq('id', p.id)); pid = p.id; }

@@ -5,6 +5,11 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.26.0', [
+      'Repertório › Planilha: importe várias músicas de uma vez por Excel ou CSV, conferindo tudo antes de entrar, e exporte o repertório para outra banda.',
+      'Ficha da música: agora tem álbum, classificações, link da letra e link do áudio.',
+      'Repertório: filtre pelas classificações, como Louvor ou Santa Ceia.'
+    ]],
     ['1.25.1', [
       'Escalas: salvar uma edição agora é de uma vez só, mesmo com internet lenta, e criar uma escala que se repete não fica pela metade.',
       'Se o dia da escala mudar, todos voltam a confirmar. Mudando o resto, quem já confirmou continua confirmado.',
