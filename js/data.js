@@ -133,7 +133,7 @@
       sb.from('service_members').select('*').in('service_id', ids)
     ]) : [{ data: [] }, { data: [] }];
     var songs = {}, people = {};
-    soft(r[0]).forEach(function (x) { (songs[x.service_id] = songs[x.service_id] || []).push({ project_id: x.project_id, position: x.position, key: x.song_key || null }); });
+    soft(r[0]).forEach(function (x) { (songs[x.service_id] = songs[x.service_id] || []).push({ project_id: x.project_id, position: x.position, key: x.song_key || null, singer: x.singer_id || null }); });
     soft(r[1]).forEach(function (x) {
       (people[x.service_id] = people[x.service_id] || []).push({ user_id: x.user_id, function: x.function, status: x.status || 'pendente', swap_requested: !!x.swap_requested, note: x.note || null });
     });

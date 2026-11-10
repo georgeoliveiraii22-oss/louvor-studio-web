@@ -5,6 +5,11 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.28.0', [
+      'Tutorial com as telas de verdade: toque no ? no alto de cada aba ou em Eu › Tutorial.',
+      'Escala: quem monta escolhe quem canta cada música (⋯ da música › Quem canta). Aparece "Canta: …" para toda a banda.',
+      'Adicionar música: Buscar no YouTube preenche o nome, o artista e o link.'
+    ]],
     ['1.27.0', [
       'Importar planilha: quando o app não reconhece uma coluna, você diz o que ela é. Dá para ajustar as colunas também na prévia.',
       'Multitrack: agora até 24 faixas por música.'
@@ -170,7 +175,7 @@
     var m = S.current;
     var unread = L.unreadTotal();
     var root = h('div', { class: 'screen' },
-      U.tabHead('Banda', [(function (b) { b.style.color = 'var(--accent)'; return b; })(U.iconBtn('UserPlus', 'Convidar pessoas', L.openInvite)), U.iconBtn('RefreshCw', 'Atualizar', L.reload)]));
+      U.tabHead('Banda', [(function (b) { b.style.color = 'var(--accent)'; return b; })(U.iconBtn('UserPlus', 'Convidar pessoas', L.openInvite)), U.iconBtn('RefreshCw', 'Atualizar', L.reload), U.helpBtn('banda')]));
     // A conversa da banda tem aba própria (Conversa); a de cada escala fica dentro da escala.
 
     // Convidar: primeiro, à vista (antes ficava no fim da lista e ninguém achava)
@@ -497,7 +502,7 @@
     paint();
     if (fresh) load();
     return h('div', { class: 'chat' + (asTab ? ' astab' : '') },
-      asTab ? h('div', { style: { padding: '16px 16px 4px' } }, U.tabHead('Conversa', (function (b) { b.style.color = 'var(--accent)'; return b; })(U.iconBtn('UserPlus', 'Convidar pessoas', L.openInvite))))
+      asTab ? h('div', { style: { padding: '16px 16px 4px' } }, U.tabHead('Conversa', [(function (b) { b.style.color = 'var(--accent)'; return b; })(U.iconBtn('UserPlus', 'Convidar pessoas', L.openInvite)), U.helpBtn('banda')]))
         : h('div', { style: { padding: '8px 8px 0' } }, U.topRow(service ? service.title : 'Conversa da banda', service ? L.scheduleLine(service) : 'Todo mundo da banda lê',
           service ? U.iconBtn('CalendarDays', 'Abrir a escala', function () { L.go({ name: 'escala', id: service.id }); }) : null,
           function () { D.markRead(ch, lastAt()); L.back(); })),

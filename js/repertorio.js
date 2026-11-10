@@ -100,6 +100,64 @@
   }
 
   // ------------------------------------------------------------------ Aba
+  // ------------------------------------------------------------------ Buscar no YouTube (função youtube)
+  /** Título do vídeo → nome da música e artista. Tira (Ao Vivo), [Clipe Oficial], "Official Video"… e separa "Artista - Música". */
+  L.ytParse = function (title, channel) {
+    var artist = (channel || '').replace(/\s*-\s*Topic$/i, '').replace(/\s*(VEVO|Oficial|Official)$/i, '').trim();
+    var t = (title || '').replace(/[([][^)\]]*(ao vivo|clipe|official|oficial|video|vídeo|lyric|letra|playback|legendado|live|áudio|audio|visualizer|acústico)[^)\]]*[)\]]/gi, '')
+      .replace(/\b(clipe oficial|official (music )?video|vídeo oficial|lyric video|com letra)\b/gi, '').replace(/\s{2,}/g, ' ').trim().replace(/^[-–|\s]+|[-–|\s]+$/g, '');
+    var parts = t.split(/\s+[-–|]\s+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    var song = parts[0] || t;
+    if (parts.length >= 2) {
+      var a = L.norm(artist);
+      var i = parts.findIndex(function (x) { var n = L.norm(x); return a && (n.indexOf(a) >= 0 || a.indexOf(n) >= 0); });
+      if (i >= 0) { song = parts[i === 0 ? 1 : 0]; artist = parts[i]; }
+      else { song = parts[0]; if (!artist) artist = parts[1]; }
+    }
+    return { song: song.replace(/^["“]|["”]$/g, '').trim(), artist: artist };
+  };
+
+  function ytSearch(e) {
+    var st = { q: e.title || '', busy: false, items: null, err: null };
+    var dlg = L.sheet(function (close) {
+      async function go() {
+        if (st.q.trim().length < 2 || st.busy) return;
+        st.busy = true; st.err = null; dlg.refresh();
+        try {
+          var res = await sb.functions.invoke('dynamic-task', { body: { q: st.q.trim() } });
+          if (res.error) {
+            var msg = res.error.message;
+            try { msg = (await res.error.context.json()).error || msg; } catch (x) { /* sem corpo */ }
+            throw new Error(msg);
+          }
+          st.items = (res.data && res.data.items) || [];
+        } catch (x) { st.err = /Failed to send|404|not found/i.test(x.message) ? 'A busca no YouTube ainda não foi ligada no servidor.' : x.message; st.items = null; }
+        st.busy = false; dlg.refresh();
+      }
+      var input = U.field(st.q, 'Nome da música (e o artista, se souber)', function (v) { st.q = v; }, { max: 120 });
+      input.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') go(); });
+      return [
+        h('div', { class: 'hi semi', style: { fontSize: '18px' } }, 'Buscar no YouTube'),
+        input,
+        U.btn(st.busy ? 'Buscando…' : 'Buscar', 'Search', go, { full: true, disabled: st.busy }),
+        st.err ? U.body(st.err, 'var(--bad)', 13) : null,
+        st.items && !st.items.length ? U.body('Nada encontrado. Tente outro nome.', 'var(--muted)', 13) : null,
+        (st.items || []).map(function (it) {
+          return U.clickRow(function () {
+            var r = L.ytParse(it.title, it.channel);
+            e.title = r.song.slice(0, 80); e.artist = (r.artist || '').slice(0, 120); e.link = it.url;
+            close(); L.render(); L.toast('Preenchido pelo YouTube. Confira o nome e o artista.');
+          },
+            h('img', { src: it.thumb, alt: '', style: { width: '96px', height: '54px', objectFit: 'cover', borderRadius: '6px', flex: 'none' } }),
+            h('div', { class: 'grow', style: { minWidth: 0 } }, h('div', { class: 'hi semi small', style: { lineHeight: 1.3 } }, it.title), h('div', { class: 'muted small ell' }, it.channel)));
+        }),
+        U.body('O app só usa o nome, o artista, o link e a imagem do vídeo. O áudio do YouTube não é baixado.', 'var(--muted)', 11)
+      ];
+    });
+    setTimeout(function () { var i = document.querySelector('.sheet input'); if (i) i.focus(); if (st.q.trim().length >= 2) go2(); }, 50);
+    function go2() { var b = [].slice.call(document.querySelectorAll('.sheet button')).find(function (x) { return x.textContent.trim() === 'Buscar'; }); if (b) b.click(); }
+  }
+
   L.screen('tab-musicas', function () {
     var soon = soonSet();
     var listBox = h('div', { class: 'songlist' });
@@ -135,8 +193,9 @@
         ? (R.sel ? U.textBtn('Cancelar', function () { R.sel = null; L.render(); })
           : h('div', { class: 'row', style: { gap: '4px' } },
             U.btn2('Planilha', 'FileSpreadsheet', sheetMenu),
-            S.projects.length ? U.iconBtn('ListChecks', 'Escolher músicas para apagar', function () { R.sel = {}; L.render(); }) : null))
-        : null),
+            S.projects.length ? U.iconBtn('ListChecks', 'Escolher músicas para apagar', function () { R.sel = {}; L.render(); }) : null,
+            U.helpBtn('repertorio')))
+        : U.helpBtn('repertorio')),
       h('div', { class: 'row', style: { alignItems: 'flex-end' } },
         h('div', { class: 'grow' }, U.field(R.query, 'Buscar música, artista ou tom', function (v) { R.query = v; fill(); })),
         h('button', { class: 'filterbtn' + (R.showFilters || active ? ' on' : ''), 'aria-label': R.showFilters ? 'Esconder os filtros' : active ? 'Filtros (um filtro ligado)' : 'Mostrar os filtros',
@@ -518,6 +577,7 @@
           U.pickSquareJpeg(600).then(function (b) { if (b) { e.cover = b; e.coverUrl = URL.createObjectURL(b); L.render(); } }).catch(function (x) { L.toast(L.errorText(x)); });
         }),
         U.body(!e.cover && !(p && p.cover_path) ? 'Sem capa, usamos a imagem do vídeo do link (YouTube).' : 'Capa escolhida.', 'var(--muted)', 12))),
+      !p ? U.btn2('Buscar no YouTube', 'Search', function () { ytSearch(e); }, { full: true }) : null,
       U.field(e.title, 'Nome da música *', setVal('title'), { max: 80 }),
       U.field(e.artist, 'Artista / ministério', setVal('artist'), { max: 120 }),
       U.field(e.album, 'Álbum (opcional)', setVal('album'), { max: 200 }),

@@ -6,7 +6,7 @@
   L.screen('tab-eu', function () {
     var me = L.me();
     var root = h('div', { class: 'screen narrow' },
-      h('div', { class: 'tabhead' }, h('h1', { class: 'h1 t' }, 'Eu')),
+      h('div', { class: 'tabhead' }, h('h1', { class: 'h1 t' }, 'Eu'), U.helpBtn('eu')),
       U.clickRow(function () { L.go({ name: 'profile' }); }, U.avatar(me, 56),
         h('div', { class: 'grow' }, h('div', { class: 'hi semi', style: { fontSize: '17px' } }, me ? me.name : 'Meu perfil'),
           h('div', { class: 'muted', style: { fontSize: '13px' } }, me && me.functions.length ? me.functions.map(L.fnLabel).join(', ') : 'Toque para colocar foto e o que você faz na banda')),
@@ -14,6 +14,9 @@
 
     root.appendChild(U.panel('Escalas', 'CalendarDays',
       U.menuRow('CalendarX', 'Dias que não posso', 'Marque para quem monta a escala já saber', function () { L.go({ name: 'availability' }); })));
+
+    root.appendChild(U.panel('Ajuda', 'CircleHelp',
+      U.menuRow('GraduationCap', 'Tutorial', 'Como usar cada parte do site, com as telas de verdade', function () { L.go({ name: 'tutorial' }); })));
 
     root.appendChild(planPanel());
     if (S.isAdmin) root.appendChild(U.panel('Administração', 'ShieldCheck',

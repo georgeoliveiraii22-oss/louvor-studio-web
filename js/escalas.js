@@ -34,7 +34,7 @@
     var me = L.uid();
     var can = L.perm.schedule();
     var root = h('div', { class: 'screen', style: { paddingBottom: '96px' } },
-      U.tabHead('Escalas'),
+      U.tabHead('Escalas', U.helpBtn('escalas')),
       can ? h('div', { class: 'manage', role: 'button', tabindex: '0', onclick: function () { L.go({ name: 'gerenciar' }); } },
         h('span', { class: 'mi' }, ic('SlidersHorizontal', 19)),
         h('div', { class: 'grow' }, h('div', { class: 'hi semi', style: { fontSize: '16px' } }, 'Gerenciar escalas'),
@@ -228,7 +228,8 @@
         L.menu(more, [
           multi ? ['Headphones', 'Ouvir no estúdio', function () { L.go({ name: 'studio', id: pr.id }); }] : null,
           ['Music2', 'Ver a ficha da música', function () { L.songSheet(pr.id); }],
-          can ? ['Music4', 'Tom neste dia', function () { keyDialog(s, pr); }] : null
+          can ? ['Music4', 'Tom neste dia', function () { keyDialog(s, pr); }] : null,
+          can ? ['Mic', ss.singer ? 'Trocar quem canta' : 'Quem canta', function () { singerDialog(s, pr, ss); }] : null
         ]);
       });
       songsPanel.appendChild(h('div', { class: 'row', style: { minHeight: '56px', cursor: 'pointer' }, onclick: function () { L.songSheet(pr.id); } },
@@ -237,6 +238,7 @@
         h('div', { class: 'grow', style: { marginLeft: '2px' } },
           h('div', { class: 'hi semi ell' }, pr.song_title),
           h('div', { class: 'muted small ell' }, key ? 'Tom ' + key + (ss.key ? ' (neste dia)' : '') : (pr.artist || '')),
+          ss.singer ? h('div', { class: 'small semi ell', style: { color: 'var(--hi)' } }, 'Canta: ' + (ss.singer === me ? 'você' : L.nameOf(ss.singer))) : null,
           h('div', { class: 'tiny semi', style: { color: multi ? 'var(--accent-text)' : 'var(--muted)' } }, multi ? 'Com multitrack' : 'Sem multitrack')),
         mine.length ? h('button', { class: 'readychip' + (ready ? ' on' : ''), onclick: function (e) { e.stopPropagation(); D.toggleReady(s.id, pr.id); } }, ready ? ic('Check', 14) : null, ready ? 'Ensaiei' : 'Ensaiei?') : null,
         more));
@@ -282,6 +284,40 @@
     if (can) root.appendChild(U.btn2('Apagar escala', 'Trash2', function () { deleteDialog(s); }, { full: true, danger: true }));
     return root;
   });
+
+  /** Quem canta esta música neste dia: só entre as pessoas da escala (ministros e vozes primeiro). */
+  function singerDialog(s, pr, ss) {
+    var me = L.uid();
+    var rank = function (u) {
+      var fns = s.people.filter(function (p) { return p.user_id === u; }).map(function (p) { return p.function; });
+      return fns.indexOf('ministro') >= 0 ? 0 : (fns.indexOf('backing_vocal') >= 0 || fns.indexOf('vocal') >= 0) ? 1 : 2;
+    };
+    var people = L.uniqPeople(s.people).sort(function (a, b) { return rank(a) - rank(b) || L.nameOf(a).localeCompare(L.nameOf(b)); });
+    function save(u, close) {
+      close();
+      D.scheduleAction(u ? L.nameOf(u) + ' canta ' + pr.song_title + '.' : 'Ninguém marcado para cantar.', function () {
+        return sb.from('service_songs').update({ singer_id: u }).eq('service_id', s.id).eq('project_id', pr.id);
+      });
+    }
+    L.dialog({
+      title: 'Quem canta ' + pr.song_title + '?',
+      body: function (close) {
+        if (!people.length) return U.body('Escale as pessoas primeiro: quem canta é escolhido entre quem está nesta escala.', 'var(--muted)', 13);
+        return people.map(function (u) {
+          var on = ss.singer === u;
+          var fns = s.people.filter(function (p) { return p.user_id === u; }).map(function (p) { return L.fnLabel(p.function); }).join(', ');
+          return h('div', { class: 'row', style: { minHeight: '52px', gap: '10px', cursor: 'pointer' }, onclick: function () { if (on) close(); else save(u, close); } },
+            U.avatar(L.member(u), 34),
+            h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, u === me ? 'Você' : L.nameOf(u)), h('div', { class: 'muted small ell' }, fns)),
+            on ? ic('Check', 18) : null);
+        });
+      },
+      actions: function (close) {
+        return [ss.singer ? h('button', { class: 'textbtn', style: { color: 'var(--bad)' }, onclick: function () { save(null, close); } }, 'Ninguém') : null,
+          h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar')];
+      }
+    });
+  }
 
   function keyDialog(s, pr) {
     var cur = (s.songs.find(function (x) { return x.project_id === pr.id; }) || {}).key || '';

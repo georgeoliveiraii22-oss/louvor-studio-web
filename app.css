@@ -1328,6 +1328,8 @@ button.partchip { background: none; font-family: inherit; }
 .adm-top .wrap { display: flex; align-items: center; gap: 12px; min-height: 64px; padding-top: var(--safe-t); }
 .adm-main { display: flex; flex-direction: column; gap: 18px; padding-top: 22px !important; padding-bottom: 60px !important; }
 .adm-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.adm-legacy { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--panel); border-radius: var(--r-group); }
+.adm-legacy .grow { display: flex; flex-direction: column; gap: 2px; }
 .adm-stat { padding: 14px 16px; border-radius: var(--r-group); background: var(--panel); box-shadow: inset 0 0 0 1px var(--line); }
 .adm-stat .k { color: var(--muted); font-size: 13px; font-weight: 600; }
 .adm-stat .v { color: var(--hi); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
@@ -1439,3 +1441,26 @@ button.partchip { background: none; font-family: inherit; }
 @media (hover: hover) and (pointer: fine) { .gbtn:hover { background: #FFFFFF; } }
 .ou { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
 .ou::before, .ou::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* ---------------------------------------------------------------- Tutorial (js/tutorial.js) */
+.tutch { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 14px; text-align: left;
+  background: var(--panel); border: 0; border-radius: var(--r-group); color: var(--muted); cursor: pointer; }
+.tutch .grow { display: flex; flex-direction: column; gap: 2px; }
+.tutch .hi { font-size: 16px; }
+.tutico { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.tutview { gap: 12px; }
+.tutdots { display: flex; justify-content: center; gap: 6px; }
+.tutdots span { width: 7px; height: 7px; border-radius: 50%; background: var(--line); transition: width 200ms var(--ease-out); }
+.tutdots span.on { width: 20px; border-radius: 4px; background: var(--accent); }
+.tutphone { position: relative; align-self: center; width: min(100%, 300px, max(200px, calc((100dvh - 340px) * .45))); aspect-ratio: 540 / 1200; flex: none;
+  border-radius: 22px; overflow: hidden; border: 1px solid var(--line); background: var(--bg); }
+.tutphone img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.tutmark { position: absolute; border: 2.5px solid var(--accent); border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, .28); animation: tutpulse 1.4s var(--ease-out) infinite; pointer-events: none; }
+.tutmark + .tutmark { box-shadow: none; }
+@keyframes tutpulse { 0%, 100% { border-color: var(--accent); } 50% { border-color: color-mix(in srgb, var(--accent) 35%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .tutmark { animation: none; } }
+.tuttext h2 { margin: 0 0 4px; font-size: 19px; color: var(--hi); }
+.tuttext p { margin: 0; color: var(--text); font-size: 15px; line-height: 1.45; }
+.tutnav { gap: 8px; }

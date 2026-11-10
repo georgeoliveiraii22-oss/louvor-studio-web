@@ -112,9 +112,72 @@
           stat('Em plano pago', String(pagantes.length)),
           stat('Receita por mês', P.reais(receita), 'estimada, pelos planos marcados'),
           stat('Espaço usado', bytes(usado))),
+        legacyBox(),
         h('div', { class: 'adm-filters' }, search, chips),
         listBox));
     renderList();
+  }
+
+  // ------------------------------------------------------------------ Áudios antigos → R2 (migração 0039)
+  // Cada arquivo: baixa do Supabase, envia ao R2 por um link da função r2, a função confere o tamanho e
+  // marca o arquivo como R2; só então a cópia antiga sai do Supabase. Falhou no meio? O arquivo fica onde estava.
+  var M = { list: null, busy: false, done: 0, fail: 0, bytes: 0, err: null };
+  function legacyBox() {
+    if (M.box) return M.box;
+    var box = M.box = h('section', { class: 'adm-legacy' });
+    function paint() {
+      var n = M.list ? M.list.length : 0;
+      var total = M.list ? M.list.reduce(function (s, f) { return s + Number(f.size_bytes || 0); }, 0) : 0;
+      box.replaceChildren(
+        h('div', { class: 'grow' },
+          h('div', { class: 'semi' }, 'Áudios antigos no Supabase'),
+          h('div', { class: 'muted small' }, M.list === null ? 'Conferindo…'
+            : M.busy ? 'Movendo para o R2: ' + (M.done + M.fail) + ' de ' + n + (M.fail ? ' (' + M.fail + ' com erro)' : '') + '. Deixe esta página aberta.'
+            : n ? n + (n === 1 ? ' arquivo' : ' arquivos') + ' (' + bytes(total) + ') ainda no Supabase. Mover deixa o download mais barato.'
+            : 'Nenhum: todos os áudios estão no R2.'),
+          M.err ? h('div', { class: 'small', style: { color: 'var(--bad)' } }, M.err) : null),
+        M.list && M.list.length && !M.busy ? h('button', { class: 'btn', onclick: run }, 'Mover para o R2') : null);
+    }
+    async function check() {
+      var r = await sb.rpc('admin_legacy_files', { _limit: 2000 });
+      if (r.error) { M.list = []; M.err = /admin_legacy_files/.test(r.error.message) ? 'Rode a migração 0039 no Supabase.' : r.error.message; }
+      else M.list = r.data || [];
+      paint();
+    }
+    async function call(body) {
+      var res = await sb.functions.invoke('r2', { body: body });
+      if (res.error) {
+        var t = res.error.message;
+        try { t = (await res.error.context.json()).error || t; } catch (e) { /* sem corpo */ }
+        throw new Error(t);
+      }
+      return res.data;
+    }
+    async function moveOne(f) {
+      var got = await sb.storage.from('audio').download(f.object_key);
+      if (got.error) throw new Error('baixar: ' + got.error.message);
+      var up = await call({ action: 'admin_move_upload', file_id: f.id });
+      var put = await fetch(up.url, { method: 'PUT', body: got.data });
+      if (!put.ok) throw new Error('enviar ao R2: ' + put.status);
+      var ok = await call({ action: 'admin_move_confirm', file_id: f.id });
+      if (!ok.ok) throw new Error('confirmar');
+      // A cópia antiga só sai depois que o arquivo já aponta para o R2.
+      await sb.storage.from('audio').remove([f.object_key]);
+    }
+    async function run() {
+      if (!confirm('Mover ' + M.list.length + ' áudios antigos para o R2? Deixe a página aberta até terminar.')) return;
+      M.busy = true; M.done = 0; M.fail = 0; M.err = null; paint();
+      for (var i = 0; i < M.list.length; i++) {
+        try { await moveOne(M.list[i]); M.done++; } catch (e) { M.fail++; M.err = (M.list[i].object_key.split('/').pop()) + ': ' + e.message; }
+        paint();
+      }
+      M.busy = false;
+      toast(M.fail ? M.done + ' movidos, ' + M.fail + ' com erro.' : M.done + ' áudios movidos para o R2.');
+      M.list = null; paint(); check();
+    }
+    if (M.list === null && !M.busy) check(); else paint();
+    paint();
+    return box;
   }
   function stat(k, v, sub) { return h('div', { class: 'adm-stat' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v), sub ? h('div', { class: 'muted small' }, sub) : null); }
 

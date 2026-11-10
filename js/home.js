@@ -15,7 +15,7 @@
     var head = h('div', { class: 'tabhead' },
       h('div', { class: 't' }, L.igreja.pill(S.current.org.name), h('h1', { class: 'h1 ell' }, first ? hello + ', ' + first : hello)),
       U.iconBtn('Newspaper', 'Avisos e novidades', function () { L.go({ name: 'news' }); }, { badge: news }),
-      U.iconBtn('RefreshCw', 'Atualizar', L.reload));
+      U.iconBtn('RefreshCw', 'Atualizar', L.reload), U.helpBtn('inicio'));
 
     function showAll() { L.escalas.view = 'proximas'; L.setTab('escalas'); }
     var allCount = L.upcoming().length;
