@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Entrando no Louvor Studio</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 16px/1.4 system-ui, sans-serif;
+    background: #04121f; color: #e8f1fa; text-align: center; padding: 24px; box-sizing: border-box; }
+  @media (prefers-color-scheme: light) { body { background: #f3f7fb; color: #0b2236; } }
+  p { margin: 8px 0 0; opacity: .7; font-size: 14px; }
+</style>
+</head>
+<body>
+<div><strong>Abrindo o Google…</strong><p>Louvor Studio</p></div>
+<script>
+// Passagem do login dos apps: o app abre esta página (o aviso do iPhone mostra louvorstudio.app.br) e ela
+// segue para o login do Supabase. A volta é sempre para o app (br.louvorstudio.app://login), nunca outra.
+(function () {
+  var q = new URLSearchParams(location.search);
+  var provider = q.get('provider');
+  var challenge = q.get('code_challenge') || '';
+  if (['google'].indexOf(provider) < 0 || !/^[A-Za-z0-9_-]{43,128}$/.test(challenge)) {
+    document.body.textContent = 'Link de login inválido. Volte ao app e tente de novo.';
+    return;
+  }
+  location.replace('https://mryuqpnkdkmmhmqrjixy.supabase.co/auth/v1/authorize?provider=' + provider +
+    '&redirect_to=' + encodeURIComponent('br.louvorstudio.app://login') +
+    '&code_challenge=' + challenge + '&code_challenge_method=s256');
+})();
+</script>
+</body>
+</html>
