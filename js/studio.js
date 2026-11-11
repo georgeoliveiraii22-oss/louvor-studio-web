@@ -1340,9 +1340,6 @@
       if (Math.abs(dx) > Math.abs(ev.shiftKey ? 0 : ev.deltaY) || ev.shiftKey) { ev.preventDefault(); st.view0 += dx / pps(); clampView(); requestDraw(); }
     }, { passive: false });
   }
-  function markSelected() {
-    (st.ui.lanes || []).forEach(function (l) { l.canvas.parentNode.parentNode.classList.toggle('sel', l.tg.key === st.sel); });
-  }
 
   // ------------------------------------------------------------------ Tela
   L.screen('studio', function (route) {

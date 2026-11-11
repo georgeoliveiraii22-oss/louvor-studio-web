@@ -59,11 +59,12 @@
     return U.iconBtn('CircleHelp', 'Como usar esta tela', function () { L.go({ name: 'tutorial', chapter: IDX[key] }); });
   };
 
-  var T = { step: 0, chapter: null };
+  var T = { step: 0, route: null };
 
   L.screen('tutorial', function (r) {
     if (r.chapter == null) return list();
-    if (T.chapter !== r.chapter) { T.chapter = r.chapter; T.step = 0; }
+    // Cada vez que o assunto é aberto começa do passo 1 (a rota é um objeto novo a cada L.go).
+    if (T.route !== r) { T.route = r; T.step = 0; }
     return view(r.chapter);
   });
 

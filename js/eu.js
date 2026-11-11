@@ -179,6 +179,14 @@
             await Nuvem.removeMine(sb, (takes.data || []).map(function (t) { return t.file; }));
             var me = L.me();
             if (me && me.avatar_path) await sb.storage.from('avatars').remove([me.avatar_path]);
+            // As bandas em que a pessoa é a única integrante somem junto com a conta: antes, cancela a assinatura
+            // delas no Asaas (senão o Asaas continuaria cobrando uma banda que não existe mais).
+            var lead = S.memberships.filter(function (b) { return b.role === 'leader'; });
+            for (var i = 0; i < lead.length; i++) {
+              var cnt = await sb.from('memberships').select('user_id', { count: 'exact', head: true }).eq('org_id', lead[i].org.id);
+              if (cnt.error || cnt.count !== 1) continue;
+              try { await sb.functions.invoke((window.LSPlanos && LSPlanos.FN_ASSINAR) || 'smart-processor', { body: { action: 'cancel', org_id: lead[i].org.id } }); } catch (x) { /* sem assinatura */ }
+            }
             L.must(await sb.rpc('delete_my_account', {}));
             await sb.auth.signOut();
             L.toast('Sua conta foi excluída.');

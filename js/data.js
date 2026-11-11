@@ -318,8 +318,4 @@
   };
 
   // ------------------------------------------------------------------ Repertório
-  D.signed = async function (bucket, path, secs) {
-    var res = await sb.storage.from(bucket).createSignedUrl(path, secs || 3600);
-    return must(res).signedUrl;
-  };
 })();

@@ -111,7 +111,6 @@
   L.scheduleLine = function (s) { return L.kindLabel(s.kind) + ' · ' + L.serviceWhen(s.starts_on); };
   L.plural = function (n, one, many) { return n + ' ' + (n === 1 ? one : many); };
   L.clock = function (sec) { var s = Math.max(0, Math.floor(sec || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
-  L.clockTenths = function (sec) { var t = Math.floor(Math.max(0, sec) * 10); return Math.floor(t / 600) + ':' + String(Math.floor(t / 10) % 60).padStart(2, '0') + ',' + (t % 10); };
   L.bytes = function (n) {
     if (n >= 1073741824) return (n / 1073741824).toFixed(1).replace('.', ',') + ' GB';
     if (n >= 1048576) return (n / 1048576).toFixed(1).replace('.', ',') + ' MB';

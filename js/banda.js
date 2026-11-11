@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.28.1', [
+      'Excluir a conta também cancela a assinatura das bandas em que você era a única pessoa.',
+      'Tutorial: cada assunto começa sempre do primeiro passo.'
+    ]],
     ['1.28.0', [
       'Tutorial com as telas de verdade: toque no ? no alto de cada aba ou em Eu › Tutorial.',
       'Escala: quem monta escolhe quem canta cada música (⋯ da música › Quem canta). Aparece "Canta: …" para toda a banda.',
@@ -314,16 +318,6 @@
     if (navigator.clipboard) navigator.clipboard.writeText(t).catch(function () { /* sem permissão */ });
   }
 
-  function chatRow(channel, title, sub) {
-    var n = S.unread[channel || ''] || 0;
-    var last = S.lastMessages.find(function (x) { return (x.service_id || null) === channel; });
-    return U.clickRow(function () { L.go({ name: 'chat', id: channel }); },
-      h('span', { class: 'circle' + (channel ? '' : ' soft'), style: { width: '42px', height: '42px' } }, ic(channel ? 'CalendarDays' : 'MessagesSquare', 20)),
-      h('div', { class: 'grow' }, h('div', { class: 'hi semi ell' }, title),
-        h('div', { class: 'small ell', style: { color: n ? 'var(--text)' : 'var(--muted)' } },
-          last ? (last.author === L.uid() ? 'Você' : L.nameOf(last.author).split(' ')[0]) + ': ' + last.body : sub)),
-      n ? U.badge(n) : ic('ChevronRight', 18, 'muted'));
-  }
 
   /** Ficha de uma pessoa: funções, voz, sobre e (para o líder) as permissões. */
   function memberSheet(mb) {
