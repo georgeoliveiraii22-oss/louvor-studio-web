@@ -85,7 +85,7 @@
     var people = S.members.length;
     var leader = S.current.role === 'leader';
     var bill = billingLine(org);
-    // Assinado pelo iPhone (Apple, migração 0043): muda e cancela só no iPhone; aqui não oferece outra cobrança.
+    // Assinado pelo iPhone (Apple, migração 0042): muda e cancela só no iPhone; aqui não oferece outra cobrança.
     var acoes = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
       leader && ['em_dia', 'atrasado', 'aguardando'].indexOf(org.billing_status) >= 0
         ? U.btn2('Cancelar assinatura', 'X', function () { cancelSubscription(org); }, { full: true, danger: true }) : null,
@@ -95,7 +95,7 @@
       sb.rpc('apple_assinatura', { _org: org.id }).then(function (r) {
         var a = (Array.isArray(r.data) ? r.data : []).filter(function (x) { return x && x.status === 'ativo'; })[0];
         if (a) acoes.replaceChildren(U.body('Assinado pelo iPhone, com a conta da Apple de quem assinou. Para trocar de plano ou cancelar: no iPhone, Ajustes › seu nome › Assinaturas.', 'var(--muted)', 12));
-      }, function () { /* sem a migração 0043 */ });
+      }, function () { /* sem a migração 0042 */ });
     }
     return U.panel('Plano da banda', 'BadgeCheck',
       U.keyValue('Plano', p.nome),

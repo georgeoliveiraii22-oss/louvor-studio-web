@@ -293,7 +293,7 @@
       tela('Só o líder assina', ['Quem assina o plano é o líder da banda. Peça para ele entrar aqui e escolher o plano.']);
       return;
     }
-    // Bandas assinadas pelo iPhone (Apple, migração 0043) mudam e cancelam lá: aqui não entram, para não cobrar duas vezes.
+    // Bandas assinadas pelo iPhone (Apple, migração 0042) mudam e cancelam lá: aqui não entram, para não cobrar duas vezes.
     var pelaApple = {};
     await Promise.all(bandas.map(async function (b) {
       try {
