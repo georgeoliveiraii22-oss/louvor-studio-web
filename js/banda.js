@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.29.1', [
+      'Plano da banda: quando o plano foi assinado pelo iPhone, o site mostra onde trocar ou cancelar.'
+    ]],
     ['1.29.0', [
       'Estúdio no tema claro: com a aparência clara (Eu › Aparência), o estúdio também fica claro.'
     ]],

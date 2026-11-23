@@ -293,6 +293,19 @@
       tela('Só o líder assina', ['Quem assina o plano é o líder da banda. Peça para ele entrar aqui e escolher o plano.']);
       return;
     }
+    // Bandas assinadas pelo iPhone (Apple, migração 0043) mudam e cancelam lá: aqui não entram, para não cobrar duas vezes.
+    var pelaApple = {};
+    await Promise.all(bandas.map(async function (b) {
+      try {
+        var a = await sb.rpc('apple_assinatura', { _org: b.id });
+        if (Array.isArray(a.data) && a.data.some(function (x) { return x && x.status === 'ativo'; })) pelaApple[b.id] = true;
+      } catch (e) { /* sem a migração */ }
+    }));
+    bandas = bandas.filter(function (b) { return !pelaApple[b.id]; });
+    if (!bandas.length) {
+      tela('Assinado pelo iPhone', ['O plano da sua banda foi assinado pelo iPhone, com a conta da Apple. Para trocar de plano ou cancelar: no iPhone, Ajustes › seu nome › Assinaturas.']);
+      return;
+    }
 
     var form = el('form');
     form.style.cssText = 'display:flex;flex-direction:column;gap:12px';
