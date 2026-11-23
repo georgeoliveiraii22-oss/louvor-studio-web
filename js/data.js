@@ -93,7 +93,8 @@
     S.teams = soft(more[5]).map(function (t) { return { id: t.id, name: t.name, members: (t.team_members || []).map(function (x) { return { user_id: x.user_id, function: x.function }; }) }; });
     S.templates = soft(more[6]);
     S.storageUsed = Number(more[7].data) || 0;
-    await Promise.all([D.readiness(), D.refreshMessages(), D.loadImages(), L.auto ? L.auto.load().catch(function () { /* sem a migração 0032 */ }) : null, L.igreja.load().catch(function () { /* sem a migração 0021 */ }),
+    S.items = {}; S.planTemplates = null;
+    await Promise.all([D.readiness(), D.refreshMessages(), D.loadImages(), L.roteiro ? L.roteiro.loadOrgFlags().catch(function () { /* sem a migração 0043 */ }) : null, L.auto ? L.auto.load().catch(function () { /* sem a migração 0032 */ }) : null, L.igreja.load().catch(function () { /* sem a migração 0021 */ }),
       sb.rpc('admin_is').then(function (r) { S.isAdmin = !r.error && r.data === true; }, function () { S.isAdmin = false; })]);
   };
 
@@ -135,7 +136,7 @@
     var songs = {}, people = {};
     soft(r[0]).forEach(function (x) { (songs[x.service_id] = songs[x.service_id] || []).push({ project_id: x.project_id, position: x.position, key: x.song_key || null, singer: x.singer_id || null }); });
     soft(r[1]).forEach(function (x) {
-      (people[x.service_id] = people[x.service_id] || []).push({ user_id: x.user_id, function: x.function, status: x.status || 'pendente', swap_requested: !!x.swap_requested, note: x.note || null });
+      (people[x.service_id] = people[x.service_id] || []).push({ user_id: x.user_id, function: x.function, status: x.status || 'pendente', swap_requested: !!x.swap_requested, note: x.note || null, attended: x.attended === undefined ? null : x.attended });
     });
     return svc.map(function (s) {
       var ss = (songs[s.id] || []).sort(function (a, b) { return a.position - b.position; });

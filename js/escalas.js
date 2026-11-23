@@ -40,11 +40,14 @@
         h('div', { class: 'grow' }, h('div', { class: 'hi semi', style: { fontSize: '16px' } }, 'Gerenciar escalas'),
           h('div', { class: 'muted small' }, 'Criar o mês, agenda fixa, equipes e editar várias de uma vez')),
         ic('ChevronRight', 18, 'muted')) : null,
-      h('div', { class: 'row' }, [['proximas', 'Próximas'], ['minhas', 'Minhas'], ['calendario', 'Calendário']].map(function (v) {
+      h('div', { class: 'hscroll' }, [['proximas', 'Próximas'], ['minhas', 'Minhas'], ['calendario', 'Calendário'], ['quadro', 'Quadro do mês']].map(function (v) {
         return U.toggle(v[1], E.view === v[0], null, function () { E.view = v[0]; L.render(); });
       })));
 
-    if (E.view === 'calendario') {
+    if (E.view === 'quadro') {
+      if (!E.month) E.month = L.today().slice(0, 7);
+      root.appendChild(h('div', { class: 'col', style: { gap: '10px' } }, L.roteiro.board(E.month, function (m) { E.month = m; L.render(); })));
+    } else if (E.view === 'calendario') {
       if (!E.month) E.month = L.today().slice(0, 7);
       if (!E.day) E.day = L.today();
       root.appendChild(L.monthCalendar(E.month, function (m) { E.month = m; L.render(); }, E.day, function (d) { E.day = d; L.render(); }, function (d) {
@@ -162,9 +165,18 @@
     var unread = S.unread[s.id] || 0;
     var root = h('div', { class: 'screen' });
 
+    var moreBtn = U.iconBtn('Ellipsis', 'Mais opções da escala', function () {
+      L.menu(moreBtn, [
+        ['Share2', 'Compartilhar', function () { L.roteiro.share(s); }],
+        ['History', 'Histórico', function () { L.openHistory(s); }],
+        can ? ['Copy', 'Copiar para outro dia', function () { L.roteiro.cloneDialog(s); }] : null,
+        can && s.starts_on <= L.today() ? ['UserX', 'Registrar faltas', function () { L.go({ name: 'faltas', id: s.id }); }] : null,
+        can ? ['Pencil', 'Editar escala', function () { L.go({ name: 'wizard', id: s.id }); }] : null
+      ]);
+    });
     root.appendChild(U.topRow(s.title, L.kindLabel(s.kind), [
       U.iconBtn('MessageSquare', 'Conversa da escala', function () { L.go({ name: 'chat', id: s.id }); }, { badge: unread }),
-      can ? U.iconBtn('Pencil', 'Editar escala', function () { L.go({ name: 'wizard', id: s.id }); }) : null
+      moreBtn
     ]));
 
     // Quando e onde
@@ -197,7 +209,7 @@
     if (can && s.starts_on >= L.today()) {
       // Gerar: o sorteio equilibrado só desta escala (olha o mês inteiro). Passo a passo: montar à mão.
       root.appendChild(U.btn('Gerar a equipe automaticamente', 'Sparkles', function () { L.auto.open(s.id); }, { full: true, tall: true }));
-      if (!s.songs.length || !s.people.length) {
+      if ((!s.songs.length && L.musicOn()) || !s.people.length) {
         root.appendChild(U.btn2(!s.songs.length && !s.people.length ? 'Montar esta escala passo a passo' : !s.songs.length ? 'Escolher as músicas' : 'Escalar a equipe passo a passo', 'ListChecks',
           function () { L.go({ name: 'wizard', id: s.id, step: !s.songs.length ? 1 : 2 }); }, { full: true }));
       }
@@ -227,12 +239,12 @@
         e.stopPropagation();
         L.menu(more, [
           multi ? ['Headphones', 'Ouvir no estúdio', function () { L.go({ name: 'studio', id: pr.id }); }] : null,
-          ['Music2', 'Ver a ficha da música', function () { L.songSheet(pr.id); }],
+          ['Music2', 'Ver a ficha da música', function () { L.songSheet(pr.id, { ids: s.songIds, i: i }); }],
           can ? ['Music4', 'Tom neste dia', function () { keyDialog(s, pr); }] : null,
           can ? ['Mic', ss.singer ? 'Trocar quem canta' : 'Quem canta', function () { singerDialog(s, pr, ss); }] : null
         ]);
       });
-      songsPanel.appendChild(h('div', { class: 'row', style: { minHeight: '56px', cursor: 'pointer' }, onclick: function () { L.songSheet(pr.id); } },
+      songsPanel.appendChild(h('div', { class: 'row', style: { minHeight: '56px', cursor: 'pointer' }, onclick: function () { L.songSheet(pr.id, { ids: s.songIds, i: i }); } },
         h('span', { class: 'muted', style: { width: '20px', fontSize: '13px' } }, String(i + 1)),
         U.cover(pr, 38, 4, 17),
         h('div', { class: 'grow', style: { marginLeft: '2px' } },
@@ -244,7 +256,9 @@
         more));
     });
     if (can) songsPanel.appendChild(U.btn2('Adicionar', 'Plus', function () { L.go({ name: 'songpick', id: s.id }); }, { full: true }));
-    root.appendChild(songsPanel);
+    if (L.musicOn()) root.appendChild(songsPanel);
+    var plan = L.roteiro.panel(s);
+    if (plan) root.appendChild(plan);
 
     // Pessoas
     var peoplePanel = U.panel('Pessoas (' + crew.length + ')', 'UsersRound');
@@ -258,7 +272,7 @@
           U.avatar(L.member(p.user_id), 34),
           h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, p.user_id === me ? 'Você' : L.nameOf(p.user_id)),
             L.isOff(p.user_id, s.starts_on) ? h('div', { class: 'warn tiny' }, 'marcou que não pode neste dia') : null),
-          U.statusFor(p),
+          p.attended === false ? U.chip('Faltou', 'bad', 'UserX') : p.attended === true && s.starts_on <= L.today() ? U.chip('Veio', 'ok', 'Check') : U.statusFor(p),
           // Trocar: só tira a pessoa depois que a substituta entrar (fechar a janela não muda nada).
           can && (p.swap_requested || p.status === 'recusado') ? U.iconBtn('RefreshCw', 'Trocar ' + L.nameOf(p.user_id), function () { addPerson(s, p.function, p); }, { color: 'var(--warn)' }) : null,
           can ? U.iconBtn('X', 'Tirar da escala', function () {
@@ -357,6 +371,7 @@
     });
   }
 
+  L.addPersonDialog = function (s, fn) { return addPerson(s, fn); };
   function addPerson(s, preset, replacing) {
     var fn = preset;
     var dlg = L.dialog({

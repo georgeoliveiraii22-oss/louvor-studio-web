@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   var L = window.L, S = L.S, h = L.h, ic = L.ic, U = L.ui, D = L.data, sb = L.sb;
-  var R = { query: '', filter: 'todas', showFilters: false, sel: null };   // sel: músicas escolhidas para apagar (null = sem seleção)
+  var R = { query: '', filter: 'todas', showFilters: false, sel: null, view: 'musicas' };   // sel: músicas escolhidas para apagar (null = sem seleção)
   var FILTERS = [['todas', 'Todas'], ['escala', 'Das próximas escalas'], ['multi', 'Com multitrack']];
 
   function tagList() {
@@ -20,6 +20,29 @@
     if (R.filter === 'escala') return !!soon[p.id];
     if (R.filter === 'multi') return L.hasMulti(p);
     return (p.tags || []).indexOf(R.filter.slice(4)) >= 0;
+  }
+
+  function artistList() {
+    var seen = {};
+    S.projects.forEach(function (p) { var a = (p.artist || '').trim(); if (a) seen[L.norm(a)] = seen[L.norm(a)] || a; });
+    return Object.keys(seen).map(function (k) { return seen[k]; }).sort(function (a, b) { return L.norm(a).localeCompare(L.norm(b)); });
+  }
+  /** Pastas = classificações da música; artistas = o artista de cada música. Tocar abre a lista já filtrada. */
+  function groupList() {
+    var folders = R.view === 'pastas';
+    var names = folders ? tagList() : artistList();
+    if (!names.length) return U.empty(folders ? 'Nenhuma pasta ainda. Em Editar música, escreva as classificações (ex.: Louvor, Adoração, Santa Ceia): cada uma vira uma pasta.' : 'Nenhuma música com artista.');
+    return h('div', { class: 'col', style: { gap: 0 } }, names.map(function (n) {
+      var list = S.projects.filter(function (p) { return folders ? (p.tags || []).indexOf(n) >= 0 : L.norm(p.artist || '') === L.norm(n); });
+      return h('div', { class: 'foldrow', role: 'button', onclick: function () {
+        R.view = 'musicas';
+        if (folders) { R.filter = 'tag:' + n; R.query = ''; } else { R.filter = 'todas'; R.query = n; }
+        L.render();
+      } },
+        folders ? h('span', { class: 'circle soft' }, ic('Folder', 18)) : U.cover(list[0], 40, 20, 18),
+        h('div', { class: 'grow', style: { minWidth: 0 } }, h('div', { class: 'hi semi ell' }, n), h('div', { class: 'muted small' }, L.plural(list.length, 'música', 'músicas'))),
+        ic('ChevronRight', 18, 'muted'));
+    }));
   }
 
   function soonSet() {
@@ -158,6 +181,64 @@
     function go2() { var b = [].slice.call(document.querySelectorAll('.sheet button')).find(function (x) { return x.textContent.trim() === 'Buscar'; }); if (b) b.click(); }
   }
 
+  /** Busca a música no catálogo da Apple (sem chave, de graça): preenche nome, artista, álbum, duração e a capa. */
+  L.itunesSearch = async function (q) {
+    var r = await fetch('https://itunes.apple.com/search?media=music&entity=song&country=BR&limit=15&term=' + encodeURIComponent(q));
+    if (!r.ok) throw new Error('A busca não respondeu. Tente de novo.');
+    var j = await r.json();
+    return (j.results || []).filter(function (x) { return x.trackName; }).map(function (x) {
+      return { title: x.trackName, artist: x.artistName || '', album: (x.collectionName || '').replace(/\s+-\s+(Single|EP)$/i, ''),
+        duration_s: x.trackTimeMillis ? Math.round(x.trackTimeMillis / 1000) : null,
+        thumb: (x.artworkUrl100 || '').replace('100x100bb', '200x200bb'), art: (x.artworkUrl100 || '').replace('100x100bb', '600x600bb'), year: (x.releaseDate || '').slice(0, 4) };
+    });
+  };
+  async function artBlob(url) {
+    var res = await fetch(url);
+    if (!res.ok) throw new Error('capa');
+    var b = await res.blob();
+    return b.type === 'image/jpeg' ? b : b;
+  }
+  L.musicSearch = function (e) {
+    var st = { q: [e.title, e.artist].filter(Boolean).join(' '), busy: false, items: null, err: null };
+    var dlg = L.sheet(function (close) {
+      async function go() {
+        if (st.q.trim().length < 2 || st.busy) return;
+        st.busy = true; st.err = null; dlg.refresh();
+        try { st.items = await L.itunesSearch(st.q.trim()); } catch (x) { st.err = L.errorText(x); st.items = null; }
+        st.busy = false; dlg.refresh();
+      }
+      var input = U.field(st.q, 'Nome da música (e o artista, se souber)', function (v) { st.q = v; }, { max: 120 });
+      input.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') go(); });
+      st.go = go;
+      return [
+        h('div', { class: 'hi semi', style: { fontSize: '18px' } }, 'Buscar dados da música'),
+        U.body('Preenche o nome, o artista, o álbum, a duração e a capa.', 'var(--muted)', 13),
+        input,
+        U.btn(st.busy ? 'Buscando…' : 'Buscar', 'Search', go, { full: true, disabled: st.busy }),
+        st.err ? U.body(st.err, 'var(--bad)', 13) : null,
+        st.items && !st.items.length ? U.body('Nada encontrado. Tente outro nome.', 'var(--muted)', 13) : null,
+        (st.items || []).map(function (it) {
+          return U.clickRow(function () {
+            e.title = it.title.slice(0, 80); e.artist = it.artist.slice(0, 120); e.album = it.album.slice(0, 200);
+            if (it.duration_s) e.dur = L.clock(it.duration_s);
+            close(); L.render();
+            var hasCover = e.cover || (e.id && L.project(e.id) && L.project(e.id).cover_path);
+            if (!hasCover && it.art) {
+              artBlob(it.art).then(function (b) { if (Ed === e) { e.cover = b; e.coverUrl = URL.createObjectURL(b); L.render(); } }, function () {});
+            }
+            L.toast('Preenchido. Confira o nome e o artista.');
+          },
+            it.thumb ? h('img', { src: it.thumb, alt: '', style: { width: '54px', height: '54px', objectFit: 'cover', borderRadius: '6px', flex: 'none' } }) : null,
+            h('div', { class: 'grow', style: { minWidth: 0 } }, h('div', { class: 'hi semi ell' }, it.title),
+              h('div', { class: 'muted small ell' }, [it.artist, it.album, it.year].filter(Boolean).join(' · ')),
+              it.duration_s ? h('div', { class: 'muted tiny' }, L.clock(it.duration_s)) : null));
+        }),
+        U.body('Dados do catálogo da Apple Music. Nenhum áudio é baixado.', 'var(--muted)', 11)
+      ];
+    });
+    setTimeout(function () { var i = document.querySelector('.sheet input'); if (i) i.focus(); if (st.q.trim().length >= 2 && st.go) st.go(); }, 50);
+  };
+
   L.screen('tab-musicas', function () {
     var soon = soonSet();
     var listBox = h('div', { class: 'songlist' });
@@ -183,6 +264,7 @@
         return;
       }
       list.forEach(function (p) { listBox.appendChild(songRow(p, soon[p.id])); });
+      if (L.perm.songs() && !q && R.filter === 'todas') listBox.appendChild(h('button', { class: 'textbtn muted', style: { alignSelf: 'center', marginTop: '8px' }, onclick: L.openTrash }, ic('Trash', 15), ' Lixeira: músicas apagadas'));
     }
     if (R.sel && !L.perm.songs()) R.sel = null;
     if (R.filter.indexOf('tag:') === 0 && tagList().indexOf(R.filter.slice(4)) < 0) R.filter = 'todas';
@@ -196,14 +278,18 @@
             S.projects.length ? U.iconBtn('ListChecks', 'Escolher músicas para apagar', function () { R.sel = {}; L.render(); }) : null,
             U.helpBtn('repertorio')))
         : U.helpBtn('repertorio')),
-      h('div', { class: 'row', style: { alignItems: 'flex-end' } },
+      R.sel ? null : h('div', { class: 'hscroll' }, [['musicas', 'Músicas (' + S.projects.length + ')'], ['pastas', 'Pastas (' + tagList().length + ')'], ['artistas', 'Artistas (' + artistList().length + ')']].map(function (v) {
+        return U.toggle(v[1], R.view === v[0], null, function () { R.view = v[0]; L.render(); });
+      })),
+      !R.sel && R.view !== 'musicas' ? groupList() : null,
+      !R.sel && R.view !== 'musicas' ? null : h('div', { class: 'row', style: { alignItems: 'flex-end' } },
         h('div', { class: 'grow' }, U.field(R.query, 'Buscar música, artista ou tom', function (v) { R.query = v; fill(); })),
         h('button', { class: 'filterbtn' + (R.showFilters || active ? ' on' : ''), 'aria-label': R.showFilters ? 'Esconder os filtros' : active ? 'Filtros (um filtro ligado)' : 'Mostrar os filtros',
           onclick: function () { R.showFilters = !R.showFilters; L.render(); } }, ic('ListFilter', 22), active ? h('span', { class: 'd' }) : null)),
-      R.showFilters ? h('div', { class: 'hscroll' }, FILTERS.concat(tagList().map(function (t) { return ['tag:' + t, t]; })).map(function (f) { return U.toggle(f[1], R.filter === f[0], null, function () { R.filter = f[0]; L.render(); }); })) : null,
-      !R.showFilters && active ? h('button', { class: 'filterpill', onclick: function () { R.filter = 'todas'; L.render(); } },
-        'Mostrando: ' + filterLabel(), ic('X', 14, 'accent')) : null,
-      listBox);
+      R.showFilters && (R.sel || R.view === 'musicas') ? h('div', { class: 'hscroll' }, FILTERS.concat(tagList().map(function (t) { return ['tag:' + t, t]; })).map(function (f) { return U.toggle(f[1], R.filter === f[0], null, function () { R.filter = f[0]; L.render(); }); })) : null,
+      !R.showFilters && active && (R.sel || R.view === 'musicas') ? h('button', { class: 'filterpill', onclick: function () { R.filter = 'todas'; L.render(); } },
+          'Mostrando: ' + filterLabel(), ic('X', 14, 'accent')) : null,
+      R.sel || R.view === 'musicas' ? listBox : null);
     if (R.sel) {
       var chosen = S.projects.filter(function (p) { return R.sel[p.id]; });
       root.appendChild(h('div', { class: 'bulkbar' },
@@ -231,10 +317,11 @@
   }
 
   // ------------------------------------------------------------------ Ficha da música
-  L.songSheet = function (id) {
+  /** ctx (opcional): { ids, i } = as músicas da escala, para passar de uma para a outra ("Música 2 de 4"). */
+  L.songSheet = function (id, ctx) {
     var p = L.project(id);
     if (!p) return;
-    var extra = { parts: null, takes: null, markers: null };
+    var extra = { parts: null, takes: null, markers: null, ctx: ctx && ctx.ids && ctx.ids.length > 1 ? ctx : null };
     var sheet = L.sheet(function (close) { return sheetBody(p, extra, close); });
     Promise.all([
       sb.from('project_parts').select('*').eq('project_id', p.id).order('name'),
@@ -253,6 +340,15 @@
     var multi = L.hasMulti(p);
     var key = L.keyToPlay(p);
     var out = [];
+    if (extra.ctx) {
+      var cx = extra.ctx, n = cx.ids.length;
+      var goTo = function (j) { close(); setTimeout(function () { L.songSheet(cx.ids[j], { ids: cx.ids, i: j }); }, 180); };
+      out.push(h('div', { class: 'sheetnav' },
+        U.iconBtn('ChevronLeft', 'Música anterior', function () { goTo(cx.i - 1); }, { disabled: cx.i <= 0 }),
+        h('div', { class: 'seg' }, h('div', { class: 'muted small center' }, 'Música ' + (cx.i + 1) + ' de ' + n),
+          h('div', { style: { display: 'grid', gap: '4px', gridTemplateColumns: 'repeat(' + n + ', 1fr)' } }, cx.ids.map(function (_, j) { return h('span', { class: j === cx.i ? 'on' : '' }); }))),
+        U.iconBtn('ChevronRight', 'Próxima música', function () { goTo(cx.i + 1); }, { disabled: cx.i >= n - 1 })));
+    }
     out.push(h('div', { class: 'center' }, U.cover(p, 'min(62vw, 280px)', 10, 64)));
     out.push(h('div', { class: 'col center', style: { alignItems: 'center', gap: '4px' } },
       h('div', { class: 'hi bold', style: { fontSize: '22px', lineHeight: 1.2 } }, p.song_title),
@@ -262,7 +358,9 @@
       h('div', { class: 'row' }, U.neon('AudioWaveform', multi, ''), h('span', { class: 'small', style: { color: multi ? 'var(--accent-text)' : 'var(--muted)' } }, multi ? 'Multitrack' : 'Sem multitrack'))));
     out.push(h('div', { class: 'row', style: { gap: '8px' } },
       infoBox('Tom', key || '—', p.band_key && p.musical_key && p.band_key !== p.musical_key ? 'original ' + p.musical_key : null),
-      infoBox('BPM', p.bpm ? String(p.bpm) : '—'), infoBox('Compasso', p.time_signature || '—')));
+      infoBox('BPM', p.bpm ? String(p.bpm) : '—'), infoBox('Compasso', p.time_signature || '—'),
+      p.duration_s ? infoBox('Duração', L.clock(p.duration_s)) : null));
+    out.push(openIn(p));
     if (p.version_url) out.push(U.clickRow(function () { U.openUrl(p.version_url); }, h('span', { class: 'circle soft' }, ic('Play', 18)),
       h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, 'Ouvir a versão'), h('div', { class: 'muted small ell' }, p.version_url.replace(/^https?:\/\/(www\.)?/, ''))), ic('ExternalLink', 16, 'muted')));
     if (p.chart_url) out.push(U.clickRow(function () { U.openUrl(p.chart_url); }, h('span', { class: 'circle', style: { color: 'var(--text)' } }, ic('FileText', 18)),
@@ -305,6 +403,25 @@
     if (L.perm.edit() && multi) out.push(U.btn2('Revisar as gravações da banda', 'Headphones', function () { close(); setTimeout(function () { L.go({ name: 'review', id: p.id }); }, 150); }, { full: true }));
     if (L.perm.songs()) out.push(U.btn2('Editar música', 'Pencil', function () { close(); setTimeout(function () { L.go({ name: 'songedit', id: p.id }); }, 150); }, { full: true }));
     return out;
+  }
+
+  /** Botões que abrem a música nos outros serviços (busca pelo nome e artista; o link salvo vale mais). */
+  L.openInLinks = function (p) {
+    var q = encodeURIComponent([p.song_title, p.artist].filter(Boolean).join(' '));
+    return [
+      ['Spotify', 'https://open.spotify.com/search/' + q],
+      ['YouTube', p.version_url || 'https://www.youtube.com/results?search_query=' + q],
+      ['Deezer', 'https://www.deezer.com/br/search/' + q],
+      ['Apple Music', 'https://music.apple.com/br/search?term=' + q],
+      ['Letra', p.lyrics_url || 'https://www.letras.mus.br/?q=' + q],
+      ['Cifra', p.chart_url || 'https://www.cifraclub.com.br/?q=' + q]
+    ];
+  };
+  function openIn(p) {
+    return h('div', { class: 'col', style: { gap: '6px' } }, U.label('Abrir em'),
+      h('div', { class: 'hscroll' }, L.openInLinks(p).map(function (x) {
+        return h('button', { class: 'openin', onclick: function () { U.openUrl(x[1]); } }, x[0], ic('ExternalLink', 13, 'muted'));
+      })));
   }
 
   function reviewChip(st) {
@@ -552,18 +669,19 @@
     if (!Ed || Ed.id !== (r.id || null)) {
       Ed = { id: r.id || null, title: p ? p.song_title : '', artist: p ? p.artist || '' : '', link: p ? p.version_url || '' : '', key: p ? p.musical_key || '' : '',
         bandKey: p ? p.band_key || '' : '', bpm: p && p.bpm ? String(p.bpm) : '', sig: p ? p.time_signature || '' : '', chart: p ? p.chart_url || '' : '',
-        note: p ? p.leader_note || '' : '', lyrics: p ? p.lyrics || '' : '', album: p ? p.album || '' : '', tags: p && p.tags ? p.tags.join(', ') : '', lyricsUrl: p ? p.lyrics_url || '' : '', audio: p ? p.audio_url || '' : '', cover: null, coverUrl: null, stems: [], tracks: null, cloud: null, hidden: {}, prev: null, busy: false, progress: null, taps: [] };
+        dur: p && p.duration_s ? L.clock(p.duration_s) : '', note: p ? p.leader_note || '' : '', lyrics: p ? p.lyrics || '' : '', album: p ? p.album || '' : '', tags: p && p.tags ? p.tags.join(', ') : '', lyricsUrl: p ? p.lyrics_url || '' : '', audio: p ? p.audio_url || '' : '', cover: null, coverUrl: null, stems: [], tracks: null, cloud: null, hidden: {}, prev: null, busy: false, progress: null, taps: [] };
       if (p) loadCloud(Ed);
     }
     var e = Ed;
     function linkOk(s) { return !s.trim() || /^https?:\/\/\S+$/i.test(s.trim()); }
     var bpmN = parseInt(e.bpm, 10);
     function linksOk() { return linkOk(e.link) && linkOk(e.chart) && linkOk(e.lyricsUrl) && linkOk(e.audio); }
-    var valid = e.title.trim() && linksOk() && (!e.bpm || (bpmN >= 20 && bpmN <= 300));
+    function durOk() { var d = L.roteiro.parseDur(e.dur, false); return d === null || (!isNaN(d) && d >= 1 && d <= 7200); }
+    var valid = e.title.trim() && linksOk() && durOk() && (!e.bpm || (bpmN >= 20 && bpmN <= 300));
     var preview = Object.assign({ id: p ? p.id : 'nova', song_title: e.title || '?', version_url: e.link }, p ? { cover_path: p.cover_path } : {});
     var coverEl = e.coverUrl ? h('span', { class: 'cover', style: { width: '120px', height: '120px', borderRadius: '6px' } }, h('img', { src: e.coverUrl, alt: '' })) : U.cover(preview, 120, 6, 52);
     var saveBtn = U.btn(e.busy ? 'Salvando…' : p ? 'Salvar' : 'Adicionar ao repertório', 'Check', save, { full: true, tall: true, disabled: !valid || e.busy });
-    function setVal(k) { return function (v) { e[k] = v; var bn = parseInt(e.bpm, 10); saveBtn.disabled = e.busy || !(e.title.trim() && linksOk() && (!e.bpm || (bn >= 20 && bn <= 300))); }; }
+    function setVal(k) { return function (v) { e[k] = v; var bn = parseInt(e.bpm, 10); saveBtn.disabled = e.busy || !(e.title.trim() && linksOk() && durOk() && (!e.bpm || (bn >= 20 && bn <= 300))); }; }
 
     var cloudList = e.cloud ? cloudVisible(e).map(function (t) { return cloudRow(e, p, t); }) : [];
     var stemsList = h('div', { class: 'col' }, e.stems.map(function (f, i) {
@@ -577,13 +695,16 @@
           U.pickSquareJpeg(600).then(function (b) { if (b) { e.cover = b; e.coverUrl = URL.createObjectURL(b); L.render(); } }).catch(function (x) { L.toast(L.errorText(x)); });
         }),
         U.body(!e.cover && !(p && p.cover_path) ? 'Sem capa, usamos a imagem do vídeo do link (YouTube).' : 'Capa escolhida.', 'var(--muted)', 12))),
-      !p ? U.btn2('Buscar no YouTube', 'Search', function () { ytSearch(e); }, { full: true }) : null,
+      h('div', { class: 'row', style: { gap: '8px' } },
+        U.btn2('Buscar dados da música', 'Disc3', function () { L.musicSearch(e); }, { full: true }),
+        !p ? U.btn2('Buscar no YouTube', 'Search', function () { ytSearch(e); }, { full: true }) : null),
       U.field(e.title, 'Nome da música *', setVal('title'), { max: 80 }),
       U.field(e.artist, 'Artista / ministério', setVal('artist'), { max: 120 }),
       U.field(e.album, 'Álbum (opcional)', setVal('album'), { max: 200 }),
       U.field(e.tags, 'Classificações, separadas por vírgula (ex.: Louvor, Santa Ceia)', setVal('tags'), { max: 400 }),
       U.field(e.link, 'Link da versão (YouTube)', setVal('link'), { type: 'url', inputmode: 'url', max: 500 }),
       h('div', { class: 'row' }, h('div', { class: 'grow' }, U.field(e.key, 'Tom original', setVal('key'), { max: 12 })), h('div', { class: 'grow' }, U.field(e.bandKey, 'Tom da banda', setVal('bandKey'), { max: 12 }))),
+      U.field(e.dur, 'Duração (ex.: 5:28)', setVal('dur'), { max: 8 }),
       h('div', { class: 'row', style: { alignItems: 'stretch' } }, h('div', { class: 'grow' }, U.field(e.bpm, 'BPM', function (v) { setVal('bpm')(v.replace(/\D/g, '').slice(0, 3)); }, { inputmode: 'numeric' })),
         U.btn2('Bater o tempo', 'Hand', function () {
           var now = Date.now();
@@ -624,9 +745,20 @@
           bpm: e.bpm ? parseInt(e.bpm, 10) : null, time_signature: e.sig || null, chart_url: opt(e.chart), leader_note: opt(e.note), album: opt(e.album), lyrics_url: opt(e.lyricsUrl), audio_url: opt(e.audio),
           tags: (function () { var t = []; e.tags.split(/[,;]/).forEach(function (x) { x = x.trim().slice(0, 40); if (x && t.indexOf(x) < 0 && t.length < 10) t.push(x); }); return t.length ? t : null; })() };
         if (e.lyrics.trim() || (p && p.lyrics)) row.lyrics = opt(e.lyrics);
+        var dur = L.roteiro.parseDur(e.dur, false);
+        if (dur || (p && p.duration_s)) row.duration_s = dur || null;
         var pid;
-        if (p) { L.must(await sb.from('projects').update(row).eq('id', p.id)); pid = p.id; }
-        else pid = L.must(await sb.from('projects').insert(Object.assign({ org_id: org, created_by: S.user.id }, row)).select('id').single()).id;
+        // Sem a migração 0043 a coluna duration_s não existe: salva o resto assim mesmo.
+        var noDur = function (x) { return x.error && /duration_s/.test(x.error.message || '') ? (delete row.duration_s, true) : false; };
+        if (p) {
+          var up = await sb.from('projects').update(row).eq('id', p.id);
+          if (noDur(up)) up = await sb.from('projects').update(row).eq('id', p.id);
+          L.must(up); pid = p.id;
+        } else {
+          var ins = await sb.from('projects').insert(Object.assign({ org_id: org, created_by: S.user.id }, row)).select('id').single();
+          if (noDur(ins)) ins = await sb.from('projects').insert(Object.assign({ org_id: org, created_by: S.user.id }, row)).select('id').single();
+          pid = L.must(ins).id;
+        }
         if (e.cover) {
           e.progress = ['Enviando a capa…', 0]; L.render();
           var path = org + '/' + pid + '-' + Date.now() + '.jpg';

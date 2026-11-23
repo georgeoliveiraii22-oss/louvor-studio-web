@@ -257,7 +257,7 @@
     var items = [
       ['inicio', 'House', 'Início', 0], ['escalas', 'CalendarDays', 'Escalas', L.pendingUnseen() + L.unreadTotal() - (S.unread[''] || 0)],
       ['musicas', 'Library', 'Repertório', 0], ['conversa', 'MessagesSquare', 'Conversa', S.unread[''] || 0], ['membros', 'UsersRound', 'Banda', 0], ['eu', 'CircleUserRound', 'Eu', 0]
-    ];
+    ].filter(function (it) { return it[0] !== 'musicas' || !L.musicOn || L.musicOn(); });
     var onMain = L.route().name === 'main';
     var tabs = h('div', { class: 'tabs' }, items.map(function (it) {
       var on = onMain && S.tab === it[0];

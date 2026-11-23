@@ -69,10 +69,10 @@
 
     var emptyStep = d.step === 1 ? !d.songs.length : d.step >= 2 && d.step <= 5 ? !d.people.some(function (p) { return step.fns.indexOf(p.f) >= 0; }) : false;
     var foot = h('div', { class: 'wizfoot' },
-      d.step > 0 ? U.btn2('Voltar', 'ChevronLeft', function () { d.step--; redraw(); }) : null,
+      d.step > 0 ? U.btn2('Voltar', 'ChevronLeft', function () { d.step--; if (d.step === 1 && !L.musicOn()) d.step = 0; redraw(); }) : null,
       h('span', { class: 'grow' }),
       d.step >= 1 && d.step <= 5 && emptyStep ? h('button', { class: 'textbtn muted', onclick: function () { d.step++; redraw(); } }, 'Pular') : null,
-      d.step < REVIEW ? U.btn('Próximo', 'ChevronRight', function () { d.step++; redraw(); }, { disabled: d.step >= 1 && d.step <= 5 && emptyStep })
+      d.step < REVIEW ? U.btn('Próximo', 'ChevronRight', function () { d.step++; if (d.step === 1 && !L.musicOn()) d.step = 2; redraw(); }, { disabled: d.step >= 1 && d.step <= 5 && emptyStep })
         : U.btn(W.busy ? 'Publicando…' : existing ? 'Salvar' : 'Publicar escala', 'Send', function () { publish(); }, { disabled: W.busy }));
 
     function exitDialog() {

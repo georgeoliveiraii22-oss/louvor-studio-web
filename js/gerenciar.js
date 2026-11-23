@@ -42,6 +42,12 @@
       U.menuRow('UsersRound', 'Equipes fixas', S.teams.length ? L.plural(S.teams.length, 'equipe', 'equipes') + ': ' + S.teams.slice(0, 3).map(function (t) { return t.name; }).join(', ')
         : 'Equipe A, Equipe B…: escale a equipe inteira com um toque.', function () { L.go({ name: 'teams' }); })));
 
+    root.appendChild(U.panel('Acompanhar', 'ChartColumn',
+      U.menuRow('LayoutGrid', 'Quadro do mês', 'Todas as escalas do mês lado a lado, por função. Toque num quadrinho para escalar.', function () { L.escalas.view = 'quadro'; L.setTab('escalas'); }),
+      U.menuRow('ChartColumn', 'Relatórios', 'Músicas mais tocadas, presença, faltas e quem serve mais, por período.', function () { L.go({ name: 'relatorios' }); }),
+      U.menuRow('ListOrdered', 'Modelos de roteiro', 'A ordem do culto pronta: abertura, oração, músicas, avisos, palavra…', function () { L.go({ name: 'rtmodelos' }); }),
+      U.menuRow('Trash', 'Lixeira', 'Escalas e músicas apagadas nos últimos 30 dias. Dá para recuperar.', L.openTrash)));
+
     root.appendChild(h('h2', { class: 'gtitle' }, 'Editar várias de uma vez'));
     root.appendChild(h('div', { class: 'hscroll' }, RANGES.map(function (r) {
       return U.toggle(r[1], G.range === r[0], null, function () { G.range = r[0]; L.render(); });

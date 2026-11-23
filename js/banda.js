@@ -5,6 +5,15 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.30.0', [
+      'Roteiro do culto: a ordem com horário (abertura, oração, músicas, avisos, palavra) e o tempo total. Modelos de roteiro para reaproveitar.',
+      'Quadro do mês (Escalas › Quadro do mês): todas as escalas lado a lado, por função, com quem confirmou.',
+      'Relatórios (Gerenciar escalas): músicas mais tocadas, presença, faltas e quem serve mais, por período e dia da semana.',
+      'Na escala, no ⋯: compartilhar no WhatsApp, histórico de quem mudou o quê, copiar para outro dia e registrar faltas.',
+      'Lixeira: escala ou música apagada fica 30 dias e dá para recuperar.',
+      'Repertório: pastas e artistas, buscar os dados da música (capa, álbum e duração), abrir no Spotify, Deezer, Apple Music e Cifra Club, e passar de uma música para a outra da escala.',
+      'Equipes que não usam músicas (mídia, iluminação, recepção) podem desligar o repertório em Banda.'
+    ]],
     ['1.29.1', [
       'Plano da banda: quando o plano foi assinado pelo iPhone, o site mostra onde trocar ou cancelar.'
     ]],
@@ -200,6 +209,7 @@
     })));
 
     if (m.role === 'leader') root.appendChild(L.igreja.panel());
+    if (m.role === 'leader') root.appendChild(L.roteiro.musicPanel());
 
     var limit = Math.max(1, m.org.storage_limit_bytes || 1073741824);
     var deletePanel = m.role === 'leader' ? U.panel('Excluir banda', 'Trash2',
