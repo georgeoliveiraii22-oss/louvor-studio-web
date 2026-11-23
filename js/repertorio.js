@@ -187,7 +187,7 @@
     if (!r.ok) throw new Error('A busca não respondeu. Tente de novo.');
     var j = await r.json();
     return (j.results || []).filter(function (x) { return x.trackName; }).map(function (x) {
-      return { title: x.trackName, artist: x.artistName || '', album: (x.collectionName || '').replace(/\s+-\s+(Single|EP)$/i, ''),
+      return { title: x.trackName, artist: x.artistName || '', album: (x.collectionName || '').replace(/\s+-\s+(Single|EP)$/i, ''), url: (x.trackViewUrl || '').replace(/[?&]uo=\d+$/, ''),
         duration_s: x.trackTimeMillis ? Math.round(x.trackTimeMillis / 1000) : null,
         thumb: (x.artworkUrl100 || '').replace('100x100bb', '200x200bb'), art: (x.artworkUrl100 || '').replace('100x100bb', '600x600bb'), year: (x.releaseDate || '').slice(0, 4) };
     });
@@ -212,7 +212,7 @@
       st.go = go;
       return [
         h('div', { class: 'hi semi', style: { fontSize: '18px' } }, 'Buscar dados da música'),
-        U.body('Preenche o nome, o artista, o álbum, a duração e a capa.', 'var(--muted)', 13),
+        U.body('Preenche o nome, o artista, o álbum, a duração, a capa e os links da letra, da cifra e do áudio (os que estiverem vazios).', 'var(--muted)', 13),
         input,
         U.btn(st.busy ? 'Buscando…' : 'Buscar', 'Search', go, { full: true, disabled: st.busy }),
         st.err ? U.body(st.err, 'var(--bad)', 13) : null,
@@ -221,6 +221,11 @@
           return U.clickRow(function () {
             e.title = it.title.slice(0, 80); e.artist = it.artist.slice(0, 120); e.album = it.album.slice(0, 200);
             if (it.duration_s) e.dur = L.clock(it.duration_s);
+            // Preenche os campos de link que estão vazios (não troca o que a pessoa já pôs).
+            var links = L.songLinks(it.title, it.artist);
+            if (links && !e.chart.trim()) e.chart = links.chart;
+            if (links && !e.lyricsUrl.trim()) e.lyricsUrl = links.lyrics;
+            if (it.url && !e.audio.trim()) e.audio = it.url;
             close(); L.render();
             var hasCover = e.cover || (e.id && L.project(e.id) && L.project(e.id).cover_path);
             if (!hasCover && it.art) {
@@ -360,7 +365,6 @@
       infoBox('Tom', key || '—', p.band_key && p.musical_key && p.band_key !== p.musical_key ? 'original ' + p.musical_key : null),
       infoBox('BPM', p.bpm ? String(p.bpm) : '—'), infoBox('Compasso', p.time_signature || '—'),
       p.duration_s ? infoBox('Duração', L.clock(p.duration_s)) : null));
-    out.push(openIn(p));
     if (p.version_url) out.push(U.clickRow(function () { U.openUrl(p.version_url); }, h('span', { class: 'circle soft' }, ic('Play', 18)),
       h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, 'Ouvir a versão'), h('div', { class: 'muted small ell' }, p.version_url.replace(/^https?:\/\/(www\.)?/, ''))), ic('ExternalLink', 16, 'muted')));
     if (p.chart_url) out.push(U.clickRow(function () { U.openUrl(p.chart_url); }, h('span', { class: 'circle', style: { color: 'var(--text)' } }, ic('FileText', 18)),
@@ -405,24 +409,19 @@
     return out;
   }
 
-  /** Botões que abrem a música nos outros serviços (busca pelo nome e artista; o link salvo vale mais). */
-  L.openInLinks = function (p) {
-    var q = encodeURIComponent([p.song_title, p.artist].filter(Boolean).join(' '));
-    return [
-      ['Spotify', 'https://open.spotify.com/search/' + q],
-      ['YouTube', p.version_url || 'https://www.youtube.com/results?search_query=' + q],
-      ['Deezer', 'https://www.deezer.com/br/search/' + q],
-      ['Apple Music', 'https://music.apple.com/br/search?term=' + q],
-      ['Letra', p.lyrics_url || 'https://www.letras.mus.br/?q=' + q],
-      ['Cifra', p.chart_url || 'https://www.cifraclub.com.br/?q=' + q]
-    ];
+  /**
+   * Links da letra (Letras) e da cifra (Cifra Club) pelo nome da música e o primeiro artista, no formato dos dois sites
+   * (letras.mus.br/artista/musica/). Mesma regra em data/SongLinks.kt (Android) e Data/Roteiro.swift (iPhone).
+   */
+  L.songSlug = function (s) {
+    return L.norm(String(s || '').replace(/[([][^)\]]*[)\]]/g, ' ')).replace(/&/g, ' e ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   };
-  function openIn(p) {
-    return h('div', { class: 'col', style: { gap: '6px' } }, U.label('Abrir em'),
-      h('div', { class: 'hscroll' }, L.openInLinks(p).map(function (x) {
-        return h('button', { class: 'openin', onclick: function () { U.openUrl(x[1]); } }, x[0], ic('ExternalLink', 13, 'muted'));
-      })));
-  }
+  L.songLinks = function (title, artist) {
+    var a = L.songSlug(String(artist || '').split(/\s*(?:,|&|\/|\bfeat\.?|\bft\.?|\bpart\.?|\bpart\.?)\s*/i)[0]);
+    var t = L.songSlug(title);
+    if (!a || !t) return null;
+    return { lyrics: 'https://www.letras.mus.br/' + a + '/' + t + '/', chart: 'https://www.cifraclub.com.br/' + a + '/' + t + '/' };
+  };
 
   function reviewChip(st) {
     if (st === 'aprovada') return U.chip('Aprovada', 'ok', 'BadgeCheck');

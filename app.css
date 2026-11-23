@@ -1519,7 +1519,6 @@ i.st.ok { background: var(--ok); } i.st.warn { background: var(--warn); } i.st.b
 .rankrow .bar { margin-top: 5px; }
 .dowbtn { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--control); color: var(--text); font-weight: 700; font-size: 13px; }
 .dowbtn.on { background: var(--accent); color: var(--on-accent); }
-.openin { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 9999px; background: var(--control); color: var(--hi); font-weight: 600; font-size: 13px; white-space: nowrap; }
 .sheetnav { display: flex; align-items: center; gap: 8px; }
 .sheetnav .seg { flex: 1; display: grid; gap: 4px; }
 .sheetnav .seg span { height: 3px; border-radius: 2px; background: var(--control); }

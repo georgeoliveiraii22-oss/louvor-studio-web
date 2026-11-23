@@ -200,6 +200,9 @@
   function itemDialog(e, i) {
     var it = i >= 0 ? e.list[i] : { title: '', duration_s: null, note: null };
     var song = !!it.project_id;
+    // Quem conduz: ministros e backing vocals desta escala (no modelo não há pessoas).
+    var leaders = e.s ? L.uniqPeople(e.s.people.filter(function (p) { return ['ministro', 'backing_vocal', 'vocal'].indexOf(p.function) >= 0; }))
+      .sort(function (a, b) { return L.nameOf(a).localeCompare(L.nameOf(b)); }) : [];
     var st = { title: it.title || '', dur: it.duration_s != null ? (song ? Rt.fmt(it.duration_s).replace(' min', ':00') : String(Math.round(it.duration_s / 60))) : '', note: it.note || '' };
     var dlg = L.dialog({
       title: song ? itemTitle(it) : i >= 0 ? 'Editar item' : 'Novo item',
@@ -208,7 +211,12 @@
           !song ? h('div', { class: 'hscroll' }, Rt.QUICK.map(function (q) { return U.toggle(q, st.title === q, null, function () { st.title = q; dlg.rebuild(); }); })) : null,
           !song ? U.field(st.title, 'Nome (ex.: Oração, Palavra) *', function (v) { st.title = v.slice(0, 80); }, { max: 80 }) : null,
           U.field(st.dur, song ? 'Duração (ex.: 5:28). Vazio = a da música' : 'Duração em minutos (ex.: 10)', function (v) { st.dur = v; }, { inputmode: song ? 'text' : 'numeric', max: 8 }),
-          U.field(st.note, 'Observação (ex.: quem conduz)', function (v) { st.note = v.slice(0, 300); }, { max: 300 })];
+          leaders.length ? U.label('Quem conduz') : null,
+          leaders.length ? h('div', { class: 'hscroll' }, leaders.map(function (u) {
+            var n = L.nameOf(u);
+            return U.toggle(n, st.note === n, null, function () { st.note = st.note === n ? '' : n; dlg.rebuild(); });
+          })) : null,
+          U.field(st.note, leaders.length ? 'Quem conduz ou observação' : 'Observação (ex.: quem conduz)', function (v) { st.note = v.slice(0, 300); }, { max: 300 })];
       },
       actions: function (close) {
         return [h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar'), h('button', { class: 'textbtn', onclick: function () {

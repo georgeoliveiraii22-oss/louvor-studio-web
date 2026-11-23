@@ -5,13 +5,18 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.30.1', [
+      'Buscar dados da música preenche os links da cifra, da letra e do áudio (os que estiverem vazios), que aparecem nos botões de sempre da ficha.',
+      'Roteiro: escolha quem conduz cada item entre os ministros e backing vocals da escala.'
+    ]],
     ['1.30.0', [
       'Roteiro do culto: a ordem com horário (abertura, oração, músicas, avisos, palavra) e o tempo total. Modelos de roteiro para reaproveitar.',
       'Quadro do mês (Escalas › Quadro do mês): todas as escalas lado a lado, por função, com quem confirmou.',
       'Relatórios (Gerenciar escalas): músicas mais tocadas, presença, faltas e quem serve mais, por período e dia da semana.',
       'Na escala, no ⋯: compartilhar no WhatsApp, histórico de quem mudou o quê, copiar para outro dia e registrar faltas.',
       'Lixeira: escala ou música apagada fica 30 dias e dá para recuperar.',
-      'Repertório: pastas e artistas, buscar os dados da música (capa, álbum e duração), abrir no Spotify, Deezer, Apple Music e Cifra Club, e passar de uma música para a outra da escala.',
+      'Repertório: pastas e artistas, buscar os dados da música (capa, álbum, duração e os links da letra, da cifra e do áudio) e passar de uma música para a outra da escala.',
+      'Roteiro: escolha quem conduz cada item entre os ministros e backing vocals da escala.',
       'Equipes que não usam músicas (mídia, iluminação, recepção) podem desligar o repertório em Banda.'
     ]],
     ['1.29.1', [
