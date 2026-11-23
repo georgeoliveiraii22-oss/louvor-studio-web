@@ -437,20 +437,20 @@
     var bars = barTimes(), p = pps();
     var hasDown = st.grid.downbeats && st.grid.downbeats.length;
     if (hasDown && meanSpacing(beats) * p >= 10) {
-      g.fillStyle = '#0F2F47';
+      g.fillStyle = K.beat;
       beats.forEach(function (b) { var x = xOf(b); if (x >= -1 && x <= w) g.fillRect(Math.round(x), 0, 1, hh); });
     }
     var stride = barStride(meanSpacing(bars) * p, 12);
-    g.fillStyle = '#284660';
+    g.fillStyle = K.bar;
     for (var i = 0; i < bars.length; i += stride) { var x = xOf(bars[i]); if (x >= -2 && x <= w) g.fillRect(Math.round(x), 0, 1.5, hh); }
   }
   function drawLoop(g, w, hh, strong) {
     if (!st.loop) return;
     var a = xOf(st.loop.a), b = xOf(st.loop.b);
     if (b < 0 || a > w) return;
-    g.fillStyle = strong ? 'rgba(99,212,255,0.22)' : 'rgba(99,212,255,0.10)';
+    g.fillStyle = 'rgba(' + K.loop + ',' + (strong ? 0.22 : 0.10) + ')';
     g.fillRect(a, 0, b - a, hh);
-    g.fillStyle = 'rgba(99,212,255,0.75)';
+    g.fillStyle = 'rgba(' + K.loop + ',0.75)';
     g.fillRect(a - 1, 0, 2, hh); g.fillRect(b - 1, 0, 2, hh);
   }
 
@@ -483,38 +483,38 @@
         // Pegadores nas pontas: dá para arrastar.
         g.fillStyle = 'rgba(5,11,18,0.45)';
         g.fillRect(a + 0.5, SY, 5, PART_H); g.fillRect(b - 5.5, SY, 5, PART_H);
-        if (sc.id === st.selPart) { g.strokeStyle = '#FFFFFF'; g.lineWidth = 2; g.strokeRect(a + 1.5, SY + 1, Math.max(1, b - a - 3), PART_H - 2); }
+        if (sc.id === st.selPart) { g.strokeStyle = K['sel-line']; g.lineWidth = 2; g.strokeRect(a + 1.5, SY + 1, Math.max(1, b - a - 3), PART_H - 2); }
       }
       if (b - a > 28) { g.fillStyle = '#050B12'; g.font = '600 10px Geist, system-ui, sans-serif'; g.fillText(sc.name, Math.max(a, 0) + (editing ? 8 : 4), SY + PART_H - 5, b - Math.max(a, 0) - (editing ? 14 : 6)); }
     });
     if (st.partDraft) {
       var da = xOf(st.partDraft.a), db = xOf(st.partDraft.b);
       g.fillStyle = 'rgba(8,169,245,0.35)'; g.fillRect(da, SY, Math.max(1, db - da), PART_H);
-      g.strokeStyle = '#7FD3FF'; g.lineWidth = 1.5; g.strokeRect(da + 0.75, SY + 0.75, Math.max(1, db - da - 1.5), PART_H - 1.5);
+      g.strokeStyle = 'rgba(' + K.loop + ',1)'; g.lineWidth = 1.5; g.strokeRect(da + 0.75, SY + 0.75, Math.max(1, db - da - 1.5), PART_H - 1.5);
     }
     // Tempo: números no alto; as marcas descem até a faixa das partes.
     g.font = '600 10px "Geist Mono", ui-monospace, monospace';
     var bars = barTimes(), LY = 12;
     if (st.grid && st.grid.downbeats && st.grid.downbeats.length && bars.length > 1) {
       var beats = gridBeats();
-      if (meanSpacing(beats) * p >= 7) { g.fillStyle = '#2A4863'; beats.forEach(function (b) { var x = xOf(b); if (x >= 0 && x <= w) g.fillRect(Math.round(x), top - 5, 1, 5); }); }
+      if (meanSpacing(beats) * p >= 7) { g.fillStyle = K['beat-tick']; beats.forEach(function (b) { var x = xOf(b); if (x >= 0 && x <= w) g.fillRect(Math.round(x), top - 5, 1, 5); }); }
       var labelStride = barStride(meanSpacing(bars) * p, 30), tickStride = barStride(meanSpacing(bars) * p, 7);
       for (var n = 0; n < bars.length; n += tickStride) {
         var x = xOf(bars[n]);
         if (x < -30 || x > w) continue;
         var label = n % labelStride === 0;
-        g.fillStyle = label ? '#6A86A0' : '#34536C';
+        g.fillStyle = label ? K['tick-lbl'] : K.tick;
         g.fillRect(Math.round(x), label ? 2 : top - 8, 1, label ? top - 2 : 8);
-        if (label) { g.fillStyle = '#CADAE7'; g.fillText(String(n + 1), x + 3, LY); }
+        if (label) { g.fillStyle = K['ruler-txt']; g.fillText(String(n + 1), x + 3, LY); }
       }
     } else {
       var step = [1, 2, 5, 10, 15, 30, 60, 120].find(function (v) { return v * p >= 46; }) || 120;
-      g.fillStyle = '#385872';
+      g.fillStyle = K['tick-min'];
       for (var t = Math.floor(st.view0 / step) * step; t <= st.view0 + visibleSec() + step; t += step) {
         var xx = xOf(t);
         if (xx < -40 || xx > w) continue;
         g.fillRect(Math.round(xx), 2, 1, top - 2);
-        g.fillStyle = '#CADAE7'; g.fillText(L.clock(t), xx + 3, LY); g.fillStyle = '#385872';
+        g.fillStyle = K['ruler-txt']; g.fillText(L.clock(t), xx + 3, LY); g.fillStyle = K['tick-min'];
       }
     }
     drawLoop(g, w, hh, true);
@@ -530,7 +530,7 @@
     var e = editOf(tg.key), r = region(tg, e), dur = durMs(tg.key);
     var color = tg.kind === 'track' ? U.colorFor(tg.key) : tg.kind === 'mine' ? '#08A9F5' : '#6CC4B0';
     var off = mutedOf(tg.key) || (anySolo() && !st.solo[tg.key]);
-    if (!peaks) { g.fillStyle = 'rgba(220,232,242,0.08)'; g.fillRect(0, hh / 2 - 1, w, 2); return; }
+    if (!peaks) { g.fillStyle = K.empty; g.fillRect(0, hh / 2 - 1, w, 2); return; }
     var segs = pieces(e, dur);
     segs.forEach(function (sg) {
       var a = xOf(sg[0] / 1000 + r.shift), b = xOf(sg[1] / 1000 + r.shift);
@@ -543,7 +543,7 @@
     });
     // Onda: para cada coluna da tela, o pico daquele pedaço do arquivo (só onde toca).
     var mid = hh / 2 + 2, amp = hh / 2 - 8;
-    g.fillStyle = off ? '#4F6B82' : mixColor(color, '#DCE8F2', 0.35);
+    g.fillStyle = off ? K.off : mixColor(color, K.mix, K.mixT);
     var x0 = Math.max(0, Math.floor(xOf(r.start))), x1 = Math.min(w, Math.ceil(xOf(r.end)));
     for (var x = x0; x < x1; x++) {
       var fa = (tAtX(x) - r.shift) * 1000, fb = (tAtX(x + 1) - r.shift) * 1000;
@@ -557,7 +557,7 @@
     }
     var sel = st.sel === tg.key && (st.tool === 'mover' || st.tool === 'cortar' || st.tool === 'aparar' || st.tool === 'volume');
     if (sel) {
-      g.fillStyle = 'rgba(99,212,255,0.9)';
+      g.fillStyle = 'rgba(' + K.loop + ',0.9)';
       var sa = xOf(r.start), sb2 = xOf(r.end);
       g.fillRect(sa, 0, 2, hh); g.fillRect(sb2 - 2, 0, 2, hh);
       if (st.tool === 'aparar') { g.fillRect(sa, hh / 2 - 12, 6, 24); g.fillRect(sb2 - 6, hh / 2 - 12, 6, 24); }
@@ -585,9 +585,17 @@
     drawQueued = true;
     requestAnimationFrame(function () { drawQueued = false; if (st && st.ui && st.ui.ruler) drawDaw(); });
   }
+  // Cores do desenho vêm do tema (app.css, --st-*): o estúdio fica claro no modo claro.
+  var K = {};
+  function readTheme() {
+    var cs = getComputedStyle(document.documentElement), v = function (n) { return cs.getPropertyValue('--st-' + n).trim(); };
+    ['beat', 'bar', 'tick', 'tick-lbl', 'tick-min', 'ruler-txt', 'beat-tick', 'mix', 'off', 'empty', 'sel-line'].forEach(function (n) { K[n] = v(n); });
+    K.loop = v('loop') || '99, 212, 255'; K.mixT = parseFloat(v('mix-t')) || 0.35;
+  }
   function drawDaw() {
     var u = st.ui;
     if (!u.ruler) return;
+    readTheme();
     if (!st.zoom) { st.zoom = openZoom(); st.view0 = 0; }
     clampView();
     drawRuler();

@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.29.0', [
+      'Estúdio no tema claro: com a aparência clara (Eu › Aparência), o estúdio também fica claro.'
+    ]],
     ['1.28.1', [
       'Excluir a conta também cancela a assinatura das bandas em que você era a única pessoa.',
       'Tutorial: cada assunto começa sempre do primeiro passo.'

@@ -244,8 +244,8 @@
     var side = !rfn && S.loggedIn && !!S.current;
     if (side) { frame.classList.add('has-side'); frame.appendChild(L.bottomNav(!withNav)); }
     root.replaceChildren(frame);
-    // O estúdio e a página de entrada ficam sempre escuros, também no tema claro.
-    document.documentElement.toggleAttribute('data-force-dark', !!root.querySelector('.studio, .site'));
+    // A página de entrada fica sempre escura; o estúdio segue o tema (claro ou escuro).
+    document.documentElement.toggleAttribute('data-force-dark', !!root.querySelector('.site'));
     lastKey = key;
     if (sameRoute) window.scrollTo(0, y);
     else window.scrollTo(0, scrolls[key] || 0);
@@ -399,6 +399,13 @@
     var s = L.blocked().filter(function (x) { return x !== id; });
     if (on) s.push(id);
     try { localStorage.setItem('bloqueados_' + L.uid(), JSON.stringify(s)); } catch (e) { /* sem armazenamento */ }
+
+    // Também na conta, para o servidor não mandar aviso de mensagem de quem foi bloqueado (migração 0041).
+    try {
+      var q = on ? L.sb.from('blocked_users').upsert({ blocked: id }, { onConflict: 'blocker,blocked', ignoreDuplicates: true })
+                 : L.sb.from('blocked_users').delete().eq('blocked', id);
+      q.then(function () {}, function () {});
+    } catch (e) { /* sem a migração ainda */ }
   };
 
   L.menu = function (anchor, items) {
