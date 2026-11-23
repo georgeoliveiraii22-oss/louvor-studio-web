@@ -212,7 +212,7 @@
       st.go = go;
       return [
         h('div', { class: 'hi semi', style: { fontSize: '18px' } }, 'Buscar dados da música'),
-        U.body('Preenche o nome, o artista, o álbum, a duração, a capa e os links da letra, da cifra e do áudio (os que estiverem vazios).', 'var(--muted)', 13),
+        U.body('Preenche o nome, o artista, o álbum, a duração, a capa e o link do áudio (se estiver vazio).', 'var(--muted)', 13),
         input,
         U.btn(st.busy ? 'Buscando…' : 'Buscar', 'Search', go, { full: true, disabled: st.busy }),
         st.err ? U.body(st.err, 'var(--bad)', 13) : null,
@@ -221,10 +221,7 @@
           return U.clickRow(function () {
             e.title = it.title.slice(0, 80); e.artist = it.artist.slice(0, 120); e.album = it.album.slice(0, 200);
             if (it.duration_s) e.dur = L.clock(it.duration_s);
-            // Preenche os campos de link que estão vazios (não troca o que a pessoa já pôs).
-            var links = L.songLinks(it.title, it.artist);
-            if (links && !e.chart.trim()) e.chart = links.chart;
-            if (links && !e.lyricsUrl.trim()) e.lyricsUrl = links.lyrics;
+            // O link do áudio vem da própria Apple (é o real); a cifra e a letra a pessoa procura pelos atalhos ao lado dos campos.
             if (it.url && !e.audio.trim()) e.audio = it.url;
             close(); L.render();
             var hasCover = e.cover || (e.id && L.project(e.id) && L.project(e.id).cover_path);
@@ -410,17 +407,15 @@
   }
 
   /**
-   * Links da letra (Letras) e da cifra (Cifra Club) pelo nome da música e o primeiro artista, no formato dos dois sites
-   * (letras.mus.br/artista/musica/). Mesma regra em data/SongLinks.kt (Android) e Data/Roteiro.swift (iPhone).
+   * Busca da música no próprio Cifra Club ou Letras (nome sem "(Ao Vivo)" e o primeiro artista): a pessoa abre o
+   * resultado certo e cola o link no campo. O app não adivinha o link (o endereço real nem sempre bate com o nome).
+   * Mesma regra em data/SongLinks.kt (Android) e SongLinks (iPhone).
    */
-  L.songSlug = function (s) {
-    return L.norm(String(s || '').replace(/[([][^)\]]*[)\]]/g, ' ')).replace(/&/g, ' e ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  };
-  L.songLinks = function (title, artist) {
-    var a = L.songSlug(String(artist || '').split(/\s*(?:,|&|\/|\bfeat\.?|\bft\.?|\bpart\.?|\bpart\.?)\s*/i)[0]);
-    var t = L.songSlug(title);
-    if (!a || !t) return null;
-    return { lyrics: 'https://www.letras.mus.br/' + a + '/' + t + '/', chart: 'https://www.cifraclub.com.br/' + a + '/' + t + '/' };
+  L.songSearchUrl = function (site, title, artist) {
+    var t = String(title || '').replace(/[([][^)\]]*[)\]]/g, ' ').replace(/\s+/g, ' ').trim();
+    var a = String(artist || '').split(/\s*(?:,|&|\/|\bfeat\.?|\bft\.?|\bpart\.?)\s*/i)[0].trim();
+    var q = encodeURIComponent([t, a].filter(Boolean).join(' '));
+    return site === 'letras' ? 'https://www.letras.mus.br/?q=' + q : 'https://www.cifraclub.com.br/?q=' + q;
   };
 
   function reviewChip(st) {
@@ -715,7 +710,11 @@
       U.label('Compasso'),
       h('div', { class: 'hscroll' }, U.toggle('—', !e.sig, null, function () { e.sig = ''; L.render(); }), SIGS.map(function (s) { return U.toggle(s, e.sig === s, null, function () { e.sig = s; L.render(); }); })),
       U.field(e.chart, 'Link da cifra (opcional)', setVal('chart'), { type: 'url', inputmode: 'url', max: 500 }),
+      e.title.trim() ? h('button', { class: 'textbtn', style: { alignSelf: 'flex-start', marginTop: '-6px' }, onclick: function () { U.openUrl(L.songSearchUrl('cifra', e.title, e.artist)); } },
+        ic('Search', 14), ' Procurar no Cifra Club e colar o link aqui') : null,
       U.field(e.lyricsUrl, 'Link da letra (opcional)', setVal('lyricsUrl'), { type: 'url', inputmode: 'url', max: 500 }),
+      e.title.trim() ? h('button', { class: 'textbtn', style: { alignSelf: 'flex-start', marginTop: '-6px' }, onclick: function () { U.openUrl(L.songSearchUrl('letras', e.title, e.artist)); } },
+        ic('Search', 14), ' Procurar no Letras e colar o link aqui') : null,
       U.field(e.audio, 'Link do áudio: Spotify, Deezer… (opcional)', setVal('audio'), { type: 'url', inputmode: 'url', max: 500 }),
       U.field(e.note, 'Recado para a banda (opcional)', setVal('note'), { multiline: true, rows: 2, max: 500 }),
       U.field(e.lyrics, 'Letra (opcional). Use [Verso], [Refrão]… para as partes', setVal('lyrics'), { multiline: true, rows: 6, max: 20000 }),
