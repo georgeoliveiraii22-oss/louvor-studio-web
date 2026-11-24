@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.31.2', [
+      'LS Live: experimente 7 dias grátis no REAPER, uma vez por banda.'
+    ]],
     ['1.31.1', [
       'Página do LS Live (louvorstudio.app.br/ls-live): como funciona, como instalar e o download para o REAPER.'
     ]],

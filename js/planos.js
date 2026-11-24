@@ -206,7 +206,7 @@
     live.appendChild(el('span', 'xi', svg('monitor', 22)));
     var lt = el('div', 'xt');
     lt.appendChild(el('h3', null, 'LS Live <span class="chip">Para o REAPER</span>'));
-    lt.appendChild(el('p', null, 'O Louvor Studio no REAPER: a escala do culto baixada e montada sozinha, as partes em quadradinhos para tocar ao vivo (teclado, mouse ou controlador), o click e o VS nas saídas certas da mesa. Para qualquer plano pago; já vem no Igreja. Vale para a banda toda, em qualquer computador.'));
+    lt.appendChild(el('p', null, 'O Louvor Studio no REAPER: a escala do culto baixada e montada sozinha, as partes em quadradinhos para tocar ao vivo (teclado, mouse ou controlador), o click e o VS nas saídas certas da mesa. Para qualquer plano pago; já vem no Igreja. Vale para a banda toda, em qualquer computador. Experimente 7 dias grátis no próprio REAPER.'));
     lt.appendChild(el('p', null, '<a class="lsl-saiba" href="/ls-live/">Conhecer o LS Live e baixar</a>'));
     live.appendChild(lt);
     var lp = el('div', 'xp');
