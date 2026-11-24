@@ -113,6 +113,7 @@
           stat('Receita por mês', P.reais(receita), 'estimada, pelos planos marcados'),
           stat('Espaço usado', bytes(usado))),
         legacyBox(),
+        opiniaoBox(),
         h('div', { class: 'adm-filters' }, search, chips),
         listBox));
     renderList();
@@ -179,6 +180,85 @@
     paint();
     return box;
   }
+  // ------------------------------------------------------------------ E-mail de opinião (migração 0047)
+  // Quem criou conta nos últimos 7 dias. Primeiro "Mandar só para mim (teste)"; depois "Enviar". Cada pessoa recebe
+  // uma vez só (o servidor anota). Quem envia é a função `emails` (endereço quick-function), pelo Brevo.
+  var FN_EMAILS = 'quick-function';
+  var O = { list: null, busy: false, err: null, testou: false, fora: {}, aberto: false };
+  function opiniaoBox() {
+    if (O.box) return O.box;
+    var box = O.box = h('section', { class: 'adm-legacy adm-opiniao' });
+    function quando(iso) { return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); }
+    function vaoReceber() { return (O.list || []).filter(function (p) { return !p.enviado && !O.fora[p.user_id]; }); }
+    function paint() {
+      var l = O.list || [];
+      var novos = l.filter(function (p) { return !p.enviado; }).length;
+      var n = vaoReceber().length;
+      var cab = h('div', { class: 'grow' },
+        h('div', { class: 'semi' }, 'E-mail de opinião'),
+        h('div', { class: 'muted small' }, O.list === null ? 'Conferindo…'
+          : l.length ? l.length + (l.length === 1 ? ' conta nova' : ' contas novas') + ' nos últimos 7 dias · ' + novos + ' ainda não ' + (novos === 1 ? 'recebeu' : 'receberam')
+          : 'Nenhuma conta nova nos últimos 7 dias.'),
+        O.err ? h('div', { class: 'small', style: { color: 'var(--bad)' } }, O.err) : null);
+      var acoes = h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+        l.length ? h('button', { class: 'btn2', onclick: function () { O.aberto = !O.aberto; paint(); } }, O.aberto ? 'Esconder a lista' : 'Ver a lista') : null,
+        l.length ? h('button', { class: 'btn2', disabled: O.busy, onclick: teste }, 'Mandar só para mim (teste)') : null,
+        n ? h('button', { class: 'btn', disabled: O.busy || !O.testou, title: O.testou ? '' : 'Mande o teste antes',
+          onclick: enviar }, 'Enviar para ' + n + (n === 1 ? ' pessoa' : ' pessoas')) : null);
+      var kids = [h('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' } }, cab, acoes)];
+      if (!O.testou && n) kids.push(h('div', { class: 'muted small', style: { width: '100%' } }, 'Mande o teste para você primeiro: o botão Enviar libera depois.'));
+      if (O.aberto && l.length) {
+        kids.push(h('div', { class: 'adm-op-list', style: { width: '100%', display: 'grid', gap: '6px', marginTop: '8px' } }, l.map(function (p) {
+          var fora = !!O.fora[p.user_id];
+          return h('label', { class: 'row', style: { gap: '10px', padding: '8px 10px', borderRadius: '10px', background: 'var(--control)', opacity: p.enviado ? 0.6 : 1 } },
+            h('input', { type: 'checkbox', checked: !p.enviado && !fora, disabled: p.enviado || O.busy,
+              onchange: function (e) { if (e.target.checked) delete O.fora[p.user_id]; else O.fora[p.user_id] = true; paint(); } }),
+            h('div', { class: 'grow' },
+              h('div', { class: 'semi' }, (p.nome || '(sem nome)') + (p.banda ? ' · ' + p.banda : '')),
+              h('div', { class: 'muted small' }, p.email + ' · conta de ' + quando(p.criado_em))),
+            p.enviado ? h('span', { class: 'chip ok' }, 'Já recebeu') : null);
+        })));
+      }
+      box.replaceChildren.apply(box, kids);
+    }
+    async function call(body) {
+      var res = await sb.functions.invoke(FN_EMAILS, { body: body });
+      if (res.error) {
+        var t = res.error.message;
+        try { t = (await res.error.context.json()).error || t; } catch (e) { /* sem corpo */ }
+        throw new Error(t);
+      }
+      return res.data;
+    }
+    async function check() {
+      var r = await sb.rpc('admin_opiniao_lista', { _dias: 7 });
+      if (r.error) { O.list = []; O.err = /admin_opiniao_lista/.test(r.error.message) ? 'Rode a migração 0047 no Supabase.' : r.error.message; }
+      else { O.list = r.data || []; O.err = null; }
+      paint();
+    }
+    async function teste() {
+      O.busy = true; O.err = null; paint();
+      try { var d = await call({ action: 'opiniao', modo: 'teste' }); O.testou = true; toast('Teste enviado para ' + d.para + '. Confira a caixa de entrada.'); }
+      catch (e) { O.err = e.message; }
+      O.busy = false; paint();
+    }
+    async function enviar() {
+      var alvo = vaoReceber();
+      if (!alvo.length || !confirm('Enviar o e-mail de opinião para ' + alvo.length + (alvo.length === 1 ? ' pessoa' : ' pessoas') + '? Cada uma recebe uma vez só.')) return;
+      O.busy = true; O.err = null; paint();
+      try {
+        var d = await call({ action: 'opiniao', modo: 'enviar', ids: alvo.map(function (p) { return p.user_id; }) });
+        toast(d.enviados + (d.enviados === 1 ? ' e-mail enviado.' : ' e-mails enviados.') + (d.falhas && d.falhas.length ? ' ' + d.falhas.length + ' com erro.' : ''));
+        if (d.falhas && d.falhas.length) O.err = d.falhas.join(' · ');
+      } catch (e) { O.err = e.message; }
+      O.busy = false;
+      check();
+    }
+    if (O.list === null) check(); else paint();
+    paint();
+    return box;
+  }
+
   function stat(k, v, sub) { return h('div', { class: 'adm-stat' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v), sub ? h('div', { class: 'muted small' }, sub) : null); }
 
   function row(o) {
