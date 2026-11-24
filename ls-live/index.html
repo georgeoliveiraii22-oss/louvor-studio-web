@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- Segurança: o navegador só roda código e só fala com os endereços abaixo (ver docs/SEGURANCA.md). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050B12">
+<meta name="description" content="LS Live: o Louvor Studio no REAPER. A escala do culto baixa e monta sozinha, e as partes da música viram quadradinhos para tocar ao vivo com o teclado, o mouse ou um controlador.">
+<link rel="canonical" href="https://louvorstudio.app.br/ls-live/">
+<meta property="og:site_name" content="Louvor Studio">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:url" content="https://louvorstudio.app.br/ls-live/">
+<meta property="og:title" content="LS Live: o Louvor Studio no REAPER">
+<meta property="og:description" content="A escala do culto montada sozinha no REAPER e as partes da música na ponta dos dedos para tocar ao vivo.">
+<meta property="og:image" content="https://louvorstudio.app.br/ls-live/img/aovivo.webp">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="LS Live: o Louvor Studio no REAPER">
+<meta name="twitter:description" content="A escala do culto montada sozinha no REAPER e as partes da música na ponta dos dedos para tocar ao vivo.">
+<meta name="twitter:image" content="https://louvorstudio.app.br/ls-live/img/aovivo.webp">
+<title>LS Live: o Louvor Studio no REAPER para tocar a multitrack ao vivo</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="../icon-96.png" sizes="96x96" type="image/png">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../app.css">
+<link rel="stylesheet" href="ls-live.css">
+<script defer src="pagina.js"></script>
+</head>
+<body>
+<div class="site lsl">
+  <header class="site-top solid"><div class="wrap">
+    <a class="row" href="../" style="gap:10px;text-decoration:none">
+      <span class="logo"><svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 10v3"/><path d="M6 6v11"/><path d="M10 3v18"/><path d="M14 8v7"/><path d="M18 5v13"/><path d="M22 10v3"/></svg></span>
+      <span class="brand">Louvor Studio</span>
+    </a>
+    <span class="sp"></span>
+    <a class="top-link" href="../planos/">Planos</a>
+    <a class="btn2" href="../" style="min-height:40px;text-decoration:none">Abrir o app</a>
+  </div></header>
+
+  <main>
+    <!-- Abertura -->
+    <section class="lsl-hero"><div class="wrap">
+      <div class="lsl-hero-txt">
+        <h1>LS Live</h1>
+        <p class="lead">O Louvor Studio no REAPER. A escala do culto baixa e monta sozinha, e as partes da música ficam na ponta dos dedos para tocar ao vivo.</p>
+        <div class="lsl-ctas">
+          <a class="btn lsl-baixar" href="LS-Live.zip" download>
+            <svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+            Baixar o LS Live
+          </a>
+          <a class="btn2" href="../planos/">Ver os planos</a>
+        </div>
+        <p class="lsl-req">Para Windows, com o REAPER 7 ou mais novo · Entre com a sua conta do Louvor Studio</p>
+        <p class="lsl-preco-mini"><b>R$ 19,90 por mês</b> em qualquer plano pago · já vem incluso no plano Igreja</p>
+      </div>
+      <figure class="lsl-janela lsl-hero-img">
+        <img src="img/aovivo.webp" width="1280" height="800" alt="Modo ao vivo do LS Live: o mapa da música no topo, as partes em quadradinhos coloridos (o Refrão tocando e a Ponte na fila) e os botões Tocar, Repetir parte e Próxima música." fetchpriority="high">
+      </figure>
+    </div></section>
+
+    <!-- Vídeo de demonstração: aparece quando existir o arquivo (ver pagina.js, VIDEO) -->
+    <section class="lsl-video" id="video" hidden><div class="wrap">
+      <h2>Veja o LS Live funcionando</h2>
+      <div class="lsl-video-box"></div>
+    </div></section>
+
+    <!-- O que ele faz -->
+    <section class="lsl-recursos"><div class="wrap">
+      <h2 class="lsl-h2">Do repertório da banda ao palco, sem montar nada à mão</h2>
+
+      <article class="lsl-rec">
+        <figure class="lsl-janela"><img src="img/preparar.webp" width="1280" height="800" loading="lazy" alt="Tela Preparar do LS Live: as três músicas do Culto de domingo com o tom de cada uma e o estado Baixada, o espaço entre as músicas e o botão Abrir o modo ao vivo."></figure>
+        <div class="lsl-rec-txt">
+          <h3>A escala montada sozinha</h3>
+          <p>Escolha a escala do culto. O LS Live baixa as multitracks da nuvem da banda e monta tudo no REAPER, na ordem da escala.</p>
+          <ul class="lsl-lista">
+            <li>Uma pasta por música, com as faixas da multitrack dentro</li>
+            <li>As partes (Intro, Verso, Refrão…) viram regiões coloridas, as mesmas do app</li>
+            <li>Espaço de 10 a 15 segundos entre as músicas</li>
+            <li>A régua segue as batidas do click, como no app</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="lsl-rec lsl-inv">
+        <figure class="lsl-janela"><img src="img/aovivo.webp" width="1280" height="800" loading="lazy" alt="Os quadradinhos das partes no modo ao vivo, com o número da tecla de cada um."></figure>
+        <div class="lsl-rec-txt">
+          <h3>Ao vivo, em quadradinhos</h3>
+          <p>Cada parte da música vira um quadradinho. Clique ou aperte a tecla: a parte entra na fila e <b>só começa quando a parte atual termina</b>, então a música nunca é cortada no meio.</p>
+          <ul class="lsl-lista">
+            <li>Repetir a parte quantas vezes o ministro quiser</li>
+            <li>Teclado do computador, mouse ou os pads de um controlador MIDI</li>
+            <li>Botão direito num quadradinho para escolher a tecla ou o pad</li>
+            <li>Uma tecla pode valer pelo nome: F = Refrão em todas as músicas</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="lsl-rec lsl-rec-larga">
+        <figure class="lsl-janela"><img src="img/compacto.webp" width="1280" height="260" loading="lazy" alt="O LS Live compacto: uma faixa baixa com Tocar, a música e a parte, Repetir e os quadradinhos em fileira."></figure>
+        <div class="lsl-rec-txt">
+          <h3>Do tamanho que o palco pedir</h3>
+          <p>Encaixe o LS Live embaixo do REAPER ou deixe numa janela à parte. Ele diminui junto com a janela e, bem baixinho, vira uma faixa com tudo que importa no culto.</p>
+        </div>
+      </article>
+
+      <article class="lsl-rec">
+        <figure class="lsl-janela"><img src="img/saidas.webp" width="1280" height="800" loading="lazy" alt="Configurações do LS Live, aba Saídas de áudio: saída 1 Click/Guia, saída 2 VS, saídas 3 e 4 Teclado L e R, e para onde vai cada tipo de faixa."></figure>
+        <div class="lsl-rec-txt">
+          <h3>Cada faixa na saída certa da mesa</h3>
+          <p>Diga o que é cada saída da sua placa de som uma vez, e o LS Live manda cada faixa para o lugar certo em todas as escalas.</p>
+          <ul class="lsl-lista">
+            <li>Click e guia só no fone da banda</li>
+            <li>VS para a mesa, teclado em estéreo, o que a sua igreja usar</li>
+            <li>Tirar as faixas do master com um toque</li>
+            <li>Corrigiu uma parte no REAPER? Envie e ela já aparece no app</li>
+          </ul>
+        </div>
+      </article>
+    </div></section>
+
+    <!-- Como instalar -->
+    <section class="lsl-passos" id="instalar"><div class="wrap">
+      <h2 class="lsl-h2">Como instalar</h2>
+      <ol class="lsl-ol">
+        <li><b>Baixe e descompacte.</b> Clique com o botão direito no arquivo <i>LS-Live.zip</i> › Extrair tudo.</li>
+        <li><b>No REAPER, abra o instalador.</b> Menu <i>Actions</i> › <i>Show action list</i> › <i>New action</i> › <i>Load ReaScript…</i> e escolha <i>Instalar o LS Live.lua</i>, dentro da pasta LS Live. Depois clique em <i>Run</i>.</li>
+        <li><b>Pronto.</b> Aparece uma barrinha com o ícone do LS Live. Um clique abre a janela. Para atualizar, baixe de novo e repita.</li>
+      </ol>
+      <a class="btn lsl-baixar" href="LS-Live.zip" download>
+        <svg class="i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+        Baixar o LS Live
+      </a>
+    </div></section>
+
+    <!-- Como usar -->
+    <section class="lsl-passos" id="como-usar"><div class="wrap">
+      <h2 class="lsl-h2">Como usar no culto</h2>
+      <ol class="lsl-ol">
+        <li><b>Entre</b> com o e-mail e a senha da sua conta do Louvor Studio, a mesma do app.</li>
+        <li><b>Escolha a escala</b> e clique em <i>Montar no REAPER</i>. Se faltar alguma música no computador, ele baixa antes.</li>
+        <li><b>Toque ao vivo.</b> O modo ao vivo abre sozinho quando termina de montar.</li>
+        <li><b>Ajuste as saídas uma vez</b> no botão <i>⋯</i> › <i>Saídas de áudio</i>. Vale para todas as escalas.</li>
+      </ol>
+      <div class="lsl-teclas">
+        <h3>Teclas do ao vivo</h3>
+        <dl>
+          <div><dt><kbd>Espaço</kbd></dt><dd>Tocar e parar</dd></div>
+          <div><dt><kbd>1</kbd> a <kbd>0</kbd></dt><dd>Parte 1 a 10 da música que está tocando</dd></div>
+          <div><dt><kbd>R</kbd></dt><dd>Repetir a parte</dd></div>
+          <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Parte anterior e próxima</dd></div>
+          <div><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Música anterior e próxima</dd></div>
+          <div><dt><kbd>Home</kbd></dt><dd>Voltar ao começo da parte</dd></div>
+        </dl>
+        <p class="lsl-nota">Quer outra tecla, ou um pad do controlador? Clique com o botão direito no quadradinho ou no botão.</p>
+      </div>
+    </div></section>
+
+    <!-- Preço -->
+    <section class="lsl-preco"><div class="wrap">
+      <div class="lsl-preco-box">
+        <div>
+          <h2>R$ 19,90 <span>por mês</span></h2>
+          <p>Em qualquer plano pago do Louvor Studio, ou R$ 199 por ano. <b>No plano Igreja já vem incluso.</b> Vale para a banda toda, em qualquer computador.</p>
+        </div>
+        <a class="btn" href="../planos/">Ver os planos</a>
+      </div>
+    </div></section>
+
+    <!-- Perguntas -->
+    <section class="lsl-faq"><div class="wrap">
+      <h2 class="lsl-h2">Perguntas</h2>
+      <details><summary>Precisa de internet no culto?</summary><p>Só para montar a escala, quando as músicas são baixadas. Depois de montada, toca tudo do computador. Se a internet cair no dia, o LS Live continua abrindo por até 7 dias desde a última vez que conferiu o plano.</p></details>
+      <details><summary>Quem da banda pode usar?</summary><p>Qualquer pessoa da banda que tenha o LS Live, com a própria conta do Louvor Studio, em qualquer computador. Corrigir as partes no app continua sendo coisa do líder.</p></details>
+      <details><summary>Funciona com qual controlador?</summary><p>Qualquer controlador ou teclado MIDI que o REAPER reconheça. Ligue o controlador como entrada nas preferências do REAPER (Audio › MIDI Devices) e use o botão direito em um quadradinho para escolher o pad.</p></details>
+      <details><summary>Preciso de uma placa de som com várias saídas?</summary><p>Só se quiser separar o click e a guia do VS. Com uma placa de duas saídas, tudo sai junto pelo master, como em qualquer projeto do REAPER.</p></details>
+      <details><summary>E o REAPER, é pago?</summary><p>O REAPER é da Cockos e é vendido à parte. Dá para testar de graça e a licença tem preço reduzido para uso pessoal e pequenas organizações. Veja em reaper.fm.</p></details>
+      <details><summary>Funciona no Mac?</summary><p>Por enquanto, o LS Live é testado no Windows.</p></details>
+    </div></section>
+  </main>
+
+  <footer class="site-foot"><div class="wrap">
+    <span class="hi semi">Louvor Studio</span>
+    <span>O ensaio da sua banda, em qualquer lugar.</span>
+    <span class="sp"></span>
+    <a href="../">Início</a>
+    <a href="../planos/">Planos</a>
+    <a href="../privacidade/">Privacidade</a>
+    <a href="../termos/">Termos de Uso</a>
+    <span>© 2026 Louvor Studio</span>
+  </div></footer>
+</div>
+</body>
+</html>

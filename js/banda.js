@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.31.1', [
+      'Página do LS Live (louvorstudio.app.br/ls-live): como funciona, como instalar e o download para o REAPER.'
+    ]],
     ['1.31.0', [
       'Planos: chegou o LS Live, o Louvor Studio no REAPER (a escala montada sozinha e as partes em quadradinhos para tocar ao vivo). R$ 19,90 por mês em qualquer plano pago; no plano Igreja já vem incluso.'
     ]],

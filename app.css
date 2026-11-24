@@ -1077,6 +1077,8 @@ button.partchip { background: none; font-family: inherit; }
 .pextra .pcta { text-decoration: none; justify-self: start; }
 .pextra h3 .chip { margin-left: 8px; vertical-align: 2px; }
 .plive .xi { background: var(--accent-soft); color: var(--accent); }
+.plive .lsl-saiba { color: var(--accent); font-weight: 600; text-decoration: none; }
+.plive .lsl-saiba:hover { text-decoration: underline; }
 .plano .specs li.live svg { color: var(--accent-light); }
 
 .ptudo { margin-top: 44px; display: grid; gap: 18px; }
