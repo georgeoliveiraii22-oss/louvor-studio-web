@@ -1075,6 +1075,9 @@ button.partchip { background: none; font-family: inherit; }
 .pextra .pnota { color: var(--muted); font-size: 13px; }
 .pextra .v { font-size: 28px; }
 .pextra .pcta { text-decoration: none; justify-self: start; }
+.pextra h3 .chip { margin-left: 8px; vertical-align: 2px; }
+.plive .xi { background: var(--accent-soft); color: var(--accent); }
+.plano .specs li.live svg { color: var(--accent-light); }
 
 .ptudo { margin-top: 44px; display: grid; gap: 18px; }
 .ptudo ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px 28px; }

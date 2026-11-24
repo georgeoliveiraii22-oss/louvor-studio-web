@@ -14,9 +14,12 @@
     { id: 'free', nome: 'Grátis', para: 'Para conhecer e começar.', pessoas: 8, gb: 1, mensal: 0 },
     { id: 'banda', nome: 'Banda', para: 'Para a banda da igreja.', pessoas: 20, gb: 20, mensal: 29.90 },
     { id: 'ministerio', nome: 'Ministério', para: 'Para o ministério com várias equipes.', pessoas: 40, gb: 60, mensal: 49.90, destaque: true },
-    { id: 'igreja', nome: 'Igreja', para: 'Para a igreja inteira, sem limite de gente.', pessoas: 0, gb: 150, mensal: 89.90 }
+    { id: 'igreja', nome: 'Igreja', para: 'Para a igreja inteira, sem limite de gente.', pessoas: 0, gb: 150, mensal: 89.90, lsLive: true }
   ];
   var EXTRA = { id: 'extra', nome: 'Espaço extra', gb: 50, mensal: 14.90 };
+  // LS Live (Louvor Studio Live, a extensão do REAPER): adicional por banda, só em plano pago; já vem no Igreja.
+  // O valor que vale é o da função `assinar` (migração 0045); este só mostra.
+  var LS_LIVE = { id: 'ls_live', nome: 'LS Live', mensal: 19.90 };
   var MESES_PAGOS_NO_ANO = 10; // no anual, paga 10 meses e usa 12
 
   // Assinar: a Edge Function `assinar` cria a assinatura no Asaas e devolve o link da cobrança.
@@ -53,7 +56,7 @@
   function link(p, ciclo) {
     var url = CHECKOUT[p.id] && CHECKOUT[p.id][ciclo];
     if (url) return url;
-    var qual = p.id === 'extra' ? 'o Espaço extra (+50 GB)' : 'o plano ' + p.nome;
+    var qual = p.id === 'extra' ? 'o Espaço extra (+50 GB)' : p.id === 'ls_live' ? 'o LS Live' : 'o plano ' + p.nome;
     var assunto = 'Quero assinar ' + qual + (ciclo === 'anual' ? ' (anual)' : ' (mensal)');
     var corpo = ['Olá! Quero assinar ' + qual + ', pagando ' + (ciclo === 'anual' ? 'por ano' : 'por mês') + '.', '',
       'Nome da banda:', 'E-mail da minha conta no Louvor Studio:', ''].join('\n');
@@ -66,6 +69,7 @@
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
     music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+    monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
     plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
     arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>'
   };
@@ -97,7 +101,7 @@
 
     var head = el('div', 'phead');
     head.appendChild(el('h2', null, 'Planos que crescem com a banda'));
-    head.appendChild(el('p', null, 'Todos os recursos estão em todos os planos. O que muda é quanta gente cabe na banda e o espaço para subir as multitracks que vocês já usam. Tem plano grátis.'));
+    head.appendChild(el('p', null, 'Todos os recursos do app estão em todos os planos. O que muda é quanta gente cabe na banda e o espaço para subir as multitracks que vocês já usam. Tem plano grátis.'));
     wrap.appendChild(head);
 
     // Mensal ou anual
@@ -146,6 +150,7 @@
       specs.appendChild(el('li', null, svg('users') + '<span>' + pessoas(p) + '</span>'));
       specs.appendChild(el('li', null, svg('cloud') + '<span><b>' + p.gb + ' GB</b> para subir as multitracks da banda</span>'));
       specs.appendChild(el('li', null, svg('music') + '<span>' + musicas(p) + '</span>'));
+      if (p.lsLive) specs.appendChild(el('li', 'live', svg('monitor') + '<span><b>LS Live incluso</b> para tocar no REAPER</span>'));
       card.appendChild(specs);
 
       // Medidor do espaço: compara os planos entre si (raiz quadrada, para o Grátis não sumir).
@@ -167,7 +172,7 @@
         cta = el('a', (p.destaque ? 'btn' : 'btn2') + ' full pcta', (p.destaque ? 'Assinar o ' + esc(p.nome) : 'Assinar') + svg('arrow', 18));
         cta.setAttribute('aria-label', 'Assinar o plano ' + p.nome);
         (function (plano) {
-          cta.addEventListener('click', function (ev) { if (cliente()) { ev.preventDefault(); assinar(plano.id, ciclo, 0); } });
+          cta.addEventListener('click', function (ev) { if (cliente()) { ev.preventDefault(); assinar(plano.id, ciclo, 0, false); } });
         })(p);
       }
       card.appendChild(cta);
@@ -192,9 +197,29 @@
     xpw.appendChild(xp); xpw.appendChild(xNota);
     extra.appendChild(xpw);
     var xCta = el('a', 'btn2 pcta', 'Pedir espaço extra');
-    xCta.addEventListener('click', function (ev) { if (cliente()) { ev.preventDefault(); assinar(null, ciclo, 1); } });
+    xCta.addEventListener('click', function (ev) { if (cliente()) { ev.preventDefault(); assinar(null, ciclo, 1, false); } });
     extra.appendChild(xCta);
     wrap.appendChild(extra);
+
+    // LS Live (adicional)
+    var live = el('div', 'pextra plive');
+    live.appendChild(el('span', 'xi', svg('monitor', 22)));
+    var lt = el('div', 'xt');
+    lt.appendChild(el('h3', null, 'LS Live <span class="chip">Para o REAPER</span>'));
+    lt.appendChild(el('p', null, 'O Louvor Studio no REAPER: a escala do culto baixada e montada sozinha, as partes em quadradinhos para tocar ao vivo (teclado, mouse ou controlador), o click e o VS nas saídas certas da mesa. Para qualquer plano pago; já vem no Igreja. Vale para a banda toda, em qualquer computador.'));
+    live.appendChild(lt);
+    var lp = el('div', 'xp');
+    var lValor = el('span', 'v');
+    lp.appendChild(lValor);
+    lp.appendChild(el('span', 'u', '/mês'));
+    var lNota = el('p', 'pnota');
+    var lpw = el('div', 'xpw');
+    lpw.appendChild(lp); lpw.appendChild(lNota);
+    live.appendChild(lpw);
+    var lCta = el('a', 'btn2 pcta', 'Adicionar o LS Live');
+    lCta.addEventListener('click', function (ev) { if (cliente()) { ev.preventDefault(); assinar(null, ciclo, 0, true); } });
+    live.appendChild(lCta);
+    wrap.appendChild(live);
 
     // Tudo incluído
     var tudo = el('div', 'ptudo');
@@ -228,6 +253,10 @@
       xValor.textContent = xpc.valor;
       xNota.textContent = xpc.nota;
       xCta.href = link(EXTRA, ciclo);
+      var lpc = preco(LS_LIVE, ciclo);
+      lValor.textContent = lpc.valor;
+      lNota.textContent = lpc.nota;
+      lCta.href = link(LS_LIVE, ciclo);
     }
     function mudar(c) {
       if (c === ciclo) return;
@@ -254,8 +283,8 @@
     return window.__lsPlanosSb;
   }
 
-  /** Janela de assinatura. planoId null = manter o plano pago da banda (Espaço extra). */
-  async function assinar(planoId, ciclo, extrasIni) {
+  /** Janela de assinatura. planoId null = manter o plano pago da banda (Espaço extra / LS Live). */
+  async function assinar(planoId, ciclo, extrasIni, liveIni) {
     var sb = cliente();
     var scrim = el('div', 'scrim');
     var box = el('div', 'dialog assinar');
@@ -320,6 +349,15 @@
     opcao(selCiclo, 'anual', 'Por ano (paga 10 meses, usa 12)');
     selCiclo.value = ciclo;
     var inExtras = document.createElement('input'); inExtras.type = 'number'; inExtras.min = '0'; inExtras.max = '20'; inExtras.value = String(extrasIni || 0); inExtras.inputMode = 'numeric';
+    // LS Live: caixinha; no Igreja fica marcada e travada (já vem incluso)
+    var cxLive = document.createElement('input'); cxLive.type = 'checkbox'; cxLive.className = 'switch'; cxLive.checked = !!liveIni;
+    cxLive.setAttribute('aria-label', 'LS Live');
+    var lbLive = el('label', 'switchrow');
+    var colLive = el('div', 'grow col'); colLive.style.gap = '2px';
+    colLive.appendChild(el('div', 't', '<b>LS Live</b> · para tocar no REAPER'));
+    var txLive = el('div', 'muted small', '');
+    colLive.appendChild(txLive);
+    lbLive.appendChild(colLive); lbLive.appendChild(cxLive);
     var inNome = document.createElement('input'); inNome.placeholder = ' '; inNome.autocomplete = 'name'; inNome.maxLength = 100; inNome.required = true;
     var inDoc = document.createElement('input'); inDoc.placeholder = ' '; inDoc.inputMode = 'numeric'; inDoc.maxLength = 18; inDoc.required = true;
     var total = el('p', 'hi semi');
@@ -332,19 +370,24 @@
     }
     function conta() {
       var p = achar(selPlano.value), ex = Math.max(0, Math.min(20, parseInt(inExtras.value, 10) || 0));
-      var mes = p.mensal + EXTRA.mensal * ex;
+      if (p.lsLive) { cxLive.checked = true; cxLive.disabled = true; txLive.textContent = 'Já vem incluso no ' + p.nome + '.'; }
+      else { cxLive.disabled = false; txLive.textContent = '+ ' + reais(LS_LIVE.mensal) + ' por mês. Vale para a banda toda.'; }
+      var comLive = cxLive.checked && !p.lsLive;
+      var mes = p.mensal + EXTRA.mensal * ex + (comLive ? LS_LIVE.mensal : 0);
       total.textContent = selCiclo.value === 'anual'
         ? 'Total: ' + reais(Math.round(mes * MESES_PAGOS_NO_ANO * 100) / 100) + ' por ano'
         : 'Total: ' + reais(Math.round(mes * 100) / 100) + ' por mês';
     }
     ajustarPlano(); conta();
     selBanda.onchange = function () { ajustarPlano(); conta(); };
-    selPlano.onchange = conta; selCiclo.onchange = conta; inExtras.oninput = conta;
+    selPlano.onchange = function () { if (!achar(selPlano.value).lsLive && cxLive.disabled) cxLive.checked = !!liveIni; conta(); };
+    selCiclo.onchange = conta; inExtras.oninput = conta; cxLive.onchange = conta;
 
     if (bandas.length > 1) form.appendChild(campo('Banda', selBanda));
     form.appendChild(campo('Plano', selPlano));
     form.appendChild(campo('Como pagar', selCiclo));
     form.appendChild(campo('Espaço extra (+50 GB cada, ' + reais(EXTRA.mensal) + '/mês)', inExtras));
+    form.appendChild(lbLive);
     form.appendChild(campo('Nome de quem paga', inNome));
     form.appendChild(campo('CPF ou CNPJ de quem paga', inDoc));
     form.appendChild(total);
@@ -359,7 +402,8 @@
       try {
         var res = await sb.functions.invoke(FN_ASSINAR, { body: {
           org_id: selBanda.value, plan: selPlano.value, cycle: selCiclo.value,
-          extras: parseInt(inExtras.value, 10) || 0, name: inNome.value, cpf_cnpj: inDoc.value
+          extras: parseInt(inExtras.value, 10) || 0, ls_live: cxLive.checked && !achar(selPlano.value).lsLive,
+          name: inNome.value, cpf_cnpj: inDoc.value
         } });
         var msg = null;
         if (res.error) {
@@ -373,7 +417,7 @@
         ir.disabled = false; ir.textContent = 'Ir para o pagamento';
       }
     };
-    tela(planoId ? 'Assinar o ' + achar(planoId).nome : 'Espaço extra', [form]);
+    tela(planoId ? 'Assinar o ' + achar(planoId).nome : liveIni ? 'Adicionar o LS Live' : 'Espaço extra', [form]);
     setTimeout(function () { inNome.focus(); }, 50);
   }
 
@@ -381,5 +425,5 @@
     return PLANOS.filter(function (p) { return p.id === id; })[0] || PLANOS[0];
   }
 
-  window.LSPlanos = { FN_ASSINAR: FN_ASSINAR, PLANOS: PLANOS, EXTRA: EXTRA, CHECKOUT: CHECKOUT, GB: GB, secao: secao, achar: achar, reais: reais, assinar: assinar };
+  window.LSPlanos = { FN_ASSINAR: FN_ASSINAR, PLANOS: PLANOS, EXTRA: EXTRA, LS_LIVE: LS_LIVE, CHECKOUT: CHECKOUT, GB: GB, secao: secao, achar: achar, reais: reais, assinar: assinar };
 })();

@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.31.0', [
+      'Planos: chegou o LS Live, o Louvor Studio no REAPER (a escala montada sozinha e as partes em quadradinhos para tocar ao vivo). R$ 19,90 por mês em qualquer plano pago; no plano Igreja já vem incluso.'
+    ]],
     ['1.30.2', [
       'Buscar dados da música não adivinha mais os links da cifra e da letra (às vezes não eram os certos). Ao lado desses campos, "Procurar no Cifra Club / no Letras" abre a busca do site para você copiar o link certo. O link do áudio continua vindo sozinho.'
     ]],
