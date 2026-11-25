@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.31.8', [
+      'LS Live 1.2.0 para baixar: contagem 1-2-3-4 antes da música, tela grande do ministro, aba Antes do culto, + Marcar parte, cores automáticas das partes e aviso de versão nova com Atualizar agora.'
+    ]],
     ['1.31.7', [
       'LS Live (download atualizado): o Parar suave agora funciona também quando as faixas saem direto pelas saídas da placa, fora do master.'
     ]],
