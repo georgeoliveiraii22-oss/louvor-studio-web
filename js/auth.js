@@ -152,6 +152,7 @@
         if (!st.band.trim()) return;
         L.run(async function () {
           var id = L.must(await sb.rpc('create_organization', { _name: st.band.trim() }));
+          if (window.LSAds) window.LSAds.bandaCriada();
           await A.enterBand(id); L.toast('Banda criada. Você é o líder.');
         });
       }, { full: true }));

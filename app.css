@@ -1534,3 +1534,24 @@ i.st.ok { background: var(--ok); } i.st.warn { background: var(--warn); } i.st.b
 .sheetnav .seg span.on { background: var(--accent); }
 .foldrow { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 4px; cursor: pointer; border-top: 1px solid var(--line); }
 .rtrow .rtd { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Aviso de cookies do Google Ads (js/anuncios.js). Os dois botões têm o mesmo peso (LGPD: recusar tão fácil quanto aceitar). */
+.cookiebar {
+  position: fixed; z-index: 65; left: 12px; right: 12px; bottom: calc(12px + var(--safe-b, 0px));
+  max-width: 460px; margin: 0 auto; padding: 14px 14px 12px; border-radius: 18px;
+  background: var(--menu); color: var(--text, inherit);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), inset 0 0 0 1px var(--glass-border);
+  animation: cookiebar-in 320ms var(--ease-out);
+}
+.cookiebar p { margin: 0 0 12px; font-size: 14px; line-height: 1.45; }
+.cookiebar a { color: var(--accent-text); }
+.cookiebar-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cookiebar-btns .btn2 { min-height: 44px; width: 100%; }
+@keyframes cookiebar-in { from { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) { .cookiebar { animation: fade 160ms ease-out; } }
+@media (min-width: 1024px) { .cookiebar { left: auto; right: 24px; bottom: 24px; margin: 0; } }
+.cookie-escolha { margin-top: 16px; padding: 14px 16px; border-radius: 14px; background: var(--panel); }
+.cookie-escolha p { margin: 0 0 10px; }
+.cookie-escolha p:last-child { margin: 0; }
+.cookie-btn { min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--control); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.cookie-btn:active { transform: scale(0.97); }

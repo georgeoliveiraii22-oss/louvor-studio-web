@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.31.6', [
+      'Cookies de anúncios: o site pergunta uma vez se pode usar os cookies do Google Ads, só para sabermos se um anúncio trouxe uma banda nova. Recusar não muda nada no site. A escolha pode ser trocada na página Cookies.'
+    ]],
     ['1.31.5', [
       'Escalas › Calendário: agora mostra quem da banda marcou que não pode em cada dia (o número laranja), com a lista ao tocar no dia e um filtro por função.'
     ]],
