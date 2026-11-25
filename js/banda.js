@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.31.7', [
+      'LS Live (download atualizado): o Parar suave agora funciona também quando as faixas saem direto pelas saídas da placa, fora do master.'
+    ]],
     ['1.31.6', [
       'Cookies de anúncios: o site pergunta uma vez se pode usar os cookies do Google Ads, só para sabermos se um anúncio trouxe uma banda nova. Recusar não muda nada no site. A escolha pode ser trocada na página Cookies.'
     ]],
