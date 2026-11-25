@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.31.5', [
+      'Escalas › Calendário: agora mostra quem da banda marcou que não pode em cada dia (o número laranja), com a lista ao tocar no dia e um filtro por função.'
+    ]],
     ['1.31.4', [
       'LS Live: tom e andamento na hora, ordem das partes que o líder define, Final, Parar suave, pad entre as músicas, controle pelo celular e luz nos pads do controlador. Baixe de novo em louvorstudio.app.br/ls-live e rode o instalador para atualizar.'
     ]],

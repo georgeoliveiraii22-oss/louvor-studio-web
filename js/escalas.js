@@ -50,16 +50,29 @@
     } else if (E.view === 'calendario') {
       if (!E.month) E.month = L.today().slice(0, 7);
       if (!E.day) E.day = L.today();
+      // quem não pode: filtro por função (só as funções que alguém da banda tem)
+      var fns = L.FUNCTIONS.filter(function (f) { return S.members.some(function (m) { return m.functions.indexOf(f[0]) >= 0 || (f[0] === 'backing_vocal' && m.functions.indexOf('vocal') >= 0); }); });
+      if (E.fnOff && !fns.some(function (f) { return f[0] === E.fnOff; })) E.fnOff = null;
+      if (fns.length > 1) root.appendChild(h('div', { class: 'hscroll' }, h('span', { class: 'muted small', style: { alignSelf: 'center', flex: 'none' } }, 'Quem não pode:'),
+        [U.toggle('Todos', !E.fnOff, null, function () { E.fnOff = null; L.render(); })].concat(fns.map(function (f) {
+          return U.toggle(f[1], E.fnOff === f[0], L.fnIcon(f[0]), function () { E.fnOff = f[0]; L.render(); });
+        }))));
       root.appendChild(L.monthCalendar(E.month, function (m) { E.month = m; L.render(); }, E.day, function (d) { E.day = d; L.render(); }, function (d) {
         var list = S.services.filter(function (s) { return s.starts_on === d; });
         if (list.some(function (s) { return s.people.some(function (p) { return p.user_id === me; }); })) return 'mine';
         if (list.length) return 'some';
         if (L.isOff(me, d)) return 'off';
         return '';
-      }));
+      }, function (d) { return L.naoPodem(d, E.fnOff).filter(function (m) { return m.user_id !== me; }).length; }));
       var day = E.day;
       var list = S.services.filter(function (s) { return s.starts_on === day; });
       root.appendChild(U.label(L.fullDate(day)));
+      var off = L.naoPodem(day, E.fnOff);
+      if (off.length) root.appendChild(U.panel('Não podem neste dia (' + off.length + ')', 'CalendarX', off.map(function (m) {
+        return h('div', { class: 'row', style: { gap: '10px', minHeight: '44px' } }, U.avatar(m, 32),
+          h('div', { class: 'grow' }, h('div', { class: 'hi semi' }, m.user_id === me ? 'Você' : m.name),
+            h('div', { class: 'muted small ell' }, m.functions.map(L.fnLabel).join(', ') || 'sem função marcada')));
+      })));
       if (!list.length) root.appendChild(U.empty('Nada marcado neste dia.'));
       if (list.length) root.appendChild(h('div', { class: 'cardgrid' }, list.map(function (s) { return L.scheduleCard(s); })));
       if (can && day >= L.today()) root.appendChild(U.btn2('Nova escala neste dia', 'Plus', function () { L.go({ name: 'wizard', day: day }); }, { full: true }));
@@ -127,8 +140,17 @@
   };
 
   // ------------------------------------------------------------------ Calendário do mês
-  /** mark(dia) → '' | some | mine | off */
-  L.monthCalendar = function (ym, onMonth, selected, onDay, mark) {
+  /** Pessoas da banda que marcaram que não podem no dia (só as da função, se vier). */
+  L.naoPodem = function (d, fn) {
+    return S.members.filter(function (m) {
+      if (!L.isOff(m.user_id, d)) return false;
+      if (!fn) return true;
+      return m.functions.indexOf(fn) >= 0 || (fn === 'backing_vocal' && m.functions.indexOf('vocal') >= 0);
+    });
+  };
+
+  /** mark(dia) → '' | some | mine | off; quantos(dia) → número de pessoas que não podem (selo laranja). */
+  L.monthCalendar = function (ym, onMonth, selected, onDay, mark, quantos) {
     var y = +ym.slice(0, 4), m = +ym.slice(5, 7);
     function shift(n) { var d = new Date(y, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
     var first = ym + '-01';
@@ -143,8 +165,10 @@
         var mk = mark(d);
         var sel = d === selected;
         var cls = 'day' + (sel ? ' sel' : '') + (mk === 'off' ? ' off' : '') + (mk === 'mine' ? ' mine' : '') + (d === t0 && !sel ? ' today' : '') + (d < t0 ? ' past' : '');
-        grid.appendChild(h('button', { class: cls, onclick: function () { onDay(d); }, 'aria-label': L.fullDate(d) },
-          String(n), mk === 'mine' || mk === 'some' ? h('i') : null, mk === 'off' ? h('span', { class: 'x' }, ic('X', 26)) : null));
+        var q = quantos ? quantos(d) : 0;
+        grid.appendChild(h('button', { class: cls, onclick: function () { onDay(d); }, 'aria-label': L.fullDate(d) + (q ? ' — ' + L.plural(q, 'pessoa não pode', 'pessoas não podem') : '') },
+          String(n), mk === 'mine' || mk === 'some' ? h('i') : null, mk === 'off' ? h('span', { class: 'x' }, ic('X', 26)) : null,
+          q ? h('b', { class: 'nao' }, String(q)) : null));
       })(n);
     }
     return h('div', { class: 'cal' },
