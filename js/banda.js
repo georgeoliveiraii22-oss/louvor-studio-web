@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.31.4', [
+      'LS Live: tom e andamento na hora, ordem das partes que o líder define, Final, Parar suave, pad entre as músicas, controle pelo celular e luz nos pads do controlador. Baixe de novo em louvorstudio.app.br/ls-live e rode o instalador para atualizar.'
+    ]],
     ['1.31.2', [
       'LS Live: experimente 7 dias grátis no REAPER, uma vez por banda.'
     ]],
