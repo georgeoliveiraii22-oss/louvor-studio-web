@@ -809,8 +809,9 @@
     var sr = prep.sampleRate;
     var items = prep.items.map(function (it) { return { file: { name: it.name, size: it.size }, blob: it.blob, buf: it.buf, scan: it.scan }; });
     if (!p || !p.session_duration_ms || !existing) {
-      var min = Math.min.apply(null, items.map(function (it) { return it.scan.expectedPcmFrames; }));
-      L.must(await sb.from('projects').update({ session_duration_ms: Math.max(1, Math.round(min / sr * 1000)), sample_rate: sr }).eq('id', pid));
+      // A duração é a da faixa mais longa: uma faixa curta (efeito, introdução) não pode fazer a música parar antes.
+      var max = Math.max.apply(null, items.map(function (it) { return it.scan.expectedPcmFrames; }));
+      L.must(await sb.from('projects').update({ session_duration_ms: Math.max(1, Math.round(max / sr * 1000)), sample_rate: sr }).eq('id', pid));
     }
     var made = [], failed = [];
     for (var j = 0; j < items.length; j++) {

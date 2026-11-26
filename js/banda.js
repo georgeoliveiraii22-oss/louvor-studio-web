@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.32.4', [
+      'Multitrack com uma faixa mais curta (um efeito, uma introdução) não faz mais a música parar antes do fim.'
+    ]],
     ['1.32.3', [
       'Escala: Escalar pessoas numa tela só, com todas as funções: marque baixista, guitarrista, baterista… e toque em Escalar.',
       'Escalas: o rostinho de quem está escalado em cada cartão.'

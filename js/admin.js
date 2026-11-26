@@ -417,8 +417,10 @@
           }
           var sr = itens[0].scan.sampleRate;
           if (itens.some(function (x) { return x.scan.sampleRate !== sr; })) throw new Error('faixas com taxas de amostragem diferentes');
-          var min = Math.min.apply(null, itens.map(function (x) { return x.scan.expectedPcmFrames; }));
-          var row = { song_title: g.titulo, name: g.titulo, artist: g.artista, session_duration_ms: Math.max(1, Math.round(min / sr * 1000)), sample_rate: sr };
+          // A duração da música é a da faixa mais longa: numa multitrack é comum uma faixa curta (um efeito, uma introdução),
+          // e a música não pode parar quando ela acaba.
+          var max = Math.max.apply(null, itens.map(function (x) { return x.scan.expectedPcmFrames; }));
+          var row = { song_title: g.titulo, name: g.titulo, artist: g.artista, session_duration_ms: Math.max(1, Math.round(max / sr * 1000)), sample_rate: sr };
           if (pid) { var up = await sb.from('projects').update(row).eq('id', pid); if (up.error) throw up.error; }
           else {
             var ins = await sb.from('projects').insert(Object.assign({ org_id: org, created_by: me }, row)).select('id').single();
