@@ -233,9 +233,11 @@
     if (can && s.starts_on >= L.today()) {
       // Gerar: o sorteio equilibrado só desta escala (olha o mês inteiro). Passo a passo: montar à mão.
       root.appendChild(U.btn('Gerar a equipe automaticamente', 'Sparkles', function () { L.auto.open(s.id); }, { full: true, tall: true }));
-      if ((!s.songs.length && L.musicOn()) || !s.people.length) {
-        root.appendChild(U.btn2(!s.songs.length && !s.people.length ? 'Montar esta escala passo a passo' : !s.songs.length ? 'Escolher as músicas' : 'Escalar a equipe passo a passo', 'ListChecks',
-          function () { L.go({ name: 'wizard', id: s.id, step: !s.songs.length ? 1 : 2 }); }, { full: true }));
+      // Músicas entram pelo "Adicionar" do quadro Músicas; o passo a passo só aparece enquanto não há equipe.
+      if (!s.people.length) {
+        var tudo = !s.songs.length && L.musicOn();
+        root.appendChild(U.btn2(tudo ? 'Montar esta escala passo a passo' : 'Escalar a equipe passo a passo', 'ListChecks',
+          function () { L.go({ name: 'wizard', id: s.id, step: tudo ? 1 : 2 }); }, { full: true }));
       }
     }
 
@@ -398,6 +400,23 @@
   L.addPersonDialog = function (s, fn) { return addPerson(s, fn); };
   function addPerson(s, preset, replacing) {
     var fn = preset;
+    // Escalar: marca várias pessoas e confirma de uma vez. Trocar (replacing): um toque escolhe a substituta.
+    var sel = {}, escalarBtn = null;
+    function marcadas() { return S.members.filter(function (m) { return sel[m.user_id]; }); }
+    function atualiza() {
+      if (!escalarBtn) return;
+      var n = marcadas().length;
+      escalarBtn.disabled = !n;
+      escalarBtn.textContent = n ? 'Escalar (' + n + ')' : 'Escalar';
+    }
+    function salvar(close) {
+      var ms = marcadas();
+      if (!ms.length) return;
+      close();
+      D.scheduleAction((ms.length === 1 ? ms[0].name + ' escalado(a)' : ms.length + ' pessoas escaladas') + ' como ' + L.fnLabel(fn) + '.', function () {
+        return sb.from('service_members').insert(ms.map(function (m) { return { service_id: s.id, user_id: m.user_id, function: fn }; }));
+      });
+    }
     var dlg = L.dialog({
       live: true,
       title: h('div', { class: 'dt' }, fn ? 'Quem vai de ' + L.fnLabel(fn) + '?' : 'Qual função?'),
@@ -412,11 +431,21 @@
         // Só quem marcou essa função no perfil.
         var withFn = S.members.filter(function (m) { return m.functions.indexOf(fn) >= 0; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
         if (!withFn.length) return U.body('Ninguém da banda marcou ' + L.fnLabel(fn).toLowerCase() + ' no perfil. Cada um marca em Eu › Meu perfil; o líder também pode marcar em Banda › Pessoas.', 'var(--muted)', 13);
-        return withFn.map(function (m) {
+        var lista = withFn.map(function (m) {
           var already = s.people.some(function (p) { return p.user_id === m.user_id && p.function === fn; });
           var off = L.isOff(m.user_id, s.starts_on);
-          return h('div', { class: 'row', style: { minHeight: '52px', gap: '10px', cursor: already ? 'default' : 'pointer' }, onclick: function () {
+          var caixa = replacing || already ? null : h('span', { class: 'marcabox', style: { width: '24px', height: '24px', borderRadius: '7px', border: '2px solid var(--line-strong, var(--muted))', display: 'grid', placeItems: 'center', flex: 'none', alignSelf: 'center', boxSizing: 'border-box', color: '#fff' } });
+          function pinta() {
+            if (!caixa) return;
+            var on = !!sel[m.user_id];
+            caixa.style.background = on ? 'var(--accent)' : 'transparent';
+            caixa.style.borderColor = on ? 'var(--accent)' : 'var(--line-strong, var(--muted))';
+            if (on) caixa.replaceChildren(ic('Check', 16)); else caixa.replaceChildren();
+          }
+          pinta();
+          return h('div', { class: 'row', role: caixa ? 'checkbox' : null, style: { minHeight: '52px', gap: '10px', cursor: already ? 'default' : 'pointer' }, onclick: function () {
             if (already) return;
+            if (!replacing) { sel[m.user_id] = !sel[m.user_id]; pinta(); atualiza(); return; }
             close();
             D.scheduleAction(m.name + ' escalado(a) como ' + L.fnLabel(fn) + '.', async function () {
               var added = await sb.from('service_members').insert({ service_id: s.id, user_id: m.user_id, function: fn });
@@ -427,12 +456,17 @@
             U.avatar(m, 34),
             h('div', { class: 'grow' }, h('div', { class: 'semi', style: { color: already ? 'var(--muted)' : 'var(--hi)' } }, m.name),
               h('div', { class: 'small', style: { color: off && !already ? 'var(--warn)' : 'var(--muted)' } },
-                already ? 'já está nesta função' : off ? '⚠ marcou que não pode neste dia' : m.functions.indexOf(fn) >= 0 ? L.fnLabel(fn) : (m.functions.map(L.fnLabel).join(', ') || 'sem função marcada'))));
+                already ? 'já está nesta função' : off ? '⚠ marcou que não pode neste dia' : m.functions.indexOf(fn) >= 0 ? L.fnLabel(fn) : (m.functions.map(L.fnLabel).join(', ') || 'sem função marcada'))),
+            caixa);
         });
+        return replacing ? lista : [U.body('Marque quem vai e toque em Escalar.', 'var(--muted)', 12)].concat(lista);
       },
       actions: function (close) {
+        var alguem = fn && S.members.some(function (m) { return m.functions.indexOf(fn) >= 0 && !s.people.some(function (p) { return p.user_id === m.user_id && p.function === fn; }); });
+        escalarBtn = alguem && !replacing ? h('button', { class: 'textbtn', style: { fontWeight: 600 }, onclick: function () { salvar(close); } }, 'Escalar') : null;
+        atualiza();
         return [fn && !preset ? h('button', { class: 'textbtn muted', onclick: function () { close(); setTimeout(function () { addPerson(s, null); }, 60); } }, 'Outra função') : null,
-          h('button', { class: 'textbtn muted', onclick: close }, 'Fechar')];
+          h('button', { class: 'textbtn muted', onclick: close }, escalarBtn ? 'Cancelar' : 'Fechar'), escalarBtn];
       }
     });
     return dlg;

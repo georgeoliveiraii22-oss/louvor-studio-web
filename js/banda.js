@@ -5,6 +5,10 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.32.2', [
+      'Escala: em Escalar pessoa, marque várias pessoas de uma vez e toque em Escalar.',
+      'Escala: as músicas entram pelo Adicionar do quadro Músicas (um botão só).'
+    ]],
     ['1.32.0', [
       'Biblioteca do Louvor Studio: nos planos pagos, multitracks cedidas por autores e produtores para adicionar ao repertório da banda (Repertório › Biblioteca).'
     ]],
