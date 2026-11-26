@@ -277,8 +277,8 @@
         h('div', { class: 'grow' },
           h('div', { class: 'semi' }, 'Biblioteca do Louvor Studio'),
           h('div', { class: 'muted small' }, B.list === null ? 'Conferindo…'
-            : !org ? 'Escolha a banda da empresa onde as músicas da biblioteca são montadas.'
-            : l.length + (l.length === 1 ? ' música na banda' : ' músicas na banda') + ' · ' + publicadas + ' na biblioteca. Monte as músicas nessa banda pelo app (Repertório › Adicionar música › enviar a multitrack); os arquivos não contam no espaço de quem usa.'),
+            : !org ? 'Escolha a banda da empresa onde as músicas da biblioteca são montadas (o espaço dela fica sem limite de plano).'
+            : l.length + (l.length === 1 ? ' música na banda' : ' músicas na banda') + ' · ' + publicadas + ' na biblioteca. Monte as músicas nessa banda pelo app (Repertório › Adicionar música › enviar a multitrack). Esta banda não tem limite de espaço (o arquivo fica guardado uma vez só); cada banda que adiciona uma música gasta o tamanho dela no próprio plano.'),
           B.err ? h('div', { class: 'small', style: { color: 'var(--bad)' } }, B.err) : null),
         h('label', { class: 'small', style: { display: 'grid', gap: '4px' } }, 'Banda da biblioteca',
           h('select', { class: 'input', disabled: B.busy, onchange: function (e) { escolher(e.target.value || null); } }, opts)))];

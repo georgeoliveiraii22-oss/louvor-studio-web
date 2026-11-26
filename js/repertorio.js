@@ -378,7 +378,7 @@
       out.push(h('div', { class: 'note' },
         h('div', { class: 'row bold tiny', style: { letterSpacing: '1px', color: 'var(--accent-text)' } }, ic('LibraryBig', 16), 'DA BIBLIOTECA DO LOUVOR STUDIO'),
         U.body(bibTrava ? 'Esta multitrack é da Biblioteca, um benefício dos planos pagos. Com a banda num plano pago, ela volta a tocar.'
-          : 'Esta multitrack não ocupa o espaço da banda.' + (bi && bi.credito ? ' ' + bi.credito + '.' : ''), 'var(--hi)')));
+          : 'Multitrack da Biblioteca, um benefício dos planos pagos. Ela conta no espaço da banda.' + (bi && bi.credito ? ' ' + bi.credito + '.' : ''), 'var(--hi)')));
     }
     if (bibTrava) multi = false;
     out.push(U.btn('Ouvir com multitrack', 'Headphones', function () { close(); setTimeout(function () { L.go({ name: 'studio', id: p.id }); }, 150); }, { full: true, tall: true, disabled: !multi }));

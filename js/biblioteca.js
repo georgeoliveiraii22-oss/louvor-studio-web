@@ -1,11 +1,13 @@
 // Biblioteca do Louvor Studio (migração 0048): multitracks cedidas pelos produtores para as bandas de plano pago.
 // Todos veem o catálogo; ouvir e adicionar ao repertório, só banda de plano pago (o servidor confere).
-// "Adicionar ao repertório" cria a música na banda apontando para os mesmos arquivos: não ocupa o espaço dela.
+// "Adicionar ao repertório" cria a música na banda apontando para os mesmos arquivos (guardados uma vez só no R2),
+// mas o tamanho dela conta no espaço da banda, como se a banda tivesse subido (o servidor confere o espaço livre).
 (function () {
   'use strict';
   var L = window.L, S = L.S, h = L.h, ic = L.ic, U = L.ui, D = L.data, sb = L.sb;
   var B = { org: null, list: null, loading: false, q: '' };
 
+  function tamanho(b) { return b >= 1073741824 ? (b / 1073741824).toFixed(1).replace('.', ',') + ' GB' : Math.max(1, Math.round(b / 1048576)) + ' MB'; }
   function pago() { var o = S.current && S.current.org; return !!o && (o.plan || 'free') !== 'free'; }
 
   /** Carrega o catálogo da banda atual (uma vez; `force` busca de novo). Sem a migração 0048, fica vazio. */
@@ -34,7 +36,7 @@
       h('span', { class: 'circle soft' }, ic('LibraryBig', 19)),
       h('div', { class: 'grow' },
         h('div', { class: 'hi semi', style: { fontSize: '15px' } }, 'Biblioteca do Louvor Studio'),
-        h('div', { class: 'muted small' }, L.plural(n, 'multitrack', 'multitracks') + (pago() ? ' para a sua banda · não ocupam o seu espaço' : ' · nos planos pagos'))),
+        h('div', { class: 'muted small' }, L.plural(n, 'multitrack', 'multitracks') + (pago() ? ' para a sua banda' : ' · nos planos pagos'))),
       ic('ChevronRight', 18, 'muted'));
   };
 
@@ -44,6 +46,8 @@
       if (r.error) throw r.error;
       var id = r.data;
       await D.reloadSongs();
+      var u = await sb.rpc('org_storage_used', { _org: S.current.org.id });
+      if (!u.error) S.storageUsed = Number(u.data) || S.storageUsed;
       await L.biblioteca(true);
       L.render();
       L.toast(x.titulo + ' está no repertório.', { label: 'Abrir', fn: function () { L.songSheet(id); } });
@@ -52,7 +56,7 @@
 
   function linha(x) {
     var fake = { id: x.id, song_title: x.titulo, version_url: x.version_url };
-    var info = [x.tom ? 'Tom ' + x.tom : null, x.bpm ? x.bpm + ' BPM' : null, x.faixas ? L.plural(x.faixas, 'faixa', 'faixas') : null].filter(Boolean).join(' · ');
+    var info = [x.tom ? 'Tom ' + x.tom : null, x.bpm ? x.bpm + ' BPM' : null, x.faixas ? L.plural(x.faixas, 'faixa', 'faixas') : null, Number(x.bytes) > 0 ? tamanho(Number(x.bytes)) : null].filter(Boolean).join(' · ');
     var acao;
     var mini = { minHeight: '36px', padding: '0 14px', fontSize: '14px', alignSelf: 'flex-start', marginTop: '6px' };
     if (x.na_banda && L.project(x.na_banda)) acao = U.btn2('No repertório', 'Check', function () { L.songSheet(x.na_banda); }, { style: mini });
@@ -84,7 +88,7 @@
     fill();
     return h('div', { class: 'screen', style: { gap: '14px', paddingBottom: '40px' } },
       U.topRow('Biblioteca', 'Multitracks do Louvor Studio'),
-      U.body('Multitracks cedidas por autores e produtores para as bandas de plano pago. Elas não ocupam o espaço da banda: adicione ao repertório e ensaie como as suas.', 'var(--muted)', 14),
+      U.body('Multitracks cedidas por autores e produtores para as bandas de plano pago. Adicione ao repertório e ensaie como as suas. Cada música conta no espaço do plano da banda.', 'var(--muted)', 14),
       !pago() ? h('div', { class: 'note' },
         h('div', { class: 'row warn bold tiny', style: { letterSpacing: '1px' } }, ic('Sparkles', 16), 'PLANOS PAGOS'),
         U.body('A Biblioteca é um benefício dos planos pagos. ' + (lider ? 'Assine um plano para a banda ouvir e adicionar estas multitracks.' : 'Fale com o líder da banda.'), 'var(--hi)'),
