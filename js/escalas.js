@@ -135,8 +135,23 @@
         mine.length ? h('div', { class: 'row wrap', style: { gap: '6px' } }, h('span', { class: 'accent semi small' }, 'Você: ' + mine.map(function (p) { return L.fnLabel(p.function); }).join(', ')), U.statusFor(mine[0]))
           : h('div', { class: 'muted small' }, L.plural(s.songIds.length, 'música', 'músicas') + ' · ' + L.plural(L.uniqPeople(s.people).length, 'pessoa', 'pessoas')),
         (S.unread[s.id] || 0) > 0 && !faded ? h('div', { class: 'accent tiny semi row', style: { gap: '4px' } }, ic('MessageCircle', 13), L.plural(S.unread[s.id], 'mensagem nova', 'mensagens novas') + ' na conversa') : null,
-        L.perm.schedule() && !faded && (pending || swaps) ? h('div', { class: 'warn tiny' }, [pending ? pending + ' sem resposta' : null, swaps ? swaps + ' pediu troca' : null].filter(Boolean).join(' · ')) : null),
+        L.perm.schedule() && !faded && (pending || swaps) ? h('div', { class: 'warn tiny' }, [pending ? pending + ' sem resposta' : null, swaps ? swaps + ' pediu troca' : null].filter(Boolean).join(' · ')) : null,
+        L.faces(L.uniqPeople(s.people), 7, faded)),
       ic('ChevronRight', 18, 'muted'));
+  };
+
+  /** Rostinhos de quem está na escala, um por cima do outro, e "+N" para o resto. */
+  L.faces = function (uids, max, faded) {
+    if (!uids || !uids.length) return null;
+    var show = uids.slice(0, max), rest = uids.length - show.length;
+    var ring = { boxShadow: '0 0 0 2px var(--panel, var(--bg))', borderRadius: '50%', flex: 'none' };
+    return h('div', { class: 'faces', 'aria-label': L.plural(uids.length, 'pessoa', 'pessoas') + ' na escala', style: { display: 'flex', alignItems: 'center', marginTop: '6px', paddingLeft: '2px', opacity: faded ? 0.6 : 1 } },
+      show.map(function (u, i) {
+        var a = U.avatar(L.member(u) || { name: L.nameOf(u) }, 28);
+        Object.assign(a.style, ring, { marginLeft: i ? '-7px' : '0', position: 'relative', zIndex: String(max - i) });
+        return a;
+      }),
+      rest > 0 ? h('span', { class: 'tiny semi', style: Object.assign({}, ring, { marginLeft: '-7px', width: '28px', height: '28px', display: 'grid', placeItems: 'center', background: 'var(--accent)', color: 'var(--on-accent, #fff)', position: 'relative' }) }, '+' + rest) : null);
   };
 
   // ------------------------------------------------------------------ Calendário do mês
@@ -308,7 +323,7 @@
           }, { color: 'var(--muted)' }) : null));
       });
     });
-    if (can) peoplePanel.appendChild(U.btn2('Escalar pessoa', 'Plus', function () { addPerson(s, null); }, { full: true }));
+    if (can) peoplePanel.appendChild(U.btn2('Escalar pessoas', 'Plus', function () { addPerson(s, null); }, { full: true }));
     var waiting = L.uniqPeople(s.people.filter(function (p) { return p.status === 'pendente' && !p.swap_requested; })).filter(function (u) { return u !== me; });
     if (can && waiting.length) peoplePanel.appendChild(U.btn2('Lembrar quem não respondeu (' + waiting.length + ')', 'Bell', function () {
       D.scheduleAction('Lembrete enviado na conversa da escala.', async function () {
@@ -398,11 +413,12 @@
   }
 
   L.addPersonDialog = function (s, fn) { return addPerson(s, fn); };
+  // Escalar: uma tela só com todas as funções; marca quantas pessoas quiser em cada uma e salva de uma vez.
+  // Trocar (replacing): só a função de quem sai, e um toque escolhe a substituta.
   function addPerson(s, preset, replacing) {
-    var fn = preset;
-    // Escalar: marca várias pessoas e confirma de uma vez. Trocar (replacing): um toque escolhe a substituta.
+    if (replacing) return trocarPessoa(s, preset || replacing.function, replacing);
     var sel = {}, escalarBtn = null;
-    function marcadas() { return S.members.filter(function (m) { return sel[m.user_id]; }); }
+    function marcadas() { return Object.keys(sel).filter(function (k) { return sel[k]; }).map(function (k) { var i = k.indexOf('|'); return { fn: k.slice(0, i), uid: k.slice(i + 1) }; }); }
     function atualiza() {
       if (!escalarBtn) return;
       var n = marcadas().length;
@@ -413,63 +429,86 @@
       var ms = marcadas();
       if (!ms.length) return;
       close();
-      D.scheduleAction((ms.length === 1 ? ms[0].name + ' escalado(a)' : ms.length + ' pessoas escaladas') + ' como ' + L.fnLabel(fn) + '.', function () {
-        return sb.from('service_members').insert(ms.map(function (m) { return { service_id: s.id, user_id: m.user_id, function: fn }; }));
+      var pessoas = L.uniqPeople(ms.map(function (x) { return { user_id: x.uid }; }));
+      D.scheduleAction(pessoas.length === 1 ? L.nameOf(pessoas[0]) + ' escalado(a).' : pessoas.length + ' pessoas escaladas.', function () {
+        return sb.from('service_members').insert(ms.map(function (x) { return { service_id: s.id, user_id: x.uid, function: x.fn }; }));
       });
     }
+    var ordem = L.FUNCTIONS.slice();
+    if (preset) ordem.sort(function (a, b) { return (b[0] === preset) - (a[0] === preset); });
+    var semNinguem = [];
     var dlg = L.dialog({
       live: true,
-      title: h('div', { class: 'dt' }, fn ? 'Quem vai de ' + L.fnLabel(fn) + '?' : 'Qual função?'),
+      title: h('div', { class: 'dt' }, 'Escalar pessoas'),
+      body: function () {
+        semNinguem = [];
+        var blocos = [U.body('Marque quem vai em cada função e toque em Escalar.', 'var(--muted)', 12)];
+        ordem.forEach(function (f) {
+          var fn = f[0];
+          var lista = S.members.filter(function (m) { return m.functions.indexOf(fn) >= 0; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+          if (!lista.length) { semNinguem.push(f[1]); return; }
+          blocos.push(h('div', { class: 'row', style: { gap: '6px', marginTop: '10px' } }, ic(L.fnIcon(fn), 14, 'muted'), U.label(f[1])));
+          lista.forEach(function (m) { blocos.push(linha(m, fn)); });
+        });
+        if (semNinguem.length) blocos.push(U.body('Ninguém marcou no perfil: ' + semNinguem.join(', ') + '. Cada um marca em Eu › Meu perfil; o líder também pode marcar em Banda › Pessoas.', 'var(--muted)', 12));
+        return blocos;
+      },
+      actions: function (close) {
+        escalarBtn = h('button', { class: 'textbtn', style: { fontWeight: 600 }, onclick: function () { salvar(close); } }, 'Escalar');
+        atualiza();
+        return [h('button', { class: 'textbtn muted', onclick: close }, 'Cancelar'), escalarBtn];
+      }
+    });
+    function linha(m, fn) {
+      var k = fn + '|' + m.user_id;
+      var already = s.people.some(function (p) { return p.user_id === m.user_id && p.function === fn; });
+      var off = L.isOff(m.user_id, s.starts_on);
+      var caixa = already ? null : h('span', { class: 'marcabox', style: { width: '24px', height: '24px', borderRadius: '7px', border: '2px solid var(--muted)', display: 'grid', placeItems: 'center', flex: 'none', alignSelf: 'center', boxSizing: 'border-box', color: '#fff' } });
+      function pinta() {
+        if (!caixa) return;
+        var on = !!sel[k];
+        caixa.style.background = on ? 'var(--accent)' : 'transparent';
+        caixa.style.borderColor = on ? 'var(--accent)' : 'var(--muted)';
+        if (on) caixa.replaceChildren(ic('Check', 16)); else caixa.replaceChildren();
+      }
+      pinta();
+      return h('div', { class: 'row', role: caixa ? 'checkbox' : null, 'aria-checked': caixa ? String(!!sel[k]) : null, style: { minHeight: '48px', gap: '10px', cursor: already ? 'default' : 'pointer' }, onclick: function (e) {
+        if (already) return;
+        sel[k] = !sel[k]; e.currentTarget.setAttribute('aria-checked', String(sel[k])); pinta(); atualiza();
+      } },
+        U.avatar(m, 32),
+        h('div', { class: 'grow' }, h('div', { class: 'semi', style: { color: already ? 'var(--muted)' : 'var(--hi)' } }, m.name),
+          already || off ? h('div', { class: 'small', style: { color: off && !already ? 'var(--warn)' : 'var(--muted)' } }, already ? 'já está nesta função' : '⚠ marcou que não pode neste dia') : null),
+        caixa);
+    }
+    return dlg;
+  }
+
+  function trocarPessoa(s, fn, replacing) {
+    return L.dialog({
+      title: h('div', { class: 'dt' }, 'Quem vai de ' + L.fnLabel(fn) + '?'),
       body: function (close) {
-        if (!fn) {
-          return h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' } }, L.FUNCTIONS.map(function (f) {
-            var b = U.toggle(f[1], false, L.fnIcon(f[0]), function () { close(); setTimeout(function () { addPerson(s, f[0]); }, 60); });
-            b.style.width = '100%';
-            return b;
-          }));
-        }
-        // Só quem marcou essa função no perfil.
         var withFn = S.members.filter(function (m) { return m.functions.indexOf(fn) >= 0; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
         if (!withFn.length) return U.body('Ninguém da banda marcou ' + L.fnLabel(fn).toLowerCase() + ' no perfil. Cada um marca em Eu › Meu perfil; o líder também pode marcar em Banda › Pessoas.', 'var(--muted)', 13);
-        var lista = withFn.map(function (m) {
+        return withFn.map(function (m) {
           var already = s.people.some(function (p) { return p.user_id === m.user_id && p.function === fn; });
           var off = L.isOff(m.user_id, s.starts_on);
-          var caixa = replacing || already ? null : h('span', { class: 'marcabox', style: { width: '24px', height: '24px', borderRadius: '7px', border: '2px solid var(--line-strong, var(--muted))', display: 'grid', placeItems: 'center', flex: 'none', alignSelf: 'center', boxSizing: 'border-box', color: '#fff' } });
-          function pinta() {
-            if (!caixa) return;
-            var on = !!sel[m.user_id];
-            caixa.style.background = on ? 'var(--accent)' : 'transparent';
-            caixa.style.borderColor = on ? 'var(--accent)' : 'var(--line-strong, var(--muted))';
-            if (on) caixa.replaceChildren(ic('Check', 16)); else caixa.replaceChildren();
-          }
-          pinta();
-          return h('div', { class: 'row', role: caixa ? 'checkbox' : null, style: { minHeight: '52px', gap: '10px', cursor: already ? 'default' : 'pointer' }, onclick: function () {
+          return h('div', { class: 'row', style: { minHeight: '52px', gap: '10px', cursor: already ? 'default' : 'pointer' }, onclick: function () {
             if (already) return;
-            if (!replacing) { sel[m.user_id] = !sel[m.user_id]; pinta(); atualiza(); return; }
             close();
             D.scheduleAction(m.name + ' escalado(a) como ' + L.fnLabel(fn) + '.', async function () {
               var added = await sb.from('service_members').insert({ service_id: s.id, user_id: m.user_id, function: fn });
-              if (added.error || !replacing) return added;
+              if (added.error) return added;
               return sb.from('service_members').delete().eq('service_id', s.id).eq('user_id', replacing.user_id).eq('function', replacing.function);
             });
           } },
             U.avatar(m, 34),
             h('div', { class: 'grow' }, h('div', { class: 'semi', style: { color: already ? 'var(--muted)' : 'var(--hi)' } }, m.name),
-              h('div', { class: 'small', style: { color: off && !already ? 'var(--warn)' : 'var(--muted)' } },
-                already ? 'já está nesta função' : off ? '⚠ marcou que não pode neste dia' : m.functions.indexOf(fn) >= 0 ? L.fnLabel(fn) : (m.functions.map(L.fnLabel).join(', ') || 'sem função marcada'))),
-            caixa);
+              h('div', { class: 'small', style: { color: off && !already ? 'var(--warn)' : 'var(--muted)' } }, already ? 'já está nesta função' : off ? '⚠ marcou que não pode neste dia' : L.fnLabel(fn))));
         });
-        return replacing ? lista : [U.body('Marque quem vai e toque em Escalar.', 'var(--muted)', 12)].concat(lista);
       },
-      actions: function (close) {
-        var alguem = fn && S.members.some(function (m) { return m.functions.indexOf(fn) >= 0 && !s.people.some(function (p) { return p.user_id === m.user_id && p.function === fn; }); });
-        escalarBtn = alguem && !replacing ? h('button', { class: 'textbtn', style: { fontWeight: 600 }, onclick: function () { salvar(close); } }, 'Escalar') : null;
-        atualiza();
-        return [fn && !preset ? h('button', { class: 'textbtn muted', onclick: function () { close(); setTimeout(function () { addPerson(s, null); }, 60); } }, 'Outra função') : null,
-          h('button', { class: 'textbtn muted', onclick: close }, escalarBtn ? 'Cancelar' : 'Fechar'), escalarBtn];
-      }
+      actions: function (close) { return [h('button', { class: 'textbtn muted', onclick: close }, 'Fechar')]; }
     });
-    return dlg;
   }
 
   /** Baixa um arquivo .ics: o celular abre na agenda. */
