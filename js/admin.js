@@ -282,6 +282,7 @@
           B.err ? h('div', { class: 'small', style: { color: 'var(--bad)' } }, B.err) : null),
         h('label', { class: 'small', style: { display: 'grid', gap: '4px' } }, 'Banda da biblioteca',
           h('select', { class: 'input', disabled: B.busy, onchange: function (e) { escolher(e.target.value || null); } }, opts)))];
+      if (org) kids.push(loteBox(org, l));
       if (org && l.length) {
         kids.push(h('div', { style: { width: '100%', display: 'grid', gap: '6px', marginTop: '8px' } }, l.map(function (x) {
           var e = B.edit[x.project_id] || (B.edit[x.project_id] = { pub: x.na_biblioteca, cred: x.credito || '' });
@@ -327,6 +328,137 @@
       toast(e.pub ? 'Salvo: "' + x.titulo + '" está na biblioteca.' : 'Salvo: "' + x.titulo + '" fora da biblioteca.');
       check();
     }
+    // -------- Envio em lote: a pasta "Biblioteca Louvor Studio" (ARTISTA/Música/faixas.mp3) vira músicas da banda da biblioteca.
+    // Uma música de cada vez; pula as que já estão lá com faixas (dá para parar e escolher a pasta de novo).
+    function loteBox(org, l) {
+      var L0 = B.lote;
+      var input = h('input', { type: 'file', multiple: true, webkitdirectory: true, style: { display: 'none' },
+        onchange: function (ev) { var fs = Array.prototype.slice.call(ev.target.files || []); ev.target.value = ''; if (fs.length) enviarLote(org, fs); } });
+      var semPub = l.filter(function (x) { return !x.na_biblioteca && x.faixas > 0; });
+      var kids = [h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+        h('button', { class: 'btn', disabled: B.busy || (L0 && L0.rodando), onclick: function () { input.click(); } }, 'Enviar uma pasta de músicas'),
+        L0 && L0.rodando ? h('button', { class: 'btn2', disabled: L0.parar, onclick: function () { L0.parar = true; paint(); } }, L0.parar ? 'Parando depois desta música…' : 'Parar') : null,
+        !(L0 && L0.rodando) && semPub.length ? h('button', { class: 'btn2', disabled: B.busy, onclick: function () { publicarTodas(semPub); } }, (semPub.length === 1 ? 'Publicar a que ainda não está na biblioteca' : 'Publicar as ' + semPub.length + ' que ainda não estão na biblioteca')) : null,
+        input),
+        h('div', { class: 'muted small' }, 'Escolha a pasta "Biblioteca Louvor Studio" (dentro: ARTISTA › Música › faixas em MP3). As músicas que já estão nesta banda são puladas.')];
+      if (L0) {
+        kids.push(h('div', { class: 'small semi' }, L0.msg || ''));
+        if (L0.rodando) kids.push(h('div', { style: { height: '6px', borderRadius: '3px', background: 'var(--control)', overflow: 'hidden' } },
+          h('div', { style: { height: '100%', width: Math.round((L0.frac || 0) * 100) + '%', background: 'var(--accent)' } })));
+        if (L0.falhas.length) kids.push(h('details', { class: 'small' }, h('summary', null, L0.falhas.length + (L0.falhas.length === 1 ? ' música não foi enviada' : ' músicas não foram enviadas')),
+          h('div', { style: { display: 'grid', gap: '2px', marginTop: '4px' } }, L0.falhas.map(function (f) { return h('div', { class: 'muted' }, f); }))));
+        if (L0.cortes.length) kids.push(h('details', { class: 'small' }, h('summary', null, L0.cortes.length + (L0.cortes.length === 1 ? ' música tinha' : ' músicas tinham') + ' mais de 24 faixas (as principais ficaram)'),
+          h('div', { style: { display: 'grid', gap: '2px', marginTop: '4px' } }, L0.cortes.map(function (f) { return h('div', { class: 'muted' }, f); }))));
+      }
+      return h('div', { style: { width: '100%', display: 'grid', gap: '6px', marginTop: '8px', padding: '10px', borderRadius: '10px', background: 'var(--control)' } }, kids);
+    }
+    function bonito(s) {
+      s = String(s).replace(/\s+/g, ' ').trim();
+      if (s !== s.toUpperCase()) return s;   // só arruma o que veio TODO EM MAIÚSCULAS
+      var peq = { de: 1, da: 1, do: 1, das: 1, dos: 1, e: 1, a: 1, o: 1, as: 1, os: 1, em: 1, no: 1, na: 1, nos: 1, nas: 1, ao: 1, aos: 1, por: 1, pra: 1, para: 1, com: 1, um: 1, uma: 1 };
+      return s.toLowerCase().split(' ').map(function (w, i) { return i > 0 && peq[w] ? w : w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+    }
+    // Mais de 24 faixas: ficam sempre click, guia, piano/teclas, guitarras/violão, baixo e bateria; das outras,
+    // saem primeiro efeitos, depois percussão, depois cordas/synth/pad, e por último vozes e o resto.
+    var ESSENCIAL = /^(click|clique|metronom\w*|met|guia|guide|cue|cues|piano|pno|keys?|teclad\w*|teclas?|rhodes|wurli\w*|guit\w*|gtr\w*|guita\w*|eg|ag|violao|violão|bass|baixo|bx|drums?|bateria|bat|kick|bumbo|snare|caixa|hats?|hh|hihat|tom|toms|overheads?|oh|room|ride|crash|pratos?|cymbals?)\d*$/;
+    function prioridade(nome) {
+      var ws = nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/).filter(Boolean);
+      var tem = function (re) { return ws.some(function (w) { return re.test(w); }); };
+      if (tem(ESSENCIAL)) return 4;
+      if (tem(/^(s?fx\w*|efeitos?|riser|swell|noise|reverse|rev|impact\w*|sweep|whoosh)\d*$/)) return 0;
+      if (tem(/^(perc\w*|shaker|tamb\w*|pandeiro|conga\w*|clap\w*|snap\w*|loops?)\d*$/)) return 1;
+      if (tem(/^(strings?|cordas?|synth\w*|pads?|arp\w*|orq\w*|orch\w*|brass|metais|sinth\w*)\d*$/)) return 2;
+      return 3;
+    }
+    function caber24(files) {
+      if (files.length <= 24) return { ficam: files, fora: [] };
+      var idx = files.map(function (f, i) { return { f: f, i: i, p: prioridade(f.name.replace(/\.[^.]+$/, '')) }; });
+      var manter = idx.slice().sort(function (a, b) { return b.p - a.p || a.i - b.i; }).slice(0, 24);
+      manter.sort(function (a, b) { return a.i - b.i; });
+      var set = manter.map(function (x) { return x.f; });
+      return { ficam: set, fora: files.filter(function (f) { return set.indexOf(f) < 0; }) };
+    }
+    function chave(t, a) { return (String(t || '').trim() + '|' + String(a || '').trim()).toLowerCase(); }
+    async function enviarLote(org, files) {
+      var grupos = {}, ordem = [];
+      files.forEach(function (f) {
+        if (!/\.mp3$/i.test(f.name)) return;
+        var p = String(f.webkitRelativePath || f.name).split('/');
+        if (p.length < 3) return;
+        var artista = bonito(p[p.length - 3]), musica = bonito(p[p.length - 2]), k = chave(musica, artista);
+        if (!grupos[k]) { grupos[k] = { titulo: musica, artista: artista, files: [] }; ordem.push(k); }
+        grupos[k].files.push(f);
+      });
+      if (!ordem.length) { toast('Nenhuma música encontrada. Escolha a pasta "Biblioteca Louvor Studio".'); return; }
+      if (!confirm('Enviar ' + ordem.length + (ordem.length === 1 ? ' música' : ' músicas') + ' para a banda da biblioteca? Deixe esta página aberta até terminar.')) return;
+      var L0 = B.lote = { rodando: true, parar: false, msg: 'Conferindo o que já está na banda…', frac: 0, falhas: [], cortes: [] };
+      paint();
+      var me = (await sb.auth.getUser()).data.user.id;
+      var ja = {};
+      var ex = await sb.from('projects').select('id,song_title,artist,tracks(id)').eq('org_id', org);
+      if (ex.error) { L0.rodando = false; L0.msg = 'Erro: ' + ex.error.message; paint(); return; }
+      (ex.data || []).forEach(function (p) { ja[chave(p.song_title, p.artist)] = p; });
+      var feitas = 0, puladas = 0;
+      for (var i = 0; i < ordem.length && !L0.parar; i++) {
+        var g = grupos[ordem[i]], antes = ja[ordem[i]];
+        var rotulo = 'Música ' + (i + 1) + ' de ' + ordem.length + ': ' + g.titulo + ' · ' + g.artista;
+        if (antes && antes.tracks && antes.tracks.length) { puladas++; continue; }
+        var pid = antes ? antes.id : null, criei = false;
+        try {
+          g.files.sort(function (a, b) { return a.name.localeCompare(b.name, 'pt-BR', { numeric: true }); });
+          var cabe = caber24(g.files);
+          if (cabe.fora.length) { g.files = cabe.ficam; L0.cortes.push(g.titulo + ' · ' + g.artista + ': ficaram de fora ' + cabe.fora.map(function (f) { return f.name.replace(/\.[^.]+$/, ''); }).join(', ')); }
+          L0.msg = rotulo + ' — conferindo as faixas'; L0.frac = i / ordem.length; paint();
+          var itens = [];
+          for (var j = 0; j < g.files.length; j++) {
+            var buf = await g.files[j].arrayBuffer(), sc = Mp3Scan.scanMp3(new Uint8Array(buf));
+            if (!sc.isCBR || !sc.expectedPcmFrames) throw new Error(g.files[j].name + ' não é MP3 de taxa fixa');
+            itens.push({ f: g.files[j], buf: buf, scan: sc });
+          }
+          var sr = itens[0].scan.sampleRate;
+          if (itens.some(function (x) { return x.scan.sampleRate !== sr; })) throw new Error('faixas com taxas de amostragem diferentes');
+          var min = Math.min.apply(null, itens.map(function (x) { return x.scan.expectedPcmFrames; }));
+          var row = { song_title: g.titulo, name: g.titulo, artist: g.artista, session_duration_ms: Math.max(1, Math.round(min / sr * 1000)), sample_rate: sr };
+          if (pid) { var up = await sb.from('projects').update(row).eq('id', pid); if (up.error) throw up.error; }
+          else {
+            var ins = await sb.from('projects').insert(Object.assign({ org_id: org, created_by: me }, row)).select('id').single();
+            if (ins.error) throw ins.error;
+            pid = ins.data.id; criei = true;
+          }
+          for (var t = 0; t < itens.length; t++) {
+            var it = itens[t];
+            L0.msg = rotulo + ' — faixa ' + (t + 1) + ' de ' + itens.length; L0.frac = (i + t / itens.length) / ordem.length; paint();
+            var fileId = crypto.randomUUID(), key = org + '/' + pid + '/stems/' + fileId + '.mp3';
+            var hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', it.buf))).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+            await Nuvem.uploadAudio(sb, { id: fileId, org_id: org, project_id: pid, object_key: key, size_bytes: it.buf.byteLength, checksum_sha256: hash, mime: 'audio/mpeg', uploaded_by: me }, new Blob([it.buf], { type: 'audio/mpeg' }));
+            var tr = await sb.from('tracks').insert({ project_id: pid, name: it.f.name.replace(/\.[^.]+$/, '').slice(0, 60), type: 'stem', source_file_id: fileId, sort_order: t });
+            if (tr.error) throw tr.error;
+          }
+          feitas++;
+        } catch (e) {
+          L0.falhas.push(g.titulo + ' · ' + g.artista + ': ' + (e && e.message || e));
+          // Música nova que não subiu inteira: apaga para tentar de novo do zero na próxima vez.
+          if (criei && pid) { try { await sb.from('projects').delete().eq('id', pid); Nuvem.emptyTrash(sb); } catch (x) { /* fica para a próxima */ } }
+        }
+      }
+      L0.rodando = false;
+      L0.msg = (L0.parar ? 'Parado. ' : 'Pronto. ') + feitas + (feitas === 1 ? ' música enviada' : ' músicas enviadas') + (puladas ? ', ' + puladas + ' já estavam na banda' : '') + (L0.falhas.length ? ', ' + L0.falhas.length + ' com problema (veja abaixo)' : '') + '.';
+      check();
+    }
+    async function publicarTodas(lista) {
+      if (!confirm('Publicar ' + lista.length + (lista.length === 1 ? ' música' : ' músicas') + ' na biblioteca? Elas passam a aparecer para as bandas dos planos pagos. O crédito de cada uma fica como estiver (dá para mudar depois).')) return;
+      B.busy = true; paint();
+      var erros = 0;
+      for (var i = 0; i < lista.length; i++) {
+        var x = lista[i], e = B.edit[x.project_id];
+        var r = await sb.rpc('admin_biblioteca_salvar', { _project: x.project_id, _publicar: true, _credito: (e && e.cred) || x.credito || '' });
+        if (r.error) { erros++; B.err = r.error.message; }
+      }
+      B.busy = false;
+      toast((lista.length - erros) + ' publicadas.' + (erros ? ' ' + erros + ' com erro.' : ''));
+      check();
+    }
+
     if (B.list === null) check(); else paint();
     paint();
     return box;
