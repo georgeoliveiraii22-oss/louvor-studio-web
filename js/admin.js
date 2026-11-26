@@ -114,6 +114,7 @@
           stat('Espaço usado', bytes(usado))),
         legacyBox(),
         opiniaoBox(),
+        bibliotecaBox(),
         h('div', { class: 'adm-filters' }, search, chips),
         listBox));
     renderList();
@@ -255,6 +256,78 @@
       check();
     }
     if (O.list === null) check(); else paint();
+    paint();
+    return box;
+  }
+
+  // ------------------------------------------------------------------ Biblioteca do Louvor Studio (migração 0048)
+  // As músicas são montadas numa banda da empresa pelo próprio app (enviar a multitrack, partes, click, letra).
+  // Aqui: qual banda é a biblioteca, quais músicas dela aparecem para os planos pagos e o crédito de cada uma.
+  var B = { list: null, busy: false, err: null, edit: {} };
+  function bibliotecaBox() {
+    if (B.box) return B.box;
+    var box = B.box = h('section', { class: 'adm-legacy adm-biblioteca' });
+    function paint() {
+      var l = (B.list || []).filter(function (x) { return x.project_id; });
+      var org = B.list && B.list.length ? B.list[0].org_id : null;
+      var publicadas = l.filter(function (x) { return x.na_biblioteca; }).length;
+      var opts = [h('option', { value: '' }, '(nenhuma)')].concat(A.orgs.slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
+        .map(function (o) { return h('option', { value: o.id, selected: o.id === org }, o.name + (o.leader_name ? ' · ' + o.leader_name : '')); }));
+      var kids = [h('div', { class: 'row', style: { gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' } },
+        h('div', { class: 'grow' },
+          h('div', { class: 'semi' }, 'Biblioteca do Louvor Studio'),
+          h('div', { class: 'muted small' }, B.list === null ? 'Conferindo…'
+            : !org ? 'Escolha a banda da empresa onde as músicas da biblioteca são montadas.'
+            : l.length + (l.length === 1 ? ' música na banda' : ' músicas na banda') + ' · ' + publicadas + ' na biblioteca. Monte as músicas nessa banda pelo app (Repertório › Adicionar música › enviar a multitrack); os arquivos não contam no espaço de quem usa.'),
+          B.err ? h('div', { class: 'small', style: { color: 'var(--bad)' } }, B.err) : null),
+        h('label', { class: 'small', style: { display: 'grid', gap: '4px' } }, 'Banda da biblioteca',
+          h('select', { class: 'input', disabled: B.busy, onchange: function (e) { escolher(e.target.value || null); } }, opts)))];
+      if (org && l.length) {
+        kids.push(h('div', { style: { width: '100%', display: 'grid', gap: '6px', marginTop: '8px' } }, l.map(function (x) {
+          var e = B.edit[x.project_id] || (B.edit[x.project_id] = { pub: x.na_biblioteca, cred: x.credito || '' });
+          function mudou() { return e.pub !== x.na_biblioteca || e.cred !== (x.credito || ''); }
+          var btn = h('button', { class: 'btn2', disabled: true, onclick: function () { salvar(x, e); } }, 'Salvar');
+          function marca() { var m = mudou() && !B.busy; btn.disabled = !m; btn.className = m ? 'btn' : 'btn2'; }
+          marca();
+          return h('div', { class: 'row', style: { gap: '10px', padding: '8px 10px', borderRadius: '10px', background: 'var(--control)', flexWrap: 'wrap' } },
+            h('label', { class: 'row', style: { gap: '8px' } },
+              h('input', { type: 'checkbox', checked: e.pub, disabled: B.busy, onchange: function (ev) { e.pub = ev.target.checked; marca(); } }),
+              h('div', null,
+                h('div', { class: 'semi' }, x.titulo + (x.artista ? ' · ' + x.artista : '')),
+                h('div', { class: 'muted small' }, x.faixas + (x.faixas === 1 ? ' faixa' : ' faixas') + ' · ' + bytes(Number(x.bytes || 0))
+                  + (x.bandas_usando ? ' · ' + x.bandas_usando + (x.bandas_usando === 1 ? ' banda usa' : ' bandas usam') : '')))),
+            h('input', { class: 'input grow', placeholder: 'Crédito (ex.: Cedida por …)', value: e.cred, maxlength: 160, disabled: B.busy,
+              style: { minWidth: '200px' }, oninput: function (ev) { e.cred = ev.target.value; marca(); } }),
+            btn);
+        })));
+      }
+      box.replaceChildren.apply(box, kids);
+    }
+    async function check() {
+      var r = await sb.rpc('admin_biblioteca_lista');
+      if (r.error) { B.list = []; B.err = /admin_biblioteca_lista/.test(r.error.message) ? 'Rode a migração 0048 no Supabase.' : r.error.message; }
+      else { B.list = r.data || []; B.err = null; B.edit = {}; }
+      paint();
+    }
+    async function escolher(id) {
+      if (!confirm(id ? 'Usar esta banda como a Biblioteca do Louvor Studio?' : 'Deixar sem banda da biblioteca? As músicas somem do catálogo.')) { paint(); return; }
+      B.busy = true; paint();
+      var r = await sb.rpc('admin_biblioteca_banda', { _org: id });
+      B.busy = false;
+      if (r.error) { B.err = r.error.message; paint(); return; }
+      check();
+    }
+    async function salvar(x, e) {
+      if (!e.pub && x.na_biblioteca && x.bandas_usando &&
+          !confirm('Tirar "' + x.titulo + '" da biblioteca? ' + x.bandas_usando + (x.bandas_usando === 1 ? ' banda usa' : ' bandas usam') + ' esta música: as partes e gravações delas ficam, mas o áudio deixa de abrir.')) return;
+      B.busy = true; paint();
+      var r = await sb.rpc('admin_biblioteca_salvar', { _project: x.project_id, _publicar: e.pub, _credito: e.cred });
+      B.busy = false;
+      if (r.error) { B.err = r.error.message; paint(); return; }
+      toast(e.pub ? 'Salvo: "' + x.titulo + '" está na biblioteca.' : 'Salvo: "' + x.titulo + '" fora da biblioteca.');
+      check();
+    }
+    if (B.list === null) check(); else paint();
     paint();
     return box;
   }

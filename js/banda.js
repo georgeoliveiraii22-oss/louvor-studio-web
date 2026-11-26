@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.32.0', [
+      'Biblioteca do Louvor Studio: nos planos pagos, multitracks cedidas por autores e produtores para adicionar ao repertório da banda (Repertório › Biblioteca). Elas não ocupam o espaço da banda.'
+    ]],
     ['1.31.8', [
       'LS Live 1.2.0 para baixar: contagem 1-2-3-4 antes da música, tela grande do ministro, aba Antes do culto, + Marcar parte, cores automáticas das partes e aviso de versão nova com Atualizar agora.'
     ]],

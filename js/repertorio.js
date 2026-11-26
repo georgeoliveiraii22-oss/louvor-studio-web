@@ -291,6 +291,7 @@
       R.showFilters && (R.sel || R.view === 'musicas') ? h('div', { class: 'hscroll' }, FILTERS.concat(tagList().map(function (t) { return ['tag:' + t, t]; })).map(function (f) { return U.toggle(f[1], R.filter === f[0], null, function () { R.filter = f[0]; L.render(); }); })) : null,
       !R.showFilters && active && (R.sel || R.view === 'musicas') ? h('button', { class: 'filterpill', onclick: function () { R.filter = 'todas'; L.render(); } },
           'Mostrando: ' + filterLabel(), ic('X', 14, 'accent')) : null,
+      !R.sel && R.view === 'musicas' && L.bibliotecaEntrada ? L.bibliotecaEntrada() : null,
       R.sel || R.view === 'musicas' ? listBox : null);
     if (R.sel) {
       var chosen = S.projects.filter(function (p) { return R.sel[p.id]; });
@@ -312,6 +313,7 @@
         h('div', { class: 'hi semi ell', style: { fontSize: '16px' } }, p.song_title),
         h('div', { class: 'muted small ell' }, [key ? 'Tom ' + key : null, p.artist].filter(Boolean).join(' · ') || ' '),
         h('div', { class: 'row', style: { gap: 0 } }, h('span', { class: 'small semi', style: { color: multi ? 'var(--accent-text)' : 'var(--muted)' } }, multi ? 'Com multitrack' : 'Sem multitrack'),
+          p.library_song_id ? h('span', { class: 'muted small ell' }, ' · da biblioteca') : null,
           inSchedule ? h('span', { class: 'accent small semi ell' }, ' · na sua escala') : null)),
       h('span', { class: 'cols' }, h('span', { class: 'hi' }, key || '—'), h('span', null, p.bpm ? String(p.bpm) : '—'),
         h('span', { class: 'row', style: { gap: '6px', color: multi ? 'var(--accent)' : 'var(--muted)' } }, ic(multi ? 'AudioWaveform' : 'Minus', 16), multi ? 'Tem' : 'Não tem')),
@@ -370,8 +372,17 @@
       h('div', { class: 'hi semi grow' }, 'Letra'), ic('ExternalLink', 16, 'muted')));
     if (p.audio_url) out.push(U.clickRow(function () { U.openUrl(p.audio_url); }, h('span', { class: 'circle', style: { color: 'var(--text)' } }, ic('Music', 18)),
       h('div', { class: 'hi semi grow' }, 'Ouvir o áudio'), ic('ExternalLink', 16, 'muted')));
+    var daBib = !!p.library_song_id, bibTrava = daBib && (S.current.org.plan || 'free') === 'free';
+    if (daBib) {
+      var bi = L.bibliotecaItem ? L.bibliotecaItem(p.library_song_id) : null;
+      out.push(h('div', { class: 'note' },
+        h('div', { class: 'row bold tiny', style: { letterSpacing: '1px', color: 'var(--accent-text)' } }, ic('LibraryBig', 16), 'DA BIBLIOTECA DO LOUVOR STUDIO'),
+        U.body(bibTrava ? 'Esta multitrack é da Biblioteca, um benefício dos planos pagos. Com a banda num plano pago, ela volta a tocar.'
+          : 'Esta multitrack não ocupa o espaço da banda.' + (bi && bi.credito ? ' ' + bi.credito + '.' : ''), 'var(--hi)')));
+    }
+    if (bibTrava) multi = false;
     out.push(U.btn('Ouvir com multitrack', 'Headphones', function () { close(); setTimeout(function () { L.go({ name: 'studio', id: p.id }); }, 150); }, { full: true, tall: true, disabled: !multi }));
-    if (!multi) out.push(U.body(L.perm.songs() ? 'Esta música ainda não tem multitrack. Toque em Editar música para enviar as faixas.' : 'Esta música ainda não tem multitrack. Por enquanto dá para ouvir pelo link.', 'var(--muted)', 12));
+    if (!multi && !bibTrava) out.push(U.body(L.perm.songs() ? 'Esta música ainda não tem multitrack. Toque em Editar música para enviar as faixas.' : 'Esta música ainda não tem multitrack. Por enquanto dá para ouvir pelo link.', 'var(--muted)', 12));
 
     // Vozes para estudar
     if (multi && extra.takes) {
