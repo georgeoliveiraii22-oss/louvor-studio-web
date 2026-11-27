@@ -35,6 +35,10 @@
       var t = st.otherTakes.find(function (x) { return x.id === id; });
       if (t) list.push({ key: 'take:' + t.id, kind: 'voice', label: L.nameOf(t.user_id) + (t.voice_part ? ' · ' + VoiceParts.label(t.voice_part) : ''), objectKey: t.file && t.file.object_key, row: t });
     });
+    if (st.reviewId && st.voices.indexOf(st.reviewId) < 0) {
+      var rv = st.otherTakes.find(function (x) { return x.id === st.reviewId; });
+      if (rv) list.push({ key: 'take:' + rv.id, kind: 'voice', label: 'Revisão · ' + L.nameOf(rv.user_id), objectKey: rv.file && rv.file.object_key, row: rv });
+    }
     return list;
   }
 
@@ -1359,6 +1363,8 @@
         h('div', { class: 'hi semi ell', style: { fontSize: '16px' } }, p ? p.song_title : 'Estúdio'),
         h('div', { class: 'muted small ell' }, p ? [p.artist, L.keyToPlay(p) ? 'Tom ' + L.keyToPlay(p) : null, p.bpm ? p.bpm + ' BPM' : null].filter(Boolean).join(' · ') : '')),
       p && p.lyrics ? U.iconBtn('FileText', st.lyrics ? 'Esconder a letra' : 'Mostrar a letra', function () { st.lyrics = !st.lyrics; L.store.set('estudio_letra', st.lyrics); L.render(); }, { color: st.lyrics ? 'var(--accent-text)' : null }) : null,
+      L.perm.edit() ? U.iconBtn('Inbox', 'Vozes recebidas', function () { if (st.reviewOpen) fecharRevisao(); else abrirRevisao(); },
+        { color: st.reviewOpen ? 'var(--accent-text)' : null, badge: pendentes().length || null }) : null,
       U.iconBtn('Users', 'Vozes para estudar', voicesSheet, { color: st.voices.length ? 'var(--accent-text)' : null, badge: st.voices.length || null }),
       U.iconBtn('CircleHelp', 'Como usar', helpDialog));
     var root = h('div', { class: 'studio' }, top);
@@ -1456,6 +1462,14 @@
     u.zoomOut = h('button', { class: 'zbtn', 'aria-label': 'Afastar', onclick: function () { zoomButton(0.5); } }, ic('ZoomOut', 16));
     u.zoomIn = h('button', { class: 'zbtn', 'aria-label': 'Aproximar', onclick: function () { zoomButton(2); } }, ic('ZoomIn', 16));
     area.dataset.tool = st.tool;
+    if (route.review && !st.reviewAuto && L.perm.edit()) { st.reviewAuto = true; setTimeout(function () { abrirRevisao(); }, 0); }
+    var pend = L.perm.edit() ? pendentes() : [];
+    if (pend.length && !st.reviewOpen) {
+      body.appendChild(h('button', { class: 'btn full', style: { justifyContent: 'space-between' }, onclick: function () { abrirRevisao(); } },
+        h('span', { class: 'row', style: { gap: '8px' } }, ic('Inbox', 18), pend.length === 1 ? '1 voz recebida para revisar' : pend.length + ' vozes recebidas para revisar'),
+        h('span', { class: 'row', style: { gap: '4px' } }, 'Ouvir', ic('ChevronRight', 16))));
+    }
+    if (st.reviewOpen) body.appendChild(painelRevisao());
     body.appendChild(h('div', { class: 'row' }, U.label('Faixas'), h('span', { class: 'grow' }),
       U.textBtn('Volume original', function () { st.mix = {}; st.solo = {}; saveMix(); applyGains(); L.render(); })));
     body.appendChild(h('div', { class: 'daw' },
@@ -1541,6 +1555,61 @@
         busy = null; sheet.refresh(); L.render(); restartIfPlaying();
       });
     }
+  }
+
+  // ------------------------------------------------------------------ Vozes recebidas (líder e quem edita o áudio)
+  // A voz entra como faixa e toca junto com a multitrack; aprovar, reprovar (pedir para refazer) e liberar.
+  function pendentes() { return (st && st.otherTakes || []).filter(function (t) { return (t.review_status || 'pendente') === 'pendente' && !t.released_for_rehearsal; }); }
+  function abrirRevisao(t) {
+    if (!st || st.loading) return;
+    st.reviewOpen = true;
+    t = t || (st.reviewId ? null : (pendentes()[0] || st.otherTakes[0]));
+    if (!t) { L.render(); return; }
+    st.reviewBusy = t.id; L.render();
+    decode({ key: 'take:' + t.id, objectKey: t.file.object_key }).then(function () {
+      st.reviewId = t.id;
+      st.sel = 'take:' + t.id;
+      goTo(Math.max(0, (t.start_ms || 0) / 1000 - 1));
+    }).catch(function (e) { L.toast(L.errorText(e)); }).finally(function () { st.reviewBusy = null; L.render(); restartIfPlaying(); });
+  }
+  function fecharRevisao() {
+    st.reviewOpen = false; st.reviewId = null;
+    if (st.solo) st.solo = {};
+    applyGains(); L.render(); restartIfPlaying();
+  }
+  async function atualizarTake(id, patch, msg) {
+    var r = await sb.from('takes').update(patch).eq('id', id);
+    if (r.error) { L.toast(L.errorText(r.error)); return; }
+    var t = st.otherTakes.find(function (x) { return x.id === id; });
+    if (t) Object.assign(t, patch);
+    if (msg) L.toast(msg);
+    L.render();
+  }
+  function painelRevisao() {
+    var lista = st.otherTakes.slice().sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; });
+    var t = st.otherTakes.find(function (x) { return x.id === st.reviewId; });
+    var estado = function (x) { return x.released_for_rehearsal ? 'liberada' : x.review_status === 'aprovada' ? 'aprovada' : x.review_status === 'refazer' ? 'reprovada' : 'pendente'; };
+    var key = t ? 'take:' + t.id : null;
+    var so = key && st.solo && st.solo[key] && Object.keys(st.solo).length === 1;
+    return h('div', { class: 'panel', style: { boxShadow: 'inset 0 0 0 1.5px var(--accent)' } },
+      h('div', { class: 'row' }, ic('Inbox', 18, 'accent'), h('div', { class: 'hi semi grow' }, 'Vozes recebidas'), U.iconBtn('X', 'Fechar', fecharRevisao)),
+      lista.length ? U.body('Toque numa voz: ela entra como faixa e toca junto com a multitrack.', 'var(--muted)', 12) : U.body('Ninguém enviou gravações desta música ainda.', 'var(--muted)', 13),
+      h('div', { class: 'hscroll' }, lista.map(function (x) {
+        return U.toggle(L.nameOf(x.user_id) + ' · ' + (st.reviewBusy === x.id ? 'baixando…' : estado(x)), x.id === st.reviewId, null, function () { abrirRevisao(x); });
+      })),
+      t ? [
+        h('div', { class: 'muted small' }, [t.voice_part ? VoiceParts.label(t.voice_part) : null, L.clock((t.duration_ms || 0) / 1000), 'enviada ' + new Date(t.created_at).toLocaleDateString('pt-BR')].filter(Boolean).join(' · ')),
+        h('div', { class: 'row', style: { gap: '8px' } },
+          U.btn(st.playing ? 'Pausar' : 'Ouvir com a música', st.playing ? 'Pause' : 'Play', function () { if (!st.playing) goTo(Math.max(0, (t.start_ms || 0) / 1000 - 1)); togglePlay(); }, { full: true }),
+          U.btn2(so ? 'Com a banda' : 'Só a voz', 'Mic', function () { st.solo = so ? {} : (function () { var o = {}; o[key] = true; return o; })(); applyGains(); L.render(); }, { full: true })),
+        h('div', { class: 'row', style: { gap: '8px' } },
+          U.btn(t.review_status === 'aprovada' ? 'Aprovada' : 'Aprovar', 'Check', function () { atualizarTake(t.id, { review_status: 'aprovada' }, 'Aprovada.'); }, { full: true }),
+          U.btn2('Reprovar', 'X', function () { atualizarTake(t.id, { review_status: 'refazer', released_for_rehearsal: false }, 'Reprovada: a pessoa vê que precisa gravar de novo.'); }, { full: true })),
+        h('label', { class: 'row small', style: { gap: '8px', cursor: 'pointer' } },
+          h('input', { type: 'checkbox', checked: !!t.released_for_rehearsal, onchange: function (e) {
+            atualizarTake(t.id, { released_for_rehearsal: e.target.checked }, e.target.checked ? 'Liberada: a banda já pode estudar.' : 'A gravação voltou a ser privada.');
+          } }), 'Liberar para a banda estudar esta voz')
+      ] : null);
   }
 
   function helpDialog() {

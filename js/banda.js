@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.33.2', [
+      'Estúdio: as vozes que a banda manda aparecem para o líder com um número no ícone e um aviso. Um toque e a voz toca junto com a multitrack, para aprovar ou reprovar ali mesmo.'
+    ]],
     ['1.32.9', [
       'Recados da Equipe Louvor Studio aparecem numa janela quando você abre o app (uma vez só).'
     ]],
