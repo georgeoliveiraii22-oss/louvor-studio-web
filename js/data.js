@@ -13,6 +13,22 @@
 
   var D = L.data = {};
 
+  /** Faixas (id, project_id) de várias músicas. O banco devolve no máximo 1000 linhas por pedido: com um repertório
+   *  grande a lista vinha cortada e músicas com multitrack apareciam "Sem multitrack". Pede em partes até acabar. */
+  D.trackRows = async function (ids) {
+    var out = [];
+    for (var i = 0; i < ids.length; i += 80) {
+      var lote = ids.slice(i, i + 80);
+      for (var from = 0; ; from += 1000) {
+        var r = await sb.from('tracks').select('id,project_id').in('project_id', lote).order('id').range(from, from + 999);
+        if (r.error) return r;
+        out = out.concat(r.data || []);
+        if (!r.data || r.data.length < 1000) break;
+      }
+    }
+    return { data: out, error: null };
+  };
+
   // ------------------------------------------------------------------ Local (preferências deste navegador)
   L.store = {
     get: function (k, d) { try { var v = localStorage.getItem('louvor.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -73,7 +89,7 @@
 
     var ids = S.projects.map(function (p) { return p.id; });
     var more = await Promise.all([
-      ids.length ? sb.from('tracks').select('id,project_id').in('project_id', ids) : Promise.resolve({ data: [] }),
+      ids.length ? D.trackRows(ids) : Promise.resolve({ data: [] }),
       ids.length ? sb.from('project_parts').select('project_id,name,assigned_user').eq('assigned_user', S.user.id).in('project_id', ids) : Promise.resolve({ data: [] }),
       D.services(org),
       sb.from('unavailability').select('user_id,day').eq('org_id', org),
@@ -119,7 +135,7 @@
     S.projects = must(await sb.from('projects').select('*').eq('org_id', org).order('created_at', { ascending: false }));
     var ids = S.projects.map(function (p) { return p.id; });
     S.tracksIdx = {};
-    if (ids.length) soft(await sb.from('tracks').select('id,project_id').in('project_id', ids)).forEach(function (t) { (S.tracksIdx[t.project_id] = S.tracksIdx[t.project_id] || []).push(t.id); });
+    if (ids.length) soft(await D.trackRows(ids)).forEach(function (t) { (S.tracksIdx[t.project_id] = S.tracksIdx[t.project_id] || []).push(t.id); });
     await D.loadImages();
   };
 

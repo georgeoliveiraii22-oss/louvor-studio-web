@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.32.7', [
+      'Corrigido: em repertórios grandes, algumas músicas com multitrack apareciam como "Sem multitrack".'
+    ]],
     ['1.32.6', [
       'Enviar pasta: as músicas do repertório que estavam sem multitrack ganham as faixas (mesmo com acento ou pontuação diferentes no nome da pasta), mantendo o nome, a escala e o resto. O resumo mostra quantas serão completadas e quantas são novas.'
     ]],
