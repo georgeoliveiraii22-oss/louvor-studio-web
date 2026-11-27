@@ -38,7 +38,9 @@
     var set = manter.map(function (x) { return x.f; });
     return { ficam: set, fora: files.filter(function (f) { return set.indexOf(f) < 0; }) };
   }
-  function chave(t, a) { return (String(t || '').trim() + '|' + String(a || '').trim()).toLowerCase(); }
+  // Sem acento, pontuação nem espaços: "Moisés\Cântico" (a pasta não aceita "\") casa com "MoisésCântico".
+  function so(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ''); }
+  function chave(t, a) { return so(t) + '|' + so(a); }
   L.lote = { bonito: bonito, caber24: caber24, prioridade: prioridade, conferir: function (fs) { conferir(fs); } };
 
   /** Abre a escolha da pasta. */
@@ -68,9 +70,10 @@
       L.toast('Não encontrei músicas. A pasta precisa ter ARTISTA › Música › faixas em MP3.');
       return;
     }
-    var ja = {};
-    S.projects.forEach(function (p) { if ((S.tracksIdx[p.id] || []).length) ja[chave(p.song_title, p.artist)] = true; });
+    var ja = {}, semFaixa = {};
+    S.projects.forEach(function (p) { if ((S.tracksIdx[p.id] || []).length) ja[chave(p.song_title, p.artist)] = true; else semFaixa[chave(p.song_title, p.artist)] = true; });
     var novas = ordem.filter(function (k) { return !ja[k]; });
+    var completar = novas.filter(function (k) { return semFaixa[k]; }).length;
     var bytes = novas.reduce(function (a, k) { return a + grupos[k].bytes; }, 0);
     var limite = Number(S.current.org.storage_limit_bytes || 0), livre = Math.max(0, limite - Number(S.storageUsed || 0));
     var cabe = !limite || bytes <= livre;
@@ -79,6 +82,7 @@
       body: function () {
         return [
           U.body(L.plural(ordem.length, 'música encontrada', 'músicas encontradas') + (ordem.length - novas.length ? ' · ' + (ordem.length - novas.length) + ' já estão no repertório (ficam como estão)' : '') + '.', null, 14),
+          completar ? U.body(L.plural(completar, 'música do repertório que estava sem multitrack ganha', 'músicas do repertório que estavam sem multitrack ganham') + ' as faixas (o nome, a escala e o resto ficam como estão)' + (novas.length > completar ? '; ' + L.plural(novas.length - completar, 'é nova', 'são novas') : '') + '.', null, 13) : null,
           U.keyValue('Tamanho das novas', L.bytes(bytes)),
           limite ? U.keyValue('Espaço livre da banda', L.bytes(livre)) : null,
           !cabe ? U.body('Não cabe tudo no espaço da banda: o envio vai até onde couber. Para caber todas, aumente o plano em Banda › Plano.', 'var(--warn)', 13) : null,
@@ -138,7 +142,10 @@
         if (itens.some(function (x) { return x.scan.sampleRate !== sr; })) throw new Error('faixas com taxas de amostragem diferentes');
         var max = Math.max.apply(null, itens.map(function (x) { return x.scan.expectedPcmFrames; }));
         var row = { song_title: g.titulo, name: g.titulo, artist: g.artista, session_duration_ms: Math.max(1, Math.round(max / sr * 1000)), sample_rate: sr };
-        if (pid) { var up = await sb.from('projects').update(row).eq('id', pid); if (up.error) throw up.error; }
+        if (pid) {   // música do repertório sem faixas: só a duração e a taxa; o nome e o artista ficam os dela
+          var up = await sb.from('projects').update({ session_duration_ms: row.session_duration_ms, sample_rate: sr }).eq('id', pid);
+          if (up.error) throw up.error;
+        }
         else {
           var ins = await sb.from('projects').insert(Object.assign({ org_id: org, created_by: me }, row)).select('id').single();
           if (ins.error) throw ins.error;

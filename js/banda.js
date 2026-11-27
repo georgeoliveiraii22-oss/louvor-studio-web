@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.32.6', [
+      'Enviar pasta: as músicas do repertório que estavam sem multitrack ganham as faixas (mesmo com acento ou pontuação diferentes no nome da pasta), mantendo o nome, a escala e o resto. O resumo mostra quantas serão completadas e quantas são novas.'
+    ]],
     ['1.32.5', [
       'Repertório › Enviar pasta (no computador): escolha uma pasta com várias músicas (Artista › Música › faixas em MP3) e o site cria todas de uma vez, com as multitracks.'
     ]],
