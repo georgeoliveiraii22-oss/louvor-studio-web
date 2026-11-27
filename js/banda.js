@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.32.5', [
+      'Repertório › Enviar pasta (no computador): escolha uma pasta com várias músicas (Artista › Música › faixas em MP3) e o site cria todas de uma vez, com as multitracks.'
+    ]],
     ['1.32.4', [
       'Multitrack com uma faixa mais curta (um efeito, uma introdução) não faz mais a música parar antes do fim.'
     ]],

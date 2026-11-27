@@ -277,6 +277,7 @@
         ? (R.sel ? U.textBtn('Cancelar', function () { R.sel = null; L.render(); })
           : h('div', { class: 'row', style: { gap: '4px' } },
             U.btn2('Planilha', 'FileSpreadsheet', sheetMenu),
+            L.lotePossivel && L.lotePossivel() ? U.btn2('Enviar pasta', 'FolderUp', L.enviarPasta) : null,
             S.projects.length ? U.iconBtn('ListChecks', 'Escolher músicas para apagar', function () { R.sel = {}; L.render(); }) : null,
             U.helpBtn('repertorio')))
         : U.helpBtn('repertorio')),
