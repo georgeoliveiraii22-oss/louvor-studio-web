@@ -3,7 +3,7 @@
   'use strict';
   var L = window.L, S = L.S, h = L.h, U = L.ui, D = L.data, A = L.auth;
 
-  L.VERSION = '1.32.8';
+  L.VERSION = '1.33.0';
 
   /** Antes das abas: apresentação, entrar, carregando, criar banda, "o que você faz". Nulo = abas normais. */
   L.rootView = function () {
@@ -48,6 +48,8 @@
     L.render();
     try { await D.refresh(); } catch (e) { L.toast(L.errorText(e)); }
     L.render();
+    setTimeout(function () { if (L.avisos) L.avisos.check(); }, 900);   // mensagens do app (0050)
+    L.sb.rpc('app_ping', { _plataforma: 'site', _versao: L.VERSION }).then(function () {}, function () {});   // CRM (0051)
   }
 
   L.sb.auth.onAuthStateChange(function (event, session) {
@@ -73,6 +75,8 @@
     if (S.loggedIn && S.current && Date.now() - hiddenAt > 120000 && L.route().name === 'main') {
       D.refresh().then(L.render).catch(function () { /* sem internet */ });
     }
+    if (S.loggedIn && Date.now() - hiddenAt > 120000 && L.avisos) L.avisos.check();
+    if (S.loggedIn && Date.now() - hiddenAt > 600000) L.sb.rpc('app_ping', { _plataforma: 'site', _versao: L.VERSION }).then(function () {}, function () {});
   });
 
   /** Recarregar tudo (botão de atualizar). */

@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.32.9', [
+      'Recados da Equipe Louvor Studio aparecem numa janela quando você abre o app (uma vez só).'
+    ]],
     ['1.32.7', [
       'Corrigido: em repertórios grandes, algumas músicas com multitrack apareciam como "Sem multitrack".'
     ]],

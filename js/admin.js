@@ -105,6 +105,7 @@
       h('header', { class: 'adm-top' }, h('div', { class: 'wrap' },
         h('span', { class: 'logo', html: icon('lines', 20) }),
         h('div', { class: 'grow' }, h('div', { class: 'brand' }, 'Administração'), h('div', { class: 'muted small' }, A.me.email)),
+        h('a', { class: 'btn', href: 'crm/', style: { minHeight: '40px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' } }, 'CRM'),
         h('a', { class: 'btn2', href: '../', style: { minHeight: '40px', textDecoration: 'none' } }, 'Voltar ao app'))),
       h('main', { class: 'wrap adm-main' },
         h('section', { class: 'adm-stats' },
@@ -113,6 +114,7 @@
           stat('Receita por mês', P.reais(receita), 'estimada, pelos planos marcados'),
           stat('Espaço usado', bytes(usado))),
         legacyBox(),
+        avisoBox(),
         opiniaoBox(),
         bibliotecaBox(),
         h('div', { class: 'adm-filters' }, search, chips),
@@ -186,6 +188,91 @@
   // uma vez só (o servidor anota). Quem envia é a função `emails` (endereço quick-function), pelo Brevo.
   var FN_EMAILS = 'quick-function';
   var O = { list: null, busy: false, err: null, testou: false, fora: {}, aberto: false };
+  // ------------------------------------------------------------------ Mensagem para os usuários (migração 0050)
+  // Aparece numa janela quando a pessoa abre o app (uma vez só) e pode ir também como notificação.
+  var AV = { list: null, busy: false, err: null, f: { title: '', body: '', link: '', label: '', publico: 'todos', org: '', push: true }, alcance: null };
+  var PUBLICOS = [['todos', 'Todos os usuários'], ['lideres', 'Só os líderes'], ['pagos', 'Bandas em plano pago'], ['gratis', 'Bandas no Grátis'], ['banda', 'Uma banda']];
+  function avisoBox() {
+    if (AV.box) return AV.box;
+    var box = AV.box = h('section', { class: 'adm-legacy adm-biblioteca' });
+    function campo(rotulo, el) { return h('label', { class: 'small', style: { display: 'grid', gap: '4px', width: '100%' } }, rotulo, el); }
+    function paint() {
+      var f = AV.f;
+      var titulo = h('input', { class: 'input', maxlength: 80, value: f.title, placeholder: 'Ex.: Novidade: Biblioteca do Louvor Studio', disabled: AV.busy, oninput: function (e) { f.title = e.target.value; marca(); } });
+      var texto = h('textarea', { class: 'input', maxlength: 1500, rows: 5, placeholder: 'O que você quer contar para as bandas', disabled: AV.busy, style: { resize: 'vertical', minHeight: '110px', paddingTop: '10px' }, oninput: function (e) { f.body = e.target.value; marca(); } });
+      texto.value = f.body;
+      var link = h('input', { class: 'input', value: f.link, placeholder: 'https://… (opcional)', disabled: AV.busy, oninput: function (e) { f.link = e.target.value; marca(); } });
+      var rot = h('input', { class: 'input', maxlength: 40, value: f.label, placeholder: 'Texto do botão (ex.: Ver agora)', disabled: AV.busy, oninput: function (e) { f.label = e.target.value; } });
+      var pub = h('select', { class: 'input', disabled: AV.busy, onchange: function (e) { f.publico = e.target.value; alcance(); paint(); } },
+        PUBLICOS.map(function (p) { return h('option', { value: p[0], selected: p[0] === f.publico }, p[1]); }));
+      var banda = f.publico === 'banda' ? h('select', { class: 'input', disabled: AV.busy, onchange: function (e) { f.org = e.target.value; alcance(); } },
+        [h('option', { value: '' }, 'Escolha a banda…')].concat(A.orgs.slice().sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); })
+          .map(function (o) { return h('option', { value: o.id, selected: o.id === f.org }, o.name); }))) : null;
+      var push = h('label', { class: 'row small', style: { gap: '8px' } }, h('input', { type: 'checkbox', checked: f.push, disabled: AV.busy, onchange: function (e) { f.push = e.target.checked; } }), 'Mandar também como notificação no celular');
+      var enviar = h('button', { class: 'btn', disabled: true, onclick: mandar }, 'Enviar');
+      var info = h('div', { class: 'muted small' });
+      function marca() {
+        var okLink = !f.link.trim() || /^https?:\/\/\S+$/i.test(f.link.trim());
+        enviar.disabled = AV.busy || !f.title.trim() || !f.body.trim() || !okLink || (f.publico === 'banda' && !f.org);
+        info.textContent = !okLink ? 'O link precisa começar com https://' : AV.alcance ? 'Vai para ' + AV.alcance.pessoas + (AV.alcance.pessoas === 1 ? ' pessoa' : ' pessoas') + ' (' + AV.alcance.com_notificacao + ' com notificação ligada no celular). Aparece quando abrirem o app, uma vez só.' : '';
+      }
+      AV.marca = marca;
+      var kids = [h('div', { class: 'semi' }, 'Mensagem para os usuários'),
+        h('div', { class: 'muted small' }, 'Aparece numa janela quando a pessoa abre o app (site, Android e iPhone), uma vez só, assinada "Equipe Louvor Studio". Pode ir também como notificação.'),
+        campo('Título', titulo), campo('Mensagem', texto),
+        h('div', { class: 'row', style: { gap: '8px', width: '100%', flexWrap: 'wrap' } }, h('div', { class: 'grow', style: { minWidth: '220px' } }, campo('Link (opcional)', link)), h('div', { style: { minWidth: '200px' } }, campo('Botão do link', rot))),
+        campo('Para quem', pub), banda, push,
+        h('div', { class: 'row', style: { gap: '10px', flexWrap: 'wrap' } }, enviar, info),
+        AV.err ? h('div', { class: 'small', style: { color: 'var(--bad)' } }, AV.err) : null];
+      if (AV.list && AV.list.length) {
+        kids.push(h('div', { class: 'semi small', style: { marginTop: '8px' } }, 'Enviadas'));
+        kids.push(h('div', { style: { width: '100%', display: 'grid', gap: '6px' } }, AV.list.map(function (a) {
+          var quem = (PUBLICOS.find(function (p) { return p[0] === a.publico; }) || [0, a.publico])[1] + (a.banda ? ': ' + a.banda : '');
+          return h('div', { class: 'row', style: { gap: '10px', padding: '8px 10px', borderRadius: '10px', background: 'var(--control)', flexWrap: 'wrap', opacity: a.ativo ? 1 : 0.6 } },
+            h('div', { class: 'grow', style: { minWidth: '220px' } },
+              h('div', { class: 'semi' }, a.title + (a.ativo ? '' : ' (encerrada)')),
+              h('div', { class: 'muted small' }, new Date(a.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) + ' · ' + quem + (a.com_push ? ' · com notificação' : '') + ' · viram ' + a.vistos + ' de ' + a.alvo)),
+            h('button', { class: 'btn2', disabled: AV.busy, onclick: function () { ativo(a, !a.ativo); } }, a.ativo ? 'Encerrar' : 'Reativar'));
+        })));
+      }
+      box.replaceChildren.apply(box, kids.filter(Boolean));
+      marca();
+    }
+    async function alcance() {
+      AV.alcance = null; if (AV.marca) AV.marca();
+      if (AV.f.publico === 'banda' && !AV.f.org) return;
+      var r = await sb.rpc('admin_aviso_alcance', { _publico: AV.f.publico, _org: AV.f.publico === 'banda' ? AV.f.org : null });
+      if (r.error) { AV.err = /admin_aviso_alcance/.test(r.error.message) ? 'Rode a migração 0050 no Supabase.' : r.error.message; paint(); return; }
+      AV.alcance = r.data && r.data[0]; if (AV.marca) AV.marca();
+    }
+    async function lista() {
+      var r = await sb.rpc('admin_avisos_lista');
+      if (!r.error) { AV.list = r.data || []; paint(); }
+    }
+    async function mandar() {
+      var f = AV.f, n = AV.alcance ? AV.alcance.pessoas : '?';
+      if (!confirm('Enviar "' + f.title.trim() + '" para ' + n + ' pessoa(s)' + (f.push ? ', com notificação no celular' : '') + '? Depois de enviada, a notificação não volta atrás.')) return;
+      AV.busy = true; AV.err = null; paint();
+      var r = await sb.rpc('admin_aviso_enviar', { _title: f.title, _body: f.body, _link_url: f.link || null, _link_label: f.label || null,
+        _publico: f.publico, _org: f.publico === 'banda' ? f.org : null, _push: f.push });
+      AV.busy = false;
+      if (r.error) { AV.err = r.error.message; paint(); return; }
+      toast('Mensagem enviada.');
+      AV.f = { title: '', body: '', link: '', label: '', publico: f.publico, org: f.org, push: f.push };
+      lista();
+    }
+    async function ativo(a, on) {
+      if (!on && !confirm('Encerrar "' + a.title + '"? Quem ainda não viu deixa de ver.')) return;
+      AV.busy = true; paint();
+      var r = await sb.rpc('admin_aviso_ativo', { _id: a.id, _ativo: on });
+      AV.busy = false;
+      if (r.error) { AV.err = r.error.message; }
+      lista();
+    }
+    paint(); alcance(); lista();
+    return box;
+  }
+
   function opiniaoBox() {
     if (O.box) return O.box;
     var box = O.box = h('section', { class: 'adm-legacy adm-opiniao' });
