@@ -263,7 +263,7 @@
       h('button', { class: 'btn cta', onclick: function () { goEntry('criar'); } }, 'Criar minha conta')));
 
     var dotsEl = h('div', { class: 'herodots', 'aria-hidden': 'true', hidden: true }, HERO_SCENES.map(function () { return h('b'); }));
-    var hero = h('section', { class: 'hero stagehero' }, h('div', { class: 'herobg', 'aria-hidden': 'true' }, h('img', { class: 'heroapp', src: 'img/desk-inicio.webp', alt: '' })), h('div', { class: 'heroshade', 'aria-hidden': 'true' }), h('div', { class: 'wrap hero-in' },
+    var hero = h('section', { class: 'hero stagehero' }, h('div', { class: 'herobg', 'aria-hidden': 'true' }, h('img', { class: 'heroapp', src: 'img/desk-inicio.webp?v=2', alt: '' })), h('div', { class: 'heroshade', 'aria-hidden': 'true' }), h('div', { class: 'wrap hero-in' },
       h('div', { class: 'herocopy' },
         h('h1', { class: 'sr' }, HERO_SCENES[0].h),
         h('p', { class: 'sr' }, HERO_SCENES[0].p),
@@ -274,13 +274,13 @@
         h('div', { class: 'facts rise d3' },
           h('span', null, ic('Check', 16), 'Tem plano grátis'),
           h('span', null, ic('MonitorSmartphone', 16), 'No celular e no computador'),
-          h('span', null, ic('Smartphone', 16), 'App Android em breve'))),
+          h('span', null, ic('Smartphone', 16), 'App para iPhone · Android em breve'))),
       h('div', { class: 'devices' },
         h('span', { class: 'glow' }),
         h('div', { class: 'stage' },
-          win('img/desk-inicio.webp', 'O Louvor Studio no computador: a próxima escala, o que fazer e o mural da banda.',
+          win('img/desk-inicio.webp?v=2', 'O Louvor Studio no computador: a próxima escala, o que fazer e o mural da banda.',
             { pose: { rx: 5, ry: -14 }, from: { y: 46, rx: 5, ry: -14 }, depth: 24, delay: 0.1 }),
-          phone('img/cel-inicio.webp', 'O Louvor Studio no celular: o passe da próxima escala, com Confirmar e Não posso.',
+          phone('img/cel-inicio.webp?v=2', 'O Louvor Studio no celular: o passe da próxima escala, com Confirmar e Não posso.',
             { cls: 'herophone', pose: { z: 60, rx: 3, ry: 18, rz: -4 }, from: { y: 90, z: 60, rx: 3, ry: 18, rz: -4 }, depth: 70, delay: 0.35 })))),
       h('div', { class: 'wrap herodots-wrap', 'aria-hidden': 'true' }, dotsEl),
       h('div', { class: 'wrap waveband', 'aria-hidden': 'true' }, waveCanvas()));
@@ -296,8 +296,18 @@
       feat('Ensaie com a banda inteira, em casa.',
         'O líder sobe a multitrack e cada um ensaia com as faixas separadas, no tom e no tempo da banda.',
         [point('SlidersVertical', 'Volume, mudo e solo em cada faixa.'), point('Repeat', 'Pule para o refrão e repita só aquela parte.'), point('FileText', 'A letra acompanha a parte que está tocando.')],
-        h('div', { class: 'pic wide' }, win('img/desk-estudio.webp', 'O estúdio no computador: faixas com volume, mudo e solo, as partes da música e a letra ao lado.',
-          { pose: { rx: 4, ry: -12 }, from: { y: 60, rx: 4, ry: -12 }, depth: 30 }))),
+        h('div', { class: 'pic wide' }, win('img/desk-estudio.webp?v=2', 'O estúdio no computador: faixas com volume, mudo e solo, as partes da música e a letra ao lado.',
+          { pose: { rx: 4, ry: -12 }, from: { y: 60, rx: 4, ry: -12 }, depth: 30 }),
+          phone('img/cel-estudio.webp', 'O estúdio no celular: cada faixa com a sua onda, mudo e solo, e o Tocar e o Gravar embaixo.',
+            { cls: 'picphone', pose: { z: 40, rx: 2, ry: 14, rz: -3 }, from: { y: 80, z: 40, rx: 2, ry: 14, rz: -3 }, depth: 60, delay: 0.25 }))),
+      feat('O repertório inteiro, na mão.',
+        'Cada música com a capa, o tom, o BPM, a letra, a cifra e a multitrack. Procure pelo nome, pelo artista ou pelo tom e abra direto no estúdio.',
+        [point('Search', 'Busque por música, artista ou tom.'), point('Library', 'Biblioteca do Louvor Studio: multitracks prontas nos planos pagos.'), point('SunMoon', 'Modo claro e escuro, como você preferir.')],
+        h('div', { class: 'pic' },
+          phone('img/cel-repertorio-claro.webp', 'O repertório no celular, no modo claro: capas, tom e se a música tem multitrack.',
+            { cls: 'front', pose: { rx: 2, ry: -10, rz: 2 }, from: { y: 70, rx: 2, ry: -10, rz: 2 }, depth: 40 }),
+          phone('img/cel-escalas.webp', 'As escalas no celular, no modo escuro: o mês com as escalas e quem está em cada uma.',
+            { cls: 'back', pose: { z: -60, rx: 2, ry: -16, rz: 4 }, from: { y: 110, z: -60, rx: 2, ry: -16, rz: 4 }, depth: 20, delay: 0.2 }))),
       feat('Aprenda a sua voz com quem já gravou.',
         'Quem grava diz qual voz cantou: tenor, contralto, 1ª voz. Depois que o líder libera, você escolhe a voz que quer aprender e ela toca junto com a multitrack.',
         [point('Mic', 'Cada um grava a sua parte no celular, com fone.'), point('Users', 'Vozes separadas por naipe, com o nome de quem cantou.'), point('LockKeyhole', 'Só a banda ouve, e só depois que o líder libera.')],
@@ -322,9 +332,9 @@
       ['O que é o Louvor Studio?', 'Um app para bandas de louvor: escalas, repertório, ensaio com multitrack, gravação da sua voz e a conversa da banda, num lugar só.'],
       ['É grátis?', 'Sim, tem plano grátis: até 8 pessoas e 1 GB para as músicas, com todos os recursos. Quando a banda crescer, é só escolher um plano maior.'],
       ['Como funciona o pagamento?', 'Os planos pagos são por mês ou por ano (no anual, você paga 10 meses e usa 12). Se um pagamento atrasar, a banda continua usando por 7 dias; depois fica só para consulta até acertar. Nada é apagado.'],
-      ['Funciona no navegador ou preciso baixar?', 'Funciona no navegador do celular e do computador, sem instalar nada. No celular, dá para pôr na tela inicial e abrir como um app. O app de Android chega em breve na Play Store.'],
+      ['Funciona no navegador ou preciso baixar?', 'Funciona no navegador do celular e do computador, sem instalar nada. No celular, dá para pôr na tela inicial e abrir como um app. O app para iPhone já está na App Store, e o de Android chega em breve na Play Store.'],
       ['Como o pessoal entra na banda?', 'O líder cria a banda e manda o código de convite. Cada pessoa cria a própria conta e entra com o código.'],
-      ['Dá para gravar a minha voz pelo site?', 'Por enquanto, no site você ouve e ensaia. Gravar a sua voz (com o atraso do fone compensado) é no app de Android.'],
+      ['Dá para gravar a minha voz pelo site?', 'Por enquanto, no site você ouve e ensaia. Gravar a sua voz (com o atraso do fone compensado) é no app do celular.'],
       ['Quem ouve as minhas gravações?', 'Só a sua banda, e só depois que o líder libera. Até lá, a gravação fica só com você e com quem cuida do áudio da banda.'],
       ['Preciso de fone?', 'Para ensaiar, qualquer fone ou caixa de som serve. Para gravar a voz, fone com fio é o melhor: o Bluetooth atrasa o som.']
     ];
@@ -349,7 +359,7 @@
       h('a', { href: 'seguranca/' }, 'Segurança'),
       h('span', null, '© 2026 Louvor Studio')));
 
-    var page = h('div', { class: 'site' }, top, h('main', null, hero, videoBlock(), demo, feats, semana(), how, LSPlanos.secao({ comecar: function () { goEntry('criar'); } }), faq, close), foot);
+    var page = h('div', { class: 'site' }, top, h('main', null, hero, videoBlock(), demo, h('div', { class: 'lightsec' }, feats), semana(), h('div', { class: 'lightsec' }, how, LSPlanos.secao({ comecar: function () { goEntry('criar'); } }), faq), close), foot);
     watchTop(top, page);
     choreograph(page);
     return page;

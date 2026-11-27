@@ -1289,7 +1289,7 @@ button.partchip { background: none; font-family: inherit; }
 .screen.haswall > * { position: relative; }
 .screen.haswall > .wallpaper { position: absolute; z-index: 0; top: calc(-1 * var(--safe-t)); left: 0; right: 0; height: 340px; overflow: hidden; pointer-events: none; }
 .wallpaper img { width: 100%; height: 100%; object-fit: cover; }
-.wallpaper::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5, 11, 18, 0.7) 0%, rgba(5, 11, 18, 0.8) 45%, var(--bg) 100%); }
+.wallpaper::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, transparent) 0%, color-mix(in srgb, var(--bg) 80%, transparent) 45%, var(--bg) 100%); }
 .church-prev { position: relative; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: var(--control); }
 .church-prev .bg { width: 100%; height: 100%; object-fit: cover; display: block; }
 .church-prev .empty-bg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-size: 13px; }
@@ -1777,3 +1777,44 @@ textarea.crm-in { resize: vertical; line-height: 1.45; }
 .crm-chips .chiptog { max-width: 100%; white-space: normal; text-align: left; }
 .crm-main > *, .crm-com > * { min-width: 0; max-width: 100%; }
 .crm-sel select, .crm-sel input { min-width: 0; max-width: 100%; }
+
+/* Página de entrada: faixas claras (pedido do usuário em 27/11/2026: o site estava escuro demais).
+   A página é sempre escura (data-force-dark); dentro de .lightsec as cores viram as do tema claro. */
+.site .lightsec {
+  --bg: #F5FAFF; --panel: #FFFFFF; --control: #E3EEF7; --sel: #DCEEFB; --menu: #FFFFFF; --field: #FFFFFF;
+  --line: rgba(10, 38, 58, 0.11); --outline: #A6B6C4;
+  --text: #2A4458; --hi: #0A1E2E; --muted: #5A7387; --glass-label: #6F8798;
+  --accent: #0077C8; --accent-deep: #005E9E; --accent-light: #0077C8; --accent-text: #0077C8; --accent-soft: #DCEEFB; --on-accent: #FFFFFF;
+  --ok: #0E9F6E; --ok-bg: rgba(14, 159, 110, 0.12); --warn: #B86E00; --warn-bg: rgba(184, 110, 0, 0.12);
+  --ink: 10, 38, 58; --glass: rgba(245, 249, 253, 0.86); --glass-border: rgba(10, 38, 58, 0.12);
+  color-scheme: light; position: relative; z-index: 1;
+  background: var(--bg); color: var(--text);
+  border-radius: 36px; margin: 56px 10px; padding: 8px 0 64px;
+  box-shadow: 0 -24px 80px rgba(0, 119, 200, 0.18);
+}
+.site .lightsec ::selection { background: #BFE3FA; color: #0A1E2E; }
+.site .lightsec .feats { padding-top: 64px; }
+.site .lightsec .feat .pic { background: radial-gradient(110% 90% at 18% 0%, rgba(8, 169, 245, 0.22), transparent 62%), linear-gradient(180deg, #E8F3FC, #F2F8FD); box-shadow: inset 0 0 0 1px rgba(10, 38, 58, 0.06); }
+.site .lightsec .device { filter: drop-shadow(0 26px 34px rgba(10, 38, 58, 0.28)); }
+.site .lightsec .screenwin { box-shadow: 0 30px 60px rgba(10, 38, 58, 0.22), 0 0 0 1px rgba(10, 38, 58, 0.08); }
+.site .lightsec .faq details p, .site .lightsec .steps p { color: var(--text); }
+.site .lightsec .steps li::before { background: #DCEEFB; color: #0077C8; }
+.site .lightsec .faq, .site .lightsec .how, .site .lightsec .planos { padding-top: 64px; }
+@media (min-width: 1024px) {
+  .site .lightsec { margin: 96px 20px; border-radius: 48px; padding-bottom: 96px; }
+}
+/* Estúdio: o celular na frente da janela do computador */
+.feat .pic.wide { padding-bottom: 96px; }
+.feat .pic .dev.picphone { position: absolute; right: 14px; bottom: -70px; width: 118px; z-index: 3; }
+@media (min-width: 1024px) {
+  .feat .pic.wide { padding-bottom: 140px; }
+  .feat .pic .dev.picphone { right: auto; left: 28px; bottom: -150px; width: 200px; }
+}
+/* Planos na faixa clara: os planos comuns brancos; o em destaque continua azul-escuro, com as cores do tema escuro */
+.site .lightsec .plano { box-shadow: 0 1px 2px rgba(10, 38, 58, 0.06), 0 12px 32px rgba(10, 38, 58, 0.08), inset 0 0 0 1px rgba(10, 38, 58, 0.07); }
+.site .lightsec .plano.quieto { background: #EDF3F9; box-shadow: inset 0 0 0 1px rgba(10, 38, 58, 0.08); }
+.site .lightsec .plano.destaque {
+  --hi: #F5FAFF; --text: #DCE8F2; --muted: #A9BFD1; --glass-label: #A9BFD1; --accent-light: #63D4FF; --accent-text: #63D4FF;
+  --control: #123650; --line: rgba(220, 232, 242, 0.12); --ink: 245, 250, 255; --ok: #34D399; --ok-bg: rgba(52, 211, 153, 0.14);
+  box-shadow: 0 24px 50px rgba(0, 75, 120, 0.35);
+}

@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.33.3', [
+      'Página de entrada com as telas novas do app e partes com fundo claro. No modo claro, a foto de fundo da igreja no Início também fica clara.'
+    ]],
     ['1.33.2', [
       'Estúdio: as vozes que a banda manda aparecem para o líder com um número no ícone e um aviso. Um toque e a voz toca junto com a multitrack, para aprovar ou reprovar ali mesmo.'
     ]],
