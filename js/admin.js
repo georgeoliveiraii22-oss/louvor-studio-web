@@ -283,6 +283,7 @@
         h('label', { class: 'small', style: { display: 'grid', gap: '4px' } }, 'Banda da biblioteca',
           h('select', { class: 'input', disabled: B.busy, onchange: function (e) { escolher(e.target.value || null); } }, opts)))];
       if (org) kids.push(loteBox(org, l));
+      if (org) kids.push(trazerBox(org));
       if (org && l.length) {
         kids.push(h('div', { style: { width: '100%', display: 'grid', gap: '6px', marginTop: '8px' } }, l.map(function (x) {
           var e = B.edit[x.project_id] || (B.edit[x.project_id] = { pub: x.na_biblioteca, cred: x.credito || '' });
@@ -351,6 +352,54 @@
           h('div', { style: { display: 'grid', gap: '2px', marginTop: '4px' } }, L0.cortes.map(function (f) { return h('div', { class: 'muted' }, f); }))));
       }
       return h('div', { style: { width: '100%', display: 'grid', gap: '6px', marginTop: '8px', padding: '10px', borderRadius: '10px', background: 'var(--control)' } }, kids);
+    }
+    // -------- Trazer músicas de uma banda (migração 0049): a música vai para a biblioteca sem subir o áudio de novo;
+    // os arquivos passam a ser da biblioteca e a música da banda fica ligada a ela (como se tivesse sido adicionada de lá).
+    function trazerBox(libOrg) {
+      var T = B.trazer || (B.trazer = { org: '', lista: null, sel: {}, busy: false, msg: '' });
+      var bandas = A.orgs.filter(function (o) { return o.id !== libOrg; }).sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+      var kids = [h('div', { class: 'semi' }, 'Trazer músicas de uma banda'),
+        h('div', { class: 'muted small' }, 'A música vai para a biblioteca sem subir o áudio de novo. Na banda, ela continua no repertório, ligada à biblioteca: toca enquanto estiver publicada e a banda tiver plano pago.'),
+        h('select', { class: 'input', disabled: T.busy, onchange: function (e) { T.org = e.target.value; T.lista = null; T.sel = {}; T.msg = ''; paint(); if (T.org) carregar(); } },
+          [h('option', { value: '' }, 'Escolha a banda…')].concat(bandas.map(function (o) { return h('option', { value: o.id, selected: o.id === T.org }, o.name + (o.leader_name ? ' · ' + o.leader_name : '')); })))];
+      if (T.org && T.lista === null) kids.push(h('div', { class: 'muted small' }, 'Carregando as músicas…'));
+      if (T.lista) {
+        var marcadas = T.lista.filter(function (x) { return T.sel[x.project_id]; });
+        if (!T.lista.length) kids.push(h('div', { class: 'muted small' }, 'Nenhuma música com multitrack própria nesta banda (as que já vieram da biblioteca não aparecem).'));
+        else {
+          var todas = marcadas.length === T.lista.length;
+          kids.push(h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn2', disabled: T.busy, onclick: function () { T.lista.forEach(function (x) { T.sel[x.project_id] = !todas; }); paint(); } }, todas ? 'Desmarcar todas' : 'Marcar todas (' + T.lista.length + ')'),
+            h('button', { class: marcadas.length ? 'btn' : 'btn2', disabled: T.busy || !marcadas.length, onclick: function () { trazer(marcadas); } },
+              marcadas.length ? 'Trazer ' + marcadas.length + (marcadas.length === 1 ? ' música' : ' músicas') + ' para a biblioteca' : 'Marque as músicas')));
+          kids.push(h('div', { style: { display: 'grid', gap: '2px', maxHeight: '320px', overflow: 'auto' } }, T.lista.map(function (x) {
+            return h('label', { class: 'row', style: { gap: '8px', padding: '4px 2px' } },
+              h('input', { type: 'checkbox', checked: !!T.sel[x.project_id], disabled: T.busy, onchange: function (e) { T.sel[x.project_id] = e.target.checked; paint(); } }),
+              h('span', { class: 'grow' }, x.titulo + (x.artista ? ' · ' + x.artista : '')),
+              h('span', { class: 'muted small' }, x.faixas + (x.faixas === 1 ? ' faixa · ' : ' faixas · ') + bytes(Number(x.bytes || 0))));
+          })));
+        }
+      }
+      if (T.msg) kids.push(h('div', { class: 'small semi' }, T.msg));
+      return h('div', { style: { width: '100%', display: 'grid', gap: '6px', marginTop: '8px', padding: '10px', borderRadius: '10px', background: 'var(--control)' } }, kids);
+      async function carregar() {
+        var r = await sb.rpc('admin_biblioteca_candidatas', { _org: T.org });
+        if (r.error) { T.lista = []; T.msg = /admin_biblioteca_candidatas/.test(r.error.message) ? 'Rode a migração 0049 no Supabase.' : r.error.message; }
+        else T.lista = r.data || [];
+        paint();
+      }
+      async function trazer(lista) {
+        if (!confirm('Trazer ' + lista.length + (lista.length === 1 ? ' música' : ' músicas') + ' para a biblioteca? O áudio passa a ser da biblioteca; na banda, a música continua no repertório, ligada a ela.')) return;
+        T.busy = true; var feitas = 0, erros = [];
+        for (var i = 0; i < lista.length; i++) {
+          T.msg = 'Trazendo ' + (i + 1) + ' de ' + lista.length + ': ' + lista[i].titulo; paint();
+          var r = await sb.rpc('admin_biblioteca_trazer', { _project: lista[i].project_id });
+          if (r.error) erros.push(lista[i].titulo + ': ' + r.error.message); else feitas++;
+        }
+        T.busy = false; T.sel = {}; T.lista = null;
+        T.msg = feitas + (feitas === 1 ? ' música trazida' : ' músicas trazidas') + ' (ainda não publicadas: use "Publicar" acima).' + (erros.length ? ' Com erro: ' + erros.join(' · ') : '');
+        check(); carregar();
+      }
     }
     function bonito(s) {
       s = String(s).replace(/\s+/g, ' ').trim();
