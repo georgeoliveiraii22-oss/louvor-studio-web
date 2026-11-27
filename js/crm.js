@@ -12,7 +12,9 @@
   var root = document.getElementById('crm');
   var DIA = 86400000, GB = 1073741824;
   var C = { me: null, aba: 'geral', resumo: null, pessoas: null, bandas: null, erro: null,
-            q: '', saude: 'todas', etapa: 'todas', filtro: 'todos', ordem: 'uso', sel: {}, ficha: null };
+            q: '', saude: 'todas', etapa: 'todas', filtro: 'todos', ordem: 'uso', sel: {}, ficha: null,
+            semEmail: {}, emails: null, avisos: null };
+  var FN_EMAILS = 'quick-function';   // função `emails` (mesmo endereço do e-mail de opinião)
 
   // ------------------------------------------------------------------ Ajudantes
   function h(tag, attrs) {
@@ -81,6 +83,8 @@
   }
 
   // ------------------------------------------------------------------ Carregar
+  var deHash = (location.hash || '').replace('#', '');
+  if (['geral', 'pessoas', 'bandas', 'acompanhar', 'comunicar'].indexOf(deHash) >= 0) C.aba = deHash;
   async function load() {
     var s = await sb.auth.getSession();
     if (!s.data.session) { msg('Entre no site primeiro', 'O CRM usa o mesmo login do Louvor Studio. Entre com a sua conta e volte para esta página.', ['Abrir o Louvor Studio', '../../']); return; }
@@ -96,16 +100,24 @@
     if (falha) {
       C.erro = /admin_crm_/.test(falha.error.message) ? 'Falta rodar a migração 0051 (CRM) no Supabase, no SQL Editor.' : falha.error.message;
     } else { C.resumo = r[0].data; C.pessoas = r[1].data || []; C.bandas = r[2].data || []; }
+    // E-mails (0052): sem a migração, o resto do CRM funciona e a aba avisa.
+    var se = await sb.rpc('admin_crm_sem_email_ids');
+    C.semEmail = {}; (se.data || []).forEach(function (x) { C.semEmail[typeof x === 'string' ? x : x.admin_crm_sem_email_ids] = true; });
+    C.emailsErro = se.error ? (/admin_crm_/.test(se.error.message) ? 'Falta rodar a migração 0052 (e-mails do CRM) no Supabase.' : se.error.message) : null;
+    var hl = await sb.rpc('admin_crm_emails_lista');
+    C.emails = hl.error ? [] : (hl.data || []);
+    var av = await sb.rpc('admin_avisos_lista');
+    C.avisos = av.error ? [] : (av.data || []);
     render();
   }
 
   // ------------------------------------------------------------------ Tela
   function render() {
-    var abas = [['geral', 'Visão geral'], ['pessoas', 'Pessoas'], ['bandas', 'Bandas'], ['acompanhar', 'Acompanhar']];
+    var abas = [['geral', 'Visão geral'], ['pessoas', 'Pessoas'], ['bandas', 'Bandas'], ['acompanhar', 'Acompanhar'], ['comunicar', 'Comunicar']];
     var pend = C.pessoas ? listasAcompanhar().reduce(function (a, l) { return a + l.itens.length; }, 0) : 0;
     var corpo = C.erro ? h('div', { class: 'crm-vazio' }, h('div', { class: 'semi hi' }, 'Não deu para carregar o CRM'), h('div', { class: 'muted' }, C.erro))
       : !C.pessoas ? h('div', { class: 'crm-esqueleto' }, [1, 2, 3, 4].map(function () { return h('div'); }))
-      : C.aba === 'geral' ? visaoGeral() : C.aba === 'pessoas' ? pessoasView() : C.aba === 'bandas' ? bandasView() : acompanharView();
+      : C.aba === 'geral' ? visaoGeral() : C.aba === 'pessoas' ? pessoasView() : C.aba === 'bandas' ? bandasView() : C.aba === 'comunicar' ? comunicarView() : acompanharView();
     root.replaceChildren(
       h('header', { class: 'adm-top' }, h('div', { class: 'wrap' },
         h('span', { class: 'logo', html: icon('lines', 20) }),
@@ -239,7 +251,7 @@
             onchange: function (e) { l.forEach(function (p) { if (e.target.checked) C.sel[p.id] = true; else delete C.sel[p.id]; }); render(); } }),
           h('span', null, l.length + (l.length === 1 ? ' pessoa' : ' pessoas') + (marcadas.length ? ' · ' + marcadas.length + ' marcada' + (marcadas.length === 1 ? '' : 's') : ''))),
         h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
-          marcadas.length ? h('button', { class: 'btn crm-btn', onclick: function () { compor(marcadas); } }, ic('send', 15), 'Mensagem no app') : null,
+          marcadas.length ? h('button', { class: 'btn crm-btn', onclick: function () { irComunicar(marcadas); } }, ic('send', 15), 'Comunicar (recado, notificação, e-mail)') : null,
           marcadas.length ? h('button', { class: 'btn2 crm-btn', onclick: function () { copiarEmails(marcadas); } }, ic('copy', 15), 'Copiar e-mails') : null,
           marcadas.length ? h('button', { class: 'btn2 crm-btn', onclick: function () { C.sel = {}; render(); } }, 'Desmarcar') : null,
           h('button', { class: 'btn2 crm-btn', onclick: function () { exportar(l); } }, ic('download', 15), 'Planilha'))),
@@ -292,34 +304,6 @@
     document.body.appendChild(a); a.click(); a.remove();
   }
 
-  // Mensagem no app para as pessoas marcadas (0050, público "pessoas")
-  function compor(l) {
-    var f = { title: '', body: '', push: true, busy: false };
-    var fundo = h('div', { class: 'crm-fundo', onclick: function (e) { if (e.target === fundo && !f.busy) fundo.remove(); } });
-    var titulo = h('input', { class: 'crm-in', maxlength: 80, placeholder: 'Título (ex.: Sentimos sua falta!)', oninput: function (e) { f.title = e.target.value; marca(); } });
-    var texto = h('textarea', { class: 'crm-in', maxlength: 1500, rows: 6, placeholder: 'O que você quer dizer', oninput: function (e) { f.body = e.target.value; marca(); } });
-    var enviar = h('button', { class: 'btn', disabled: true, onclick: async function () {
-      f.busy = true; marca();
-      var r = await sb.rpc('admin_aviso_enviar', { _title: f.title, _body: f.body, _link_url: null, _link_label: null, _publico: 'pessoas', _org: null,
-        _push: f.push, _para: l.map(function (p) { return p.id; }) });
-      if (r.error) { f.busy = false; marca(); toast(/admin_aviso_enviar|_para/.test(r.error.message) ? 'Rode a migração 0050 (versão nova) no Supabase.' : r.error.message); return; }
-      // fica registrado na ficha de cada pessoa
-      await Promise.all(l.map(function (p) { return sb.rpc('admin_crm_nota', { _user: p.id, _tipo: 'mensagem', _texto: 'Mensagem no app: ' + f.title.trim() }); }));
-      fundo.remove(); toast('Mensagem enviada para ' + l.length + (l.length === 1 ? ' pessoa.' : ' pessoas.')); C.sel = {}; recarregar();
-    } }, 'Enviar para ' + l.length);
-    function marca() { enviar.disabled = f.busy || !f.title.trim() || !f.body.trim(); enviar.textContent = f.busy ? 'Enviando…' : 'Enviar para ' + l.length; }
-    fundo.appendChild(h('div', { class: 'crm-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Mensagem no app' },
-      h('div', { class: 'row', style: { justifyContent: 'space-between' } }, h('h2', null, 'Mensagem no app'),
-        h('button', { class: 'crm-x', 'aria-label': 'Fechar', html: icon('x', 18), onclick: function () { if (!f.busy) fundo.remove(); } })),
-      h('div', { class: 'muted small' }, 'Para ' + l.slice(0, 4).map(function (p) { return p.nome; }).join(', ') + (l.length > 4 ? ' e mais ' + (l.length - 4) : '') +
-        '. Aparece numa janela quando abrirem o app, uma vez só, assinada "Equipe Louvor Studio".'),
-      titulo, texto,
-      h('label', { class: 'row small', style: { gap: '8px' } }, h('input', { type: 'checkbox', checked: true, onchange: function (e) { f.push = e.target.checked; } }), 'Mandar também como notificação no celular'),
-      h('div', { class: 'row', style: { justifyContent: 'flex-end', gap: '8px' } }, h('button', { class: 'btn2', onclick: function () { if (!f.busy) fundo.remove(); } }, 'Cancelar'), enviar)));
-    document.body.appendChild(fundo);
-    titulo.focus();
-  }
-
   // ------------------------------------------------------------------ Ficha de uma pessoa
   async function abrirFicha(id) {
     C.ficha = { id: id, det: null, nota: { tipo: 'whatsapp', texto: '' } };
@@ -354,8 +338,17 @@
           h('button', { class: 'crm-x', 'aria-label': 'Fechar', html: icon('x', 20), onclick: fechar })),
         h('div', { class: 'crm-ficha-corpo' },
           h('div', { class: 'crm-contato' },
-            h('a', { class: 'btn2 crm-btn', href: 'mailto:' + p.email + '?subject=' + encodeURIComponent('Louvor Studio') }, ic('mail', 15), p.email),
-            h('button', { class: 'btn2 crm-btn', onclick: function () { compor([p]); } }, ic('send', 15), 'Mensagem no app')),
+            h('button', { class: 'btn crm-btn', onclick: function () { irComunicar([p], { app: true, push: true, email: false }); } }, ic('send', 15), 'Recado no app'),
+            h('button', { class: 'btn2 crm-btn', disabled: !!C.semEmail[p.id], title: C.semEmail[p.id] ? 'Esta pessoa não quer receber e-mails' : null, onclick: function () { irComunicar([p], { app: false, push: false, email: true }); } }, ic('mail', 15), 'E-mail'),
+            h('button', { class: 'btn2 crm-btn', title: 'Copiar o e-mail', onclick: function () { copiarEmails([p]); } }, ic('copy', 15), p.email)),
+          h('label', { class: 'row small', style: { gap: '8px' } },
+            h('input', { type: 'checkbox', checked: !!C.semEmail[p.id], onchange: async function (e) {
+              var on = e.target.checked;
+              var r = await sb.rpc('admin_crm_sem_email', { _user: p.id, _sem: on });
+              if (r.error) { e.target.checked = !on; toast(/admin_crm_/.test(r.error.message) ? 'Rode a migração 0052 no Supabase.' : r.error.message); return; }
+              if (on) C.semEmail[p.id] = true; else delete C.semEmail[p.id];
+              toast(on ? 'Anotado: não recebe mais e-mails do CRM.' : 'Voltou a receber e-mails do CRM.'); render();
+            } }), 'Não quer receber e-mails (pediu para sair)'),
           h('dl', { class: 'crm-dados' },
             dado('Conta criada', data(p.criado_em) + ' (' + haDias(p.criado_em) + ')'),
             dado('Último login', p.ultimo_login ? dataHora(p.ultimo_login) : '—'),
@@ -470,7 +463,8 @@
     return ls.map(function (L) {
       return h('section', { class: 'crm-painel' },
         h('div', { class: 'crm-tit' }, h('h2', null, L.tit, h('span', { class: 'crm-cont' }, String(L.itens.length))),
-          !L.bandas && L.itens.length ? h('button', { class: 'btn2 crm-btn', onclick: function () { compor(L.itens); } }, ic('send', 15), 'Mensagem para todos') : null),
+          !L.bandas && L.itens.length ? h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn2 crm-btn', onclick: function () { irComunicar(L.itens); } }, ic('send', 15), 'Comunicar com todos')) : null),
         h('div', { class: 'muted small' }, L.desc),
         L.itens.length ? h('div', { class: 'crm-lista' }, L.itens.slice(0, 40).map(function (x) {
           return h('button', { class: 'crm-item', onclick: function () {
@@ -483,6 +477,291 @@
         }), L.itens.length > 40 ? h('div', { class: 'muted small' }, 'e mais ' + (L.itens.length - 40)) : null)
           : h('div', { class: 'crm-ok small' }, 'Ninguém aqui agora.'));
     });
+  }
+
+  // ------------------------------------------------------------------ Comunicar: recado no app, notificação e e-mail
+  // Um lugar só para falar com as pessoas: um grupo montado por filtros (que se combinam) ou pessoas escolhidas.
+  // Recado no app = janela ao abrir o app (0050, público "pessoas"); notificação = celular (fila da 0041);
+  // e-mail = função `emails` (0052). {nome} vira o primeiro nome em todos.
+  var FILTROS = [
+    { id: 'papel', tit: 'Papel', ops: [['lider', 'Líderes'], ['liderado', 'Liderados (integrantes)']] },
+    { id: 'temp', tit: 'Temperatura', ops: [['ativa', 'Quentes · usaram em 7 dias'], ['esfriando', 'Mornos · 8 a 21 dias'], ['risco', 'Frios · 22 a 45 dias'],
+      ['parada', 'Gelados · mais de 45 dias'], ['nunca', 'Nunca usaram']] },
+    { id: 'plano', tit: 'Plano', ops: [['pago', 'Banda paga'], ['gratis', 'Só no Grátis'], ['sem_banda', 'Sem banda']] },
+    { id: 'situacao', tit: 'Situação', ops: [['nova', 'Conta nova (até 7 dias)'], ['sem_resposta', 'Escala sem resposta'], ['nao_ensaiou', 'Escalados que não marcaram Ensaiei'],
+      ['sem_celular', 'Sem notificação no celular'], ['contato', 'Com contato marcado']] },
+    { id: 'onde', tit: 'Onde usa', ops: [['android', 'Android'], ['ios', 'iPhone'], ['site', 'Site']] }];
+  var FUNCOES = [['ministro', 'Ministro(a)'], ['vocal', 'Vocal'], ['backing_vocal', 'Backing vocal'], ['violao', 'Violão'], ['guitarra', 'Guitarra'], ['baixo', 'Baixo'],
+    ['bateria', 'Bateria'], ['teclado', 'Teclado'], ['percussao', 'Percussão'], ['sopro', 'Sopro'], ['cordas', 'Cordas'], ['tecnico_som', 'Técnico(a) de som'], ['projecao', 'Projeção/mídia']];
+  function novoCm() {
+    var f = {}; FILTROS.forEach(function (s) { f[s.id] = {}; });
+    return { modo: 'grupo', f: f, banda: '', funcao: '', etapa: '', etiqueta: '', fora: {}, escolhidas: {}, busca: '',
+             canais: { app: true, push: true, email: false }, titulo: '', texto: '', link: '', rotulo: '', enviando: false };
+  }
+  C.cm = novoCm();
+
+  function casa(p, op) {
+    switch (op) {
+      case 'lider': return !!p.lider;
+      case 'liderado': return (p.bandas || []).length > 0 && !p.lider;
+      case 'ativa': case 'esfriando': case 'risco': case 'parada': case 'nunca': return saudeDe(p.ultimo_uso) === op;
+      case 'pago': return !!p.plano && p.plano !== 'free';
+      case 'gratis': return p.plano === 'free';
+      case 'sem_banda': return !(p.bandas || []).length;
+      case 'nova': return dias(p.criado_em) !== null && dias(p.criado_em) <= 7;
+      case 'sem_resposta': return p.sem_resposta > 0;
+      case 'nao_ensaiou': return p.escalas_30 > 0 && !p.ensaiei_30;
+      case 'sem_celular': return !(p.celulares || []).length;
+      case 'contato': return !!p.proximo_contato;
+      case 'android': case 'ios': return (p.plataformas || []).indexOf(op) >= 0 || (p.celulares || []).indexOf(op) >= 0;
+      case 'site': return (p.plataformas || []).indexOf('site') >= 0;
+    }
+    return false;
+  }
+  /** Quem recebe: no grupo, dentro de cada filtro vale qualquer opção marcada (ou); entre filtros, todas (e). */
+  function alvo() {
+    var M = C.cm, P = C.pessoas || [];
+    if (M.modo === 'pessoas') return P.filter(function (p) { return M.escolhidas[p.id]; });
+    return P.filter(function (p) {
+      if (M.fora[p.id]) return false;
+      for (var i = 0; i < FILTROS.length; i++) {
+        var on = Object.keys(M.f[FILTROS[i].id]).filter(function (k) { return M.f[FILTROS[i].id][k]; });
+        if (on.length && !on.some(function (op) { return casa(p, op); })) return false;
+      }
+      if (M.banda && !(p.bandas || []).some(function (b) { return b.id === M.banda; })) return false;
+      if (M.funcao && !(p.bandas || []).some(function (b) { return (b.funcoes || []).indexOf(M.funcao) >= 0; })) return false;
+      if (M.etapa && (p.etapa || 'novo') !== M.etapa) return false;
+      if (M.etiqueta && (p.etiquetas || []).indexOf(M.etiqueta) < 0) return false;
+      return true;
+    });
+  }
+  function rotuloAlvo() {
+    var M = C.cm;
+    if (M.modo === 'pessoas') { var l = alvo(); return l.length === 1 ? l[0].nome : l.length + ' pessoas escolhidas'; }
+    var partes = [];
+    FILTROS.forEach(function (s) { s.ops.forEach(function (o) { if (M.f[s.id][o[0]]) partes.push(o[1].split(' · ')[0]); }); });
+    if (M.banda) { var b = (C.bandas || []).find(function (x) { return x.id === M.banda; }); if (b) partes.push('Banda ' + b.nome); }
+    if (M.funcao) partes.push((FUNCOES.find(function (f) { return f[0] === M.funcao; }) || [0, M.funcao])[1]);
+    if (M.etapa) partes.push('Etapa ' + etapaNome(M.etapa));
+    if (M.etiqueta) partes.push('Etiqueta ' + M.etiqueta);
+    return partes.length ? partes.join(' · ') : 'Todas as pessoas';
+  }
+  /** Abrir a aba Comunicar já com estas pessoas (ficha, marcadas, listas de Acompanhar). */
+  function irComunicar(lista, canais) {
+    var M = C.cm = Object.assign(novoCm(), { titulo: C.cm.titulo, texto: C.cm.texto, link: C.cm.link, rotulo: C.cm.rotulo });
+    M.modo = 'pessoas';
+    lista.forEach(function (p) { M.escolhidas[p.id] = true; });
+    if (canais) M.canais = canais;
+    C.ficha = null; C.aba = 'comunicar'; render(); window.scrollTo(0, 0);
+  }
+  function comNome(t, nome) {
+    var n1 = (nome || '').trim().split(/\s+/)[0] || '';
+    if (n1) return (t || '').replace(/\{nome\}/g, n1);
+    var s = (t || '').replace(/^\s*\{nome\}[,!:]?\s*/, '').replace(/[,]?\s*\{nome\}/g, '');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  async function chamarEmails(body) {
+    var res = await sb.functions.invoke(FN_EMAILS, { body: body });
+    if (res.error) {
+      var t = res.error.message;
+      try { t = (await res.error.context.json()).error || t; } catch (e) { /* sem corpo */ }
+      throw new Error(t);
+    }
+    return res.data;
+  }
+
+  function comunicarView() {
+    var M = C.cm;
+    var lista = alvo();
+    var semMail = lista.filter(function (p) { return C.semEmail[p.id]; }).length;
+    var comCel = lista.filter(function (p) { return (p.celulares || []).length; }).length;
+    var algumCanal = M.canais.app || M.canais.email;
+    var pronto = lista.length && algumCanal && M.titulo.trim() && M.texto.trim() && !M.enviando && (!M.canais.email || !C.emailsErro) && (!M.link.trim() || /^https?:\/\/\S+$/i.test(M.link.trim()));
+    var exemplo = (lista[0] && lista[0].nome) || 'Ana';
+
+    // ---- 1. Para quem
+    var modoBtn = function (m, t) { return h('button', { class: 'crm-seg2' + (M.modo === m ? ' on' : ''), 'aria-pressed': String(M.modo === m), onclick: function () { M.modo = m; render(); } }, t); };
+    var paraQuem;
+    if (M.modo === 'grupo') {
+      var etiquetas = []; (C.pessoas || []).forEach(function (p) { (p.etiquetas || []).forEach(function (t) { if (etiquetas.indexOf(t) < 0) etiquetas.push(t); }); });
+      var selF = function (rot, val, ops, on) {
+        return h('label', { class: 'crm-sel' }, h('span', { class: 'muted small' }, rot),
+          h('select', { onchange: function (e) { on(e.target.value); M.fora = {}; render(); } }, [h('option', { value: '' }, 'Qualquer')].concat(ops.map(function (o) { return h('option', { value: o[0], selected: o[0] === val }, o[1]); }))));
+      };
+      paraQuem = [
+        FILTROS.map(function (s) {
+          return h('div', { class: 'crm-filtro' }, h('div', { class: 'muted small semi' }, s.tit),
+            h('div', { class: 'crm-chips' }, s.ops.map(function (o) {
+              var on = !!M.f[s.id][o[0]];
+              var n = (C.pessoas || []).filter(function (p) { return casa(p, o[0]); }).length;
+              return h('button', { class: 'chiptog' + (on ? ' on' : ''), 'aria-pressed': String(on), onclick: function () { M.f[s.id][o[0]] = !on; M.fora = {}; render(); } },
+                o[1], h('span', { class: 'crm-chip-n' }, String(n)));
+            })));
+        }),
+        h('div', { class: 'crm-sels' },
+          selF('Banda', M.banda, (C.bandas || []).slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (b) { return [b.id, b.nome]; }), function (v) { M.banda = v; }),
+          selF('Função', M.funcao, FUNCOES, function (v) { M.funcao = v; }),
+          selF('Etapa', M.etapa, ETAPAS, function (v) { M.etapa = v; }),
+          selF('Etiqueta', M.etiqueta, etiquetas.sort().map(function (t) { return [t, t]; }), function (v) { M.etiqueta = v; })),
+        h('div', { class: 'muted tiny' }, 'Dentro de cada linha, vale qualquer opção marcada. Entre as linhas, a pessoa precisa atender a todas. Sem nada marcado: todas as pessoas.'),
+        h('button', { class: 'crm-link', onclick: function () { var k = M.canais; C.cm = Object.assign(novoCm(), { titulo: M.titulo, texto: M.texto, link: M.link, rotulo: M.rotulo, canais: k }); render(); } }, 'Limpar os filtros')];
+    } else {
+      var q = M.busca.trim().toLowerCase();
+      var achados = q ? (C.pessoas || []).filter(function (p) { return [p.nome, p.email, (p.bandas || []).map(function (b) { return b.nome; }).join(' ')].some(function (x) { return (x || '').toLowerCase().indexOf(q) >= 0; }); }).slice(0, 12) : [];
+      var marcadasPessoas = (C.pessoas || []).filter(function (p) { return C.sel[p.id]; });
+      var busca = h('input', { class: 'crm-in', type: 'search', value: M.busca, placeholder: 'Buscar por nome, e-mail ou banda', 'aria-label': 'Buscar pessoas',
+        oninput: function (e) { M.busca = e.target.value; var pos = e.target.selectionStart; render(); var i = root.querySelector('.crm-busca-pessoa'); if (i) { i.focus(); i.setSelectionRange(pos, pos); } } });
+      busca.classList.add('crm-busca-pessoa');
+      paraQuem = [busca,
+        achados.length ? h('div', { class: 'crm-lista' }, achados.map(function (p) {
+          var on = !!M.escolhidas[p.id];
+          return h('label', { class: 'crm-item' }, h('input', { type: 'checkbox', checked: on, onchange: function () { if (on) delete M.escolhidas[p.id]; else M.escolhidas[p.id] = true; render(); } }),
+            h('span', { class: 'grow', style: { minWidth: 0 } }, h('span', { class: 'semi hi ell', style: { display: 'block' } }, p.nome),
+              h('span', { class: 'muted small ell', style: { display: 'block' } }, ((p.bandas || []).map(function (b) { return b.nome; }).join(', ') || 'Sem banda') + ' · ' + p.email)),
+            saudeChip(p.ultimo_uso));
+        })) : q ? h('div', { class: 'muted small' }, 'Ninguém com esse nome.') : null,
+        marcadasPessoas.length ? h('button', { class: 'crm-link', onclick: function () { marcadasPessoas.forEach(function (p) { M.escolhidas[p.id] = true; }); render(); } }, 'Usar as ' + marcadasPessoas.length + ' marcadas na aba Pessoas') : null];
+    }
+    var quem = h('details', { class: 'crm-quem-lista', open: M.modo === 'pessoas' ? true : null },
+      h('summary', null, h('b', { class: 'hi' }, lista.length + (lista.length === 1 ? ' pessoa' : ' pessoas')), h('span', { class: 'muted small' }, ' · ' + rotuloAlvo() + (M.modo === 'grupo' ? ' · toque para ver e tirar alguém' : ''))),
+      h('div', { class: 'crm-lista' }, lista.slice(0, 200).map(function (p) {
+        return h('div', { class: 'crm-item' },
+          h('span', { class: 'grow', style: { minWidth: 0 } }, h('span', { class: 'semi hi ell', style: { display: 'block' } }, p.nome, p.lider ? h('span', { class: 'crm-lider', html: icon('crown', 12) }) : null),
+            h('span', { class: 'muted small ell', style: { display: 'block' } }, ((p.bandas || []).map(function (b) { return b.nome; }).join(', ') || 'Sem banda') + (C.semEmail[p.id] ? ' · não quer e-mails' : ''))),
+          saudeChip(p.ultimo_uso),
+          h('button', { class: 'crm-x', 'aria-label': 'Tirar ' + p.nome, html: icon('x', 14), onclick: function () { if (M.modo === 'pessoas') delete M.escolhidas[p.id]; else M.fora[p.id] = true; render(); } }));
+      }), lista.length > 200 ? h('div', { class: 'muted small' }, 'e mais ' + (lista.length - 200)) : null));
+
+    // ---- 2. Como e o quê
+    var canal = function (k, tit, sub, dis) {
+      return h('label', { class: 'crm-canal' + (M.canais[k] && !dis ? ' on' : '') + (dis ? ' dis' : '') },
+        h('input', { type: 'checkbox', checked: M.canais[k] && !dis, disabled: dis, onchange: function (e) { M.canais[k] = e.target.checked; render(); } }),
+        h('span', null, h('b', { class: 'hi' }, tit), h('span', { class: 'muted small', style: { display: 'block' } }, sub)));
+    };
+    var campo = function (rot, el) { return h('label', { class: 'crm-sel' }, h('span', { class: 'muted small' }, rot), el); };
+    var titulo = h('input', { class: 'crm-in', maxlength: 80, value: M.titulo, placeholder: 'Ex.: {nome}, uma novidade para a sua banda', oninput: function (e) { M.titulo = e.target.value; atualiza(); } });
+    var texto = h('textarea', { class: 'crm-in', rows: 8, maxlength: 1500, placeholder: 'Oi, {nome}!\n\nEscreva aqui. A assinatura "Equipe Louvor Studio" entra sozinha.', oninput: function (e) { M.texto = e.target.value; atualiza(); } });
+    texto.value = M.texto;
+    var link = h('input', { class: 'crm-in', value: M.link, placeholder: 'https://… (opcional)', oninput: function (e) { M.link = e.target.value; atualiza(); } });
+    var rot = h('input', { class: 'crm-in', maxlength: 40, value: M.rotulo, placeholder: 'Ex.: Ver agora', oninput: function (e) { M.rotulo = e.target.value; atualiza(); } });
+    var prevs = h('div', { class: 'crm-prevs' });
+    var enviar = h('button', { class: 'btn crm-btn crm-enviar', onclick: mandar });
+    var teste = M.canais.email ? h('button', { class: 'btn2 crm-btn', onclick: async function () {
+      teste.disabled = true;
+      try { var d = await chamarEmails({ action: 'crm', modo: 'teste', assunto: M.titulo, corpo: corpoEmail() }); toast('E-mail de teste enviado para ' + d.para + '.'); }
+      catch (e) { toast(e.message); }
+      teste.disabled = false;
+    } }, 'Mandar e-mail de teste para mim') : null;
+    function corpoEmail() { return M.texto.trim() + (M.link.trim() ? '\n\n' + (M.rotulo.trim() || 'Veja') + ': ' + M.link.trim() : ''); }
+    function atualiza() {
+      var ok = lista.length && algumCanal && M.titulo.trim() && M.texto.trim() && !M.enviando && (!M.canais.email || !C.emailsErro) && (!M.link.trim() || /^https?:\/\/\S+$/i.test(M.link.trim()));
+      enviar.disabled = !ok;
+      var partes = [];
+      if (M.canais.app) partes.push('recado');
+      if (M.canais.app && M.canais.push) partes.push('notificação');
+      if (M.canais.email) partes.push('e-mail');
+      enviar.textContent = M.enviando ? 'Enviando…' : !lista.length ? 'Escolha quem recebe' : !algumCanal ? 'Escolha um canal' : 'Enviar ' + partes.join(' + ') + ' para ' + lista.length + (lista.length === 1 ? ' pessoa' : ' pessoas');
+      if (teste) teste.disabled = !M.titulo.trim() || !M.texto.trim() || !!C.emailsErro;
+      var t = comNome(M.titulo, exemplo), x = comNome(M.texto, exemplo);
+      var pars = x.trim().split(/\n\s*\n/).filter(Boolean);
+      prevs.replaceChildren(
+        M.canais.app ? h('div', null, h('div', { class: 'muted small semi', style: { marginBottom: '6px' } }, 'Como aparece no app (para ' + exemplo.split(' ')[0] + ')'),
+          h('div', { class: 'crm-prev-app' }, h('div', { class: 'semi hi', style: { fontSize: '16px' } }, t || 'Título'),
+            h('div', { style: { whiteSpace: 'pre-wrap', margin: '8px 0 10px' } }, x || 'O texto aparece aqui.'),
+            h('div', { class: 'muted tiny' }, 'Equipe Louvor Studio'),
+            h('div', { class: 'row', style: { justifyContent: 'flex-end', gap: '14px', marginTop: '10px' } }, M.link.trim() ? h('span', { class: 'accent semi small' }, M.rotulo.trim() || 'Abrir') : null, h('span', { class: 'accent semi small' }, 'Entendi')))) : null,
+        M.canais.app && M.canais.push ? h('div', null, h('div', { class: 'muted small semi', style: { margin: '10px 0 6px' } }, 'Notificação no celular'),
+          h('div', { class: 'crm-prev-push' }, h('span', { class: 'crm-prev-ic', html: icon('lines', 14) }), h('span', { class: 'grow', style: { minWidth: 0 } },
+            h('b', { class: 'ell', style: { display: 'block' } }, t || 'Título'), h('span', { class: 'small ell', style: { display: 'block' } }, x.replace(/\s+/g, ' ').slice(0, 180) || 'Texto')))) : null,
+        M.canais.email ? h('div', null, h('div', { class: 'muted small semi', style: { margin: '10px 0 6px' } }, 'Como chega por e-mail'),
+          h('div', { class: 'crm-email' },
+            h('div', { class: 'crm-email-cab' }, h('span', { class: 'muted small' }, 'De: Louvor Studio <contato@louvorstudio.app.br>'), h('b', null, t || 'Assunto')),
+            h('div', { class: 'crm-email-corpo' }, (pars.length ? pars : ['O texto aparece aqui.']).map(function (s) { return h('p', null, s); }),
+              M.link.trim() ? h('p', null, (M.rotulo.trim() || 'Veja') + ': ', h('u', null, M.link.trim())) : null,
+              h('p', null, 'Deus abençoe,', h('br'), h('b', null, 'Equipe Louvor Studio'))),
+            h('div', { class: 'crm-email-rod' }, 'Você recebe este e-mail porque tem uma conta no Louvor Studio. Para não receber mais, responda este e-mail com a palavra SAIR.'))) : null);
+    }
+    async function mandar() {
+      var l = alvo(), ids = l.map(function (p) { return p.id; });
+      var resumo = [];
+      if (M.canais.app) resumo.push('recado no app' + (M.canais.push ? ' com notificação' : ''));
+      if (M.canais.email) resumo.push('e-mail (' + (l.length - semMail) + ' pessoas' + (semMail ? '; ' + semMail + ' pediram para não receber' : '') + ')');
+      if (!confirm('Enviar "' + M.titulo.trim() + '" para ' + l.length + (l.length === 1 ? ' pessoa' : ' pessoas') + ' por ' + resumo.join(' e ') + '?\n\nDepois de enviado, não volta atrás.')) return;
+      M.enviando = true; atualiza();
+      var feito = [];
+      try {
+        if (M.canais.app) {
+          var r = await sb.rpc('admin_aviso_enviar', { _title: M.titulo, _body: M.texto, _link_url: M.link.trim() || null, _link_label: M.rotulo.trim() || null,
+            _publico: 'pessoas', _org: null, _push: !!M.canais.push, _para: ids });
+          if (r.error) throw new Error(/admin_aviso_enviar|_para|publico/.test(r.error.message) ? 'Rode as migrações 0050 e 0052 no Supabase.' : r.error.message);
+          await sb.rpc('admin_crm_notas_lote', { _ids: ids, _tipo: 'mensagem', _texto: 'Recado no app' + (M.canais.push ? ' + notificação' : '') + ': ' + M.titulo.trim() });
+          feito.push('recado para ' + l.length);
+        }
+        if (M.canais.email) {
+          var env = 0, fal = 0, comMail = l.filter(function (p) { return !C.semEmail[p.id]; });
+          for (var i = 0; i < comMail.length; i += 400) {
+            var d = await chamarEmails({ action: 'crm', modo: 'enviar', assunto: M.titulo, corpo: corpoEmail(), grupo: rotuloAlvo(), ids: comMail.slice(i, i + 400).map(function (p) { return p.id; }) });
+            env += d.enviados || 0; fal += (d.falhas || []).length;
+          }
+          feito.push(env + ' e-mails' + (fal ? ' (' + fal + ' com erro)' : ''));
+        }
+        toast('Enviado: ' + feito.join(' e ') + '.');
+        M.titulo = ''; M.texto = ''; M.link = ''; M.rotulo = '';
+      } catch (e) {
+        toast((feito.length ? 'Enviado: ' + feito.join(' e ') + '. ' : '') + 'Erro: ' + e.message);
+      }
+      M.enviando = false;
+      await recarregar();
+    }
+    setTimeout(atualiza, 0);
+
+    // ---- Histórico (recados e e-mails juntos)
+    var hist = [].concat((C.avisos || []).map(function (a) { return { tipo: 'recado', quando: a.created_at, a: a }; }),
+      (C.emails || []).map(function (m) { return { tipo: 'email', quando: m.created_at, m: m }; }))
+      .sort(function (x, y) { return new Date(y.quando) - new Date(x.quando); }).slice(0, 60);
+    var PUB = { todos: 'Todos', lideres: 'Líderes', pagos: 'Bandas pagas', gratis: 'Grátis', banda: 'Uma banda', pessoas: 'Pessoas escolhidas' };
+
+    return [
+      C.emailsErro && M.canais.email ? h('div', { class: 'crm-aviso' }, C.emailsErro) : null,
+      h('div', { class: 'crm-com' },
+        h('section', { class: 'crm-painel' },
+          h('div', { class: 'crm-tit' }, h('h2', null, '1. Para quem')),
+          h('div', { class: 'crm-seg2s', role: 'group' }, modoBtn('grupo', 'Um grupo'), modoBtn('pessoas', 'Escolher pessoas')),
+          paraQuem, quem),
+        h('section', { class: 'crm-painel' },
+          h('div', { class: 'crm-tit' }, h('h2', null, '2. Por onde e o quê')),
+          h('div', { class: 'crm-canais' },
+            canal('app', 'Recado no app', 'Janela ao abrir o app, uma vez só'),
+            canal('push', 'Notificação no celular', M.canais.app ? comCel + ' de ' + lista.length + ' têm notificação ligada' : 'Vai junto com o recado', !M.canais.app),
+            canal('email', 'E-mail', (lista.length - semMail) + ' de ' + lista.length + ' recebem' + (semMail ? ' (' + semMail + ' pediram para sair)' : ''))),
+          campo(M.canais.email ? 'Título / assunto do e-mail' : 'Título', titulo),
+          campo('Texto (deixe uma linha em branco entre os parágrafos)', texto),
+          h('div', { class: 'crm-sels', style: { gridTemplateColumns: '2fr 1fr' } }, campo('Link (opcional)', link), campo('Texto do botão', rot)),
+          h('div', { class: 'muted tiny' }, 'Escreva {nome} onde quiser o primeiro nome de cada pessoa. Sai sempre como Louvor Studio, assinado "Equipe Louvor Studio".'),
+          prevs,
+          h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } }, teste, enviar))),
+      h('section', { class: 'crm-painel' },
+        h('div', { class: 'crm-tit' }, h('h2', null, 'Enviados'), h('span', { class: 'muted small' }, 'recados e e-mails; cada envio também fica anotado na ficha de quem recebeu')),
+        hist.length ? h('div', { class: 'crm-lista' }, hist.map(function (x) {
+          if (x.tipo === 'recado') {
+            var a = x.a;
+            return h('div', { class: 'crm-item', style: { opacity: a.ativo ? 1 : 0.6 } },
+              h('span', { class: 'crm-tipo t-mensagem' }, a.com_push ? 'Recado + notif.' : 'Recado'),
+              h('span', { class: 'grow', style: { minWidth: 0 } }, h('span', { class: 'semi hi ell', style: { display: 'block' } }, a.title + (a.ativo ? '' : ' (encerrado)')),
+                h('span', { class: 'muted small' }, dataHora(a.created_at) + ' · ' + (PUB[a.publico] || a.publico) + (a.banda ? ': ' + a.banda : '') + ' · viram ' + a.vistos + ' de ' + a.alvo)),
+              h('button', { class: 'btn2 crm-btn', onclick: async function () {
+                if (a.ativo && !confirm('Encerrar "' + a.title + '"? Quem ainda não viu deixa de ver.')) return;
+                var r = await sb.rpc('admin_aviso_ativo', { _id: a.id, _ativo: !a.ativo });
+                if (r.error) toast(r.error.message); else recarregar();
+              } }, a.ativo ? 'Encerrar' : 'Reativar'));
+          }
+          var m = x.m;
+          return h('details', { class: 'crm-enviado' },
+            h('summary', null, h('span', { class: 'crm-tipo t-email' }, 'E-mail'),
+              h('span', { class: 'grow', style: { minWidth: 0 } }, h('span', { class: 'semi hi ell', style: { display: 'block' } }, m.assunto),
+                h('span', { class: 'muted small' }, dataHora(m.created_at) + ' · ' + (m.grupo || '') + ' · ' + m.enviados + ' de ' + m.pessoas + ' enviados' + (m.falhas ? ' · ' + m.falhas + ' com erro' : '')))),
+            h('div', { class: 'small', style: { whiteSpace: 'pre-wrap', padding: '6px 0 10px', color: 'var(--text)' } }, m.corpo));
+        })) : h('div', { class: 'muted small' }, 'Nada enviado ainda.'))];
   }
 
   document.addEventListener('keydown', function (e) {

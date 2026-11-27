@@ -16,9 +16,18 @@
 
   function visto(id) { sb.rpc('app_aviso_visto', { _id: id }).then(function () {}, function () {}); }
 
+  /** {nome} vira o primeiro nome de quem está usando (sem nome, some junto com a vírgula). */
+  function comNome(t) {
+    var me = L.me && L.me(); var n1 = ((me && me.name) || '').trim().split(/\s+/)[0] || '';
+    if (n1) return (t || '').replace(/\{nome\}/g, n1);
+    var s = (t || '').replace(/^\s*\{nome\}[,!:]?\s*/, '').replace(/[,]?\s*\{nome\}/g, '');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
   function mostrar(lista, i) {
     if (i >= lista.length) { mostrando = false; return; }
-    var a = lista[i];
+    var a = Object.assign({}, lista[i]);
+    a.title = comNome(a.title); a.body = comNome(a.body);
     var proximo = function () { setTimeout(function () { mostrar(lista, i + 1); }, 250); };
     L.dialog({
       sticky: true,   // tocar fora não fecha: a pessoa lê e toca em Entendi

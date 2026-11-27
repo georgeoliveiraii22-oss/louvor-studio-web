@@ -193,6 +193,13 @@
   var AV = { list: null, busy: false, err: null, f: { title: '', body: '', link: '', label: '', publico: 'todos', org: '', push: true }, alcance: null };
   var PUBLICOS = [['todos', 'Todos os usuários'], ['lideres', 'Só os líderes'], ['pagos', 'Bandas em plano pago'], ['gratis', 'Bandas no Grátis'], ['banda', 'Uma banda']];
   function avisoBox() {
+    // Recados, notificações e e-mails agora ficam no CRM › Comunicar (grupos combinados e pessoas escolhidas).
+    return h('section', { class: 'adm-legacy' },
+      h('div', { class: 'grow' }, h('div', { class: 'semi' }, 'Recados, notificações e e-mails'),
+        h('div', { class: 'muted small' }, 'Agora ficam no CRM › Comunicar: escolha um grupo (líderes, liderados, quentes, frios, pagos, por banda…) ou pessoas uma a uma, e mande recado no app, notificação e e-mail de uma vez.')),
+      h('a', { class: 'btn', href: 'crm/#comunicar', style: { textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: '40px' } }, 'Abrir o Comunicar'));
+  }
+  function avisoBoxAntigo() {
     if (AV.box) return AV.box;
     var box = AV.box = h('section', { class: 'adm-legacy adm-biblioteca' });
     function campo(rotulo, el) { return h('label', { class: 'small', style: { display: 'grid', gap: '4px', width: '100%' } }, rotulo, el); }
