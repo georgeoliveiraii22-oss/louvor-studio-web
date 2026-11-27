@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.33.4', [
+      'Página de entrada: título da abertura em 3 linhas e os tracinhos embaixo trocam de cena com um toque.'
+    ]],
     ['1.33.3', [
       'Página de entrada com as telas novas do app e partes com fundo claro. No modo claro, a foto de fundo da igreja no Início também fica clara.'
     ]],

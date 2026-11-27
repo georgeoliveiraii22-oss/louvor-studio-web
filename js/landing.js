@@ -215,9 +215,10 @@
     }
     function show(n) {
       var sc = HERO_SCENES[n]; i = n;
-      [].forEach.call(dotsEl.children, function (d, k) { d.className = k < n ? 'done' : ''; });
+      var bs = dotsEl.querySelectorAll('b');
+      [].forEach.call(bs, function (d, k) { d.className = k < n ? 'done' : ''; d.parentNode.setAttribute('aria-current', k === n ? 'true' : 'false'); });
       void dotsEl.offsetWidth;
-      dotsEl.children[n].style.setProperty('--d', sc.ms + 'ms'); dotsEl.children[n].className = 'on';
+      bs[n].style.setProperty('--d', sc.ms + 'ms'); bs[n].className = 'on';
       [].forEach.call(bg.querySelectorAll('video'), function (v) { v.classList.remove('on'); v.pause(); });
       if (sc.v) { var v = vid(sc.v); try { v.currentTime = 0; } catch (e) { /* ainda carregando */ } var p = v.play(); if (p && p.catch) p.catch(function () {}); v.classList.add('on'); }
       hero.classList.toggle('media', !!sc.v);
@@ -239,9 +240,14 @@
     function start() {
       if (!hero.isConnected) return;
       running = true; dotsEl.hidden = false; vid(HERO_SCENES[1].v);
-      dotsEl.children[0].className = 'on'; dotsEl.children[0].style.setProperty('--d', HERO_SCENES[0].ms + 'ms');
+      var b0 = dotsEl.querySelector('b'); b0.className = 'on'; b0.style.setProperty('--d', HERO_SCENES[0].ms + 'ms');
       schedule(HERO_SCENES[0].ms);
     }
+    // Tocar num tracinho leva direto àquela cena (e o tempo dela recomeça dali)
+    dotsEl.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b || !running) return;
+      var k = +b.getAttribute('data-k'); if (k !== i) show(k); else schedule(HERO_SCENES[k].ms);
+    });
     var go = function () { setTimeout(start, 2500); };      // espera a primeira pintura: o loop não disputa a largada com o resto da página
     document.readyState === 'complete' ? go() : window.addEventListener('load', go, { once: true });
   }
@@ -262,7 +268,9 @@
       h('button', { class: 'textbtn', onclick: function () { goEntry('entrar'); } }, 'Entrar'),
       h('button', { class: 'btn cta', onclick: function () { goEntry('criar'); } }, 'Criar minha conta')));
 
-    var dotsEl = h('div', { class: 'herodots', 'aria-hidden': 'true', hidden: true }, HERO_SCENES.map(function () { return h('b'); }));
+    var dotsEl = h('div', { class: 'herodots', role: 'group', 'aria-label': 'Cenas da abertura', hidden: true }, HERO_SCENES.map(function (sc, k) {
+      return h('button', { type: 'button', 'data-k': String(k), 'aria-label': 'Cena ' + (k + 1) + ': ' + sc.h }, h('b'));
+    }));
     var hero = h('section', { class: 'hero stagehero' }, h('div', { class: 'herobg', 'aria-hidden': 'true' }, h('img', { class: 'heroapp', src: 'img/desk-inicio.webp?v=2', alt: '' })), h('div', { class: 'heroshade', 'aria-hidden': 'true' }), h('div', { class: 'wrap hero-in' },
       h('div', { class: 'herocopy' },
         h('h1', { class: 'sr' }, HERO_SCENES[0].h),
@@ -282,8 +290,7 @@
             { pose: { rx: 5, ry: -14 }, from: { y: 46, rx: 5, ry: -14 }, depth: 24, delay: 0.1 }),
           phone('img/cel-inicio.webp?v=2', 'O Louvor Studio no celular: o passe da próxima escala, com Confirmar e Não posso.',
             { cls: 'herophone', pose: { z: 60, rx: 3, ry: 18, rz: -4 }, from: { y: 90, z: 60, rx: 3, ry: 18, rz: -4 }, depth: 70, delay: 0.35 })))),
-      h('div', { class: 'wrap herodots-wrap', 'aria-hidden': 'true' }, dotsEl),
-      h('div', { class: 'wrap waveband', 'aria-hidden': 'true' }, waveCanvas()));
+      h('div', { class: 'wrap herodots-wrap' }, dotsEl));
     heroLoop(hero);
 
     var demo = h('section', { class: 'demo', id: 'ouvir' }, h('div', { class: 'wrap' },
@@ -1041,44 +1048,6 @@
     window.addEventListener('scroll', on, { passive: true });
   }
 
-  // ------------------------------------------------------------------ Onda (o símbolo da marca)
-  function waveCanvas() {
-    var canvas = h('canvas');
-    var still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var t0 = performance.now();
-    function draw(now) {
-      if (!canvas.isConnected && now - t0 > 800) return;
-      var w = canvas.clientWidth || 360, hh = canvas.clientHeight || 84;
-      var dpr = window.devicePixelRatio || 1;
-      if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(hh * dpr); }
-      var g = canvas.getContext('2d');
-      g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      g.clearRect(0, 0, w, hh);
-      var level = demoLevel();
-      var phase = still ? 0 : ((now - t0) / 5200) % 1;
-      var n = Math.max(40, Math.min(110, Math.round(w / 12))), gap = w / n, bw = gap * 0.5, mid = hh / 2, p = phase * 2 * Math.PI;
-      var grad = g.createLinearGradient(0, 0, w, 0);
-      grad.addColorStop(0, '#0077C8'); grad.addColorStop(0.55, '#08A9F5'); grad.addColorStop(1, '#63D4FF');
-      g.fillStyle = grad;
-      for (var i = 0; i < n; i++) {
-        var x = i / n;
-        var env = Math.pow(Math.sin(x * Math.PI), 1.6);
-        var v = (0.5 * Math.abs(Math.sin(x * 11 - p)) + 0.3 * Math.abs(Math.sin(x * 27 + p * 2)) + 0.2) * env;
-        v *= 0.55 + 0.45 * level + (level > 0 ? 0.35 * level * Math.abs(Math.sin(x * 40 + now / 140)) : 0);
-        var bh = Math.max(3, Math.min(hh, v * hh));
-        g.globalAlpha = 0.25 + 0.75 * env;
-        var x0 = i * gap + (gap - bw) / 2;
-        g.beginPath();
-        if (g.roundRect) g.roundRect(x0, mid - bh / 2, bw, bh, bw / 2); else g.rect(x0, mid - bh / 2, bw, bh);
-        g.fill();
-      }
-      g.globalAlpha = 1;
-      if (!still || level > 0) requestAnimationFrame(draw);
-      else setTimeout(function () { requestAnimationFrame(draw); }, 400);
-    }
-    requestAnimationFrame(draw);
-    return canvas;
-  }
 
   // ------------------------------------------------------------------ Mixer de exemplo (Web Audio, trecho real)
   // 8 compassos (13 s) de "Lá Vou Eu", do Discopraise (Ré menor, 144 BPM), com 5 faixas separadas em
