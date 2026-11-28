@@ -378,6 +378,7 @@
           h('select', { class: 'input', disabled: B.busy, onchange: function (e) { escolher(e.target.value || null); } }, opts)))];
       if (org) kids.push(loteBox(org, l));
       if (org) kids.push(trazerBox(org));
+      if (org) kids.push(partesBox(org));
       if (org && l.length) {
         kids.push(h('div', { style: { width: '100%', display: 'grid', gap: '6px', marginTop: '8px' } }, l.map(function (x) {
           var e = B.edit[x.project_id] || (B.edit[x.project_id] = { pub: x.na_biblioteca, cred: x.credito || '' });
@@ -493,6 +494,168 @@
         T.busy = false; T.sel = {}; T.lista = null;
         T.msg = feitas + (feitas === 1 ? ' música trazida' : ' músicas trazidas') + ' (ainda não publicadas: use "Publicar" acima).' + (erros.length ? ' Com erro: ' + erros.join(' · ') : '');
         check(); carregar();
+      }
+    }
+    // -------- Partes das músicas: (1) baixa a Guia, a Voz e o Click de cada música para uma pasta do computador
+    // (lá, o Whisper ouve a guia falando "Verso", "Refrão"… e monta as partes); (2) importa o partes.json de volta,
+    // mostra o resumo e grava as partes (song_markers) com o login de quem está no painel.
+    function partesBox(libOrg) {
+      var PT = B.partes || (B.partes = { soSem: true, busy: false, parar: false, msg: '', frac: 0, erros: [], imp: null });
+      var podePasta = typeof window.showDirectoryPicker === 'function';
+      var arq = h('input', { type: 'file', accept: '.json,application/json', style: { display: 'none' },
+        onchange: function (ev) { var f = ev.target.files && ev.target.files[0]; ev.target.value = ''; if (f) lerPartes(f); } });
+      var kids = [h('div', { class: 'semi' }, 'Partes das músicas (Verso, Refrão…)'),
+        h('div', { class: 'muted small' }, '1. Baixe a Guia, a Voz e o Click de cada música para uma pasta do computador. 2. Lá, as partes são montadas ouvindo a guia (o Claude faz isso). 3. Importe o arquivo partes.json aqui, confira e grave.'),
+        h('label', { class: 'row small', style: { gap: '8px' } },
+          h('input', { type: 'checkbox', checked: PT.soSem, disabled: PT.busy, onchange: function (e) { PT.soSem = e.target.checked; } }),
+          'Só as músicas que ainda não têm partes'),
+        h('div', { class: 'row', style: { gap: '8px', flexWrap: 'wrap' } },
+          h('button', { class: 'btn', disabled: PT.busy || !podePasta, onclick: baixarGuias }, 'Baixar as guias para uma pasta'),
+          h('button', { class: 'btn2', disabled: PT.busy, onclick: function () { arq.click(); } }, 'Importar partes.json'),
+          PT.busy && !PT.imp ? h('button', { class: 'btn2', disabled: PT.parar, onclick: function () { PT.parar = true; paint(); } }, PT.parar ? 'Parando…' : 'Parar') : null,
+          arq),
+        !podePasta ? h('div', { class: 'small', style: { color: 'var(--warn)' } }, 'Para baixar para uma pasta, abra o painel no Chrome ou no Edge do computador.') : null];
+      if (PT.msg) kids.push(h('div', { class: 'small semi' }, PT.msg));
+      if (PT.busy && !PT.imp) kids.push(h('div', { style: { height: '6px', borderRadius: '3px', background: 'var(--control)', overflow: 'hidden' } },
+        h('div', { style: { height: '100%', width: Math.round(PT.frac * 100) + '%', background: 'var(--accent)' } })));
+      if (PT.erros.length) kids.push(h('details', { class: 'small' }, h('summary', null, PT.erros.length + (PT.erros.length === 1 ? ' aviso' : ' avisos')),
+        h('div', { style: { display: 'grid', gap: '2px', marginTop: '4px' } }, PT.erros.map(function (f) { return h('div', { class: 'muted' }, f); }))));
+      if (PT.imp) kids.push(resumoImport());
+      return h('div', { style: { width: '100%', display: 'grid', gap: '6px', marginTop: '8px', padding: '10px', borderRadius: '10px', background: 'var(--control)' } }, kids);
+
+      function tipo(nome) {
+        var n = ' ' + String(nome || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') + ' ';
+        if (/click|clique|metron|\bmet\b|\bbip\b/.test(n)) return 'click';
+        if (/guia|guide|\bcues?\b|contagem|count/.test(n)) return 'guia';
+        if (/\bvoz\b|vocal|\bvox\b|\blead\b|cantor|ministr/.test(n) && !/back|bgv|coro|choir|bv/.test(n)) return 'voz';
+        return null;
+      }
+      // Quantas partes cada música já tem (consulta à parte, de 200 em 200).
+      async function contarPartes(ids) {
+        var n = {};
+        for (var i = 0; i < ids.length; i += 200) {
+          var r = await sb.from('song_markers').select('project_id').in('project_id', ids.slice(i, i + 200));
+          (r.data || []).forEach(function (x) { n[x.project_id] = (n[x.project_id] || 0) + 1; });
+        }
+        return n;
+      }
+      function nomePasta(s) { return String(s || 'musica').replace(/[<>:"/\\|?*\x00-\x1f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'musica'; }
+      async function existe(dir, nome) { try { var f = await (await dir.getFileHandle(nome)).getFile(); return f.size > 0; } catch (e) { return false; } }
+      async function gravar(dir, nome, blob) { var fh = await dir.getFileHandle(nome, { create: true }); var w = await fh.createWritable(); await w.write(blob); await w.close(); }
+
+      async function baixarGuias() {
+        var raiz;
+        try { raiz = await window.showDirectoryPicker({ mode: 'readwrite', id: 'louvor-partes' }); } catch (e) { return; }
+        PT.busy = true; PT.parar = false; PT.erros = []; PT.imp = null; PT.frac = 0; PT.msg = 'Buscando as músicas da biblioteca…'; paint();
+        try {
+          var r = await sb.from('projects').select('id,song_title,artist,session_duration_ms,tracks(id,name,timeline_offset_ms,sort_order,source_file:files(id,object_key,bucket))').eq('org_id', libOrg);
+          if (r.error) throw r.error;
+          var nPartes = await contarPartes((r.data || []).map(function (p) { return p.id; }));
+          var ps = (r.data || []).filter(function (p) { return (p.tracks || []).length && (!PT.soSem || !nPartes[p.id]); });
+          ps.sort(function (a, b) { return (a.song_title || '').localeCompare(b.song_title || '', 'pt-BR'); });
+          var ids = ps.map(function (p) { return p.id; });
+          var ed = ids.length ? await sb.from('audio_edits').select('project_id,track_id,offset_ms').in('project_id', ids).eq('published', true) : { data: [] };
+          var desloc = {};
+          (ed.data || []).forEach(function (e) { if (e.track_id) desloc[e.track_id] = Number(e.offset_ms || 0); });
+          var manifesto = { gerado_em: new Date().toISOString(), banda: libOrg, musicas: [] };
+          var usados = {};
+          for (var i = 0; i < ps.length && !PT.parar; i++) {
+            var p = ps[i];
+            var pasta = nomePasta(p.song_title + (p.artist ? ' - ' + p.artist : ''));
+            if (usados[pasta]) pasta += ' ' + p.id.slice(0, 4);
+            usados[pasta] = true;
+            PT.msg = 'Música ' + (i + 1) + ' de ' + ps.length + ': ' + p.song_title; PT.frac = i / ps.length; paint();
+            var escolhidas = {};
+            (p.tracks || []).slice().sort(function (a, b) { return (a.sort_order || 0) - (b.sort_order || 0); }).forEach(function (t) {
+              var k = tipo(t.name);
+              if (k && !escolhidas[k] && t.source_file) escolhidas[k] = t;
+            });
+            var item = { id: p.id, titulo: p.song_title, artista: p.artist || '', duracao_ms: p.session_duration_ms || 0,
+              tinha_partes: nPartes[p.id] || 0, pasta: pasta, faixas: {} };
+            var tipos = Object.keys(escolhidas);
+            if (!tipos.length) { PT.erros.push(p.song_title + ': sem faixa de guia, voz ou click (' + (p.tracks || []).map(function (t) { return t.name; }).join(', ') + ')'); }
+            var dir = await raiz.getDirectoryHandle(pasta, { create: true });
+            Nuvem.mark(tipos.map(function (k) { return escolhidas[k]; }));
+            for (var j = 0; j < tipos.length && !PT.parar; j++) {
+              var k = tipos[j], t = escolhidas[k], nomeArq = k + '.mp3';
+              item.faixas[k] = { nome: t.name, arquivo: nomeArq, deslocamento_ms: Number(t.timeline_offset_ms || 0) + (desloc[t.id] || 0) };
+              if (await existe(dir, nomeArq)) continue;   // já baixada numa vez anterior
+              var s = await Nuvem.signedUrl(sb, t.source_file.object_key, 3600);
+              if (s.error || !s.data) { PT.erros.push(p.song_title + ' · ' + t.name + ': ' + (s.error && s.error.message || 'sem link')); delete item.faixas[k]; continue; }
+              var resp = await fetch(s.data.signedUrl);
+              if (!resp.ok) { PT.erros.push(p.song_title + ' · ' + t.name + ': download deu ' + resp.status); delete item.faixas[k]; continue; }
+              await gravar(dir, nomeArq, await resp.blob());
+            }
+            manifesto.musicas.push(item);
+          }
+          await gravar(raiz, 'musicas.json', new Blob([JSON.stringify(manifesto, null, 2)], { type: 'application/json' }));
+          PT.msg = (PT.parar ? 'Parado. ' : 'Pronto. ') + manifesto.musicas.length + ' de ' + ps.length + (ps.length === 1 ? ' música baixada' : ' músicas baixadas') + ' para a pasta "' + raiz.name + '" (com a lista musicas.json). Escolher a mesma pasta de novo continua de onde parou.';
+        } catch (e) {
+          PT.msg = 'Erro: ' + (e && e.message || e);
+        }
+        PT.busy = false; PT.frac = 1; paint();
+      }
+
+      // partes.json = { musicas: [ { id, titulo, partes: [ { nome, ini_ms, fim_ms? }, … ], fonte?, duvida? } ] }
+      async function lerPartes(f) {
+        var j;
+        try { j = JSON.parse(await f.text()); } catch (e) { PT.msg = 'Esse arquivo não é um partes.json válido.'; paint(); return; }
+        var lista = (j && j.musicas || []).filter(function (m) { return m && m.id && Array.isArray(m.partes) && m.partes.length; });
+        if (!lista.length) { PT.msg = 'Nenhuma música com partes no arquivo.'; paint(); return; }
+        PT.busy = true; PT.msg = 'Conferindo as músicas…'; paint();
+        var r = await sb.from('projects').select('id,song_title,session_duration_ms').eq('org_id', libOrg).in('id', lista.map(function (m) { return m.id; }));
+        var nPartes = await contarPartes(lista.map(function (m) { return m.id; }));
+        var atuais = {};
+        (r.data || []).forEach(function (p) { atuais[p.id] = p; });
+        PT.imp = { lista: lista.filter(function (m) { return atuais[m.id]; }).map(function (m) {
+          var p = atuais[m.id];
+          return { m: m, titulo: p.song_title, dur: p.session_duration_ms, tem: nPartes[m.id] || 0, marcar: !nPartes[m.id] };
+        }), fora: lista.filter(function (m) { return !atuais[m.id]; }).length, substituir: false };
+        PT.busy = false; PT.msg = ''; paint();
+      }
+      function fmt(ms) { var s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+      function resumoImport() {
+        var I = PT.imp, marcadas = I.lista.filter(function (x) { return x.marcar; });
+        return h('div', { style: { display: 'grid', gap: '6px' } },
+          h('div', { class: 'small' }, I.lista.length + ' músicas no arquivo' + (I.fora ? ' (' + I.fora + ' não estão na biblioteca e ficam de fora)' : '') +
+            '. As que já têm partes vêm desmarcadas; marque para trocar pelas novas.'),
+          h('div', { style: { display: 'grid', gap: '4px', maxHeight: '420px', overflow: 'auto' } }, I.lista.map(function (x) {
+            return h('label', { class: 'row', style: { gap: '8px', alignItems: 'flex-start', padding: '6px 4px', borderBottom: '1px solid var(--line)' } },
+              h('input', { type: 'checkbox', checked: x.marcar, disabled: PT.busy, onchange: function (e) { x.marcar = e.target.checked; paint(); } }),
+              h('div', { class: 'grow' },
+                h('div', { class: 'semi small' }, x.titulo + (x.tem ? ' · já tem ' + x.tem + ' partes (serão trocadas)' : '') + (x.m.fonte ? ' · pela ' + x.m.fonte : '')),
+                h('div', { class: 'muted tiny' }, x.m.partes.map(function (q) { return q.nome + ' ' + fmt(q.ini_ms); }).join(' · ')),
+                x.m.duvida ? h('div', { class: 'tiny', style: { color: 'var(--warn)' } }, x.m.duvida) : null));
+          })),
+          h('div', { class: 'row', style: { gap: '8px' } },
+            h('button', { class: 'btn2', disabled: PT.busy, onclick: function () { PT.imp = null; paint(); } }, 'Cancelar'),
+            h('button', { class: marcadas.length ? 'btn' : 'btn2', disabled: PT.busy || !marcadas.length, onclick: function () { gravarPartes(marcadas); } },
+              'Gravar as partes de ' + marcadas.length + (marcadas.length === 1 ? ' música' : ' músicas'))));
+      }
+      async function gravarPartes(lista) {
+        if (!confirm('Gravar as partes de ' + lista.length + (lista.length === 1 ? ' música' : ' músicas') + '? Nas que já tinham partes, as antigas são trocadas pelas novas.')) return;
+        PT.busy = true; var me = (await sb.auth.getUser()).data.user.id, feitas = 0;
+        PT.erros = [];
+        for (var i = 0; i < lista.length; i++) {
+          var x = lista[i];
+          PT.msg = 'Gravando ' + (i + 1) + ' de ' + lista.length + ': ' + x.titulo; paint();
+          var dur = Number(x.dur || 0);
+          var ps = x.m.partes.map(function (q) { return { nome: String(q.nome || 'Parte').trim().slice(0, 40) || 'Parte', ini: Math.max(0, Math.round(Number(q.ini_ms) || 0)), fim: q.fim_ms != null ? Math.round(Number(q.fim_ms)) : null }; })
+            .filter(function (q) { return !dur || q.ini < dur; }).sort(function (a, b) { return a.ini - b.ini; });
+          var rows = ps.map(function (q, k) {
+            var prox = ps[k + 1] ? ps[k + 1].ini : (dur || null);
+            var fim = q.fim != null ? q.fim : prox;
+            if (prox != null && fim != null) fim = Math.min(fim, prox);
+            if (dur && fim != null) fim = Math.min(fim, dur);
+            return { project_id: x.m.id, at_ms: q.ini, end_ms: fim != null && fim > q.ini ? fim : null, name: q.nome, created_by: me };
+          });
+          if (x.tem) { var d = await sb.from('song_markers').delete().eq('project_id', x.m.id); if (d.error) { PT.erros.push(x.titulo + ': ' + d.error.message); continue; } }
+          var ins = await sb.from('song_markers').insert(rows);
+          if (ins.error) PT.erros.push(x.titulo + ': ' + ins.error.message); else feitas++;
+        }
+        PT.busy = false; PT.imp = null;
+        PT.msg = 'Pronto. Partes gravadas em ' + feitas + (feitas === 1 ? ' música' : ' músicas') + (PT.erros.length ? '; ' + PT.erros.length + ' com erro (veja abaixo)' : '') + '. Confira no estúdio de cada música e ajuste o compasso onde precisar.';
+        paint();
       }
     }
     function bonito(s) {
