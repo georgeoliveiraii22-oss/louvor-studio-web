@@ -5,6 +5,9 @@
   var B = { view: 'conversas' };
 
   L.NEWS = [
+    ['1.33.6', [
+      'LS Live 1.2.2: no Mac, as músicas agora baixam em primeiro plano, 6 faixas ao mesmo tempo, com o progresso a cada lote (antes ficava parado em "0 de N").'
+    ]],
     ['1.33.5', [
       'LS Live 1.2.1: no Mac, baixar as músicas ficava parado em "Baixando 0 de N". Agora baixa, mostra quantos MB já vieram e, se der erro, diz o motivo.',
       'LS Live: montar uma escala com um projeto já aberto põe as músicas no fim dele (com o mesmo espaço entre as músicas e a numeração seguindo), em vez de abrir outra aba. Dá para juntar 2 ou 3 escalas no mesmo projeto.'
